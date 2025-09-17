@@ -1,0 +1,383 @@
+import Appointment from '../models/Appointment.js';
+import Service from '../models/Service.js';
+import Salon from '../models/Salon.js';
+import Staff from '../models/Staff.js';
+import Customer from '../models/Customer.js';
+import { sendAppointmentConfirmation } from '../utils/email.js';
+import { 
+  successResponse, 
+  errorResponse, 
+  paginatedResponse,
+  notFoundResponse,
+  asyncHandler 
+} from '../utils/responses.js';
+
+// Book new appointment
+export const bookAppointment = asyncHandler(async (req, res) => {
+  const customerId = req.user.id;
+  const {
+    salonId,
+    services,
+    appointmentDate,
+    appointmentTime,
+    staffId,
+    customerNotes,
+    specialRequests
+  } = req.body;
+
+  // Verify salon exists and is active
+  const salon = await Salon.findOne({ _id: salonId, isActive: true });
+  if (!salon) {
+    return notFoundResponse(res, 'Salon');
+  }
+
+  // Verify services exist and belong to the salon
+  const serviceIds = services.map(s => s.serviceId);
+  const serviceRecords = await Service.find({
+    _id: { $in: serviceIds },
+    salonId,
+    isActive: true
+  });
+
+  if (serviceRecords.length !== services.length) {
+    return errorResponse(res, 'Some services not found or not available', 400);
+  }
+
+  // Calculate total duration and amount
+  let totalDuration = 0;
+  let totalAmount = 0;
+  const serviceDetails = [];
+
+  for (const service of services) {
+    const serviceRecord = serviceRecords.find(s => s._id.toString() === service.serviceId);
+    totalDuration += serviceRecord.duration;
+    totalAmount += serviceRecord.discountedPrice;
+
+    serviceDetails.push({
+      serviceId: service.serviceId,
+      serviceName: serviceRecord.name,
+      price: serviceRecord.discountedPrice,
+      duration: serviceRecord.duration
+    });
+  }
+
+  // Verify staff availability if specified
+  if (staffId) {
+    const staff = await Staff.findOne({
+      _id: staffId,
+      assignedSalon: salonId,
+      isActive: true
+    });
+
+    if (!staff) {
+      return errorResponse(res, 'Selected staff member not found or not available', 400);
+    }
+
+    // Check if staff has required skills
+    const requiredSkills = serviceRecords.map(s => s.category);
+    const hasRequiredSkills = requiredSkills.some(skill => 
+      staff.skills.includes(skill) || staff.skills.includes('All')
+    );
+
+    if (!hasRequiredSkills) {
+      return errorResponse(res, 'Selected staff member does not have required skills for these services', 400);
+    }
+  }
+
+  // Check for time conflicts
+  const appointmentDateTime = new Date(appointmentDate);
+  const [hours, minutes] = appointmentTime.split(':').map(Number);
+  appointmentDateTime.setHours(hours, minutes);
+
+  const conflictFilter = {
+    $or: [
+      { salonId },
+      staffId ? { staffId } : {}
+    ].filter(f => Object.keys(f).length > 0),
+    appointmentDate: new Date(appointmentDate),
+    status: { $in: ['Pending', 'Confirmed', 'In-Progress'] }
+  };
+
+  const conflictingAppointments = await Appointment.find(conflictFilter);
+
+  for (const existing of conflictingAppointments) {
+    const existingStart = existing.appointmentTime;
+    const existingEnd = existing.estimatedEndTime;
+
+    if (appointmentTime >= existingStart && appointmentTime < existingEnd) {
+      return errorResponse(res, 'Time slot not available. Please choose a different time.', 409);
+    }
+  }
+
+  // Create appointment
+  const appointment = new Appointment({
+    customerId,
+    salonId,
+    staffId,
+    services: serviceDetails,
+    appointmentDate: new Date(appointmentDate),
+    appointmentTime,
+    estimatedDuration: totalDuration,
+    totalAmount,
+    finalAmount: totalAmount,
+    customerNotes,
+    specialRequests,
+    status: 'Pending',
+    source: 'Website'
+  });
+
+  await appointment.save();
+
+  // Update customer booking stats
+  const customer = await Customer.findById(customerId);
+  customer.totalBookings += 1;
+
+  // Check if it's first visit to this salon
+  const previousBookings = await Appointment.countDocuments({
+    customerId,
+    salonId,
+    _id: { $ne: appointment._id }
+  });
+
+  if (previousBookings === 0) {
+    appointment.isFirstVisit = true;
+    await appointment.save();
+  }
+
+  await customer.save();
+
+  // Send confirmation email
+  const appointmentDetails = {
+    salonName: salon.salonName,
+    date: appointmentDate,
+    time: appointmentTime,
+    services: serviceDetails.map(s => s.serviceName),
+    totalAmount
+  };
+
+  await sendAppointmentConfirmation(
+    customer.email,
+    customer.name,
+    appointmentDetails
+  );
+
+  // Populate appointment for response
+  const populatedAppointment = await Appointment.findById(appointment._id)
+    .populate('salonId', 'salonName salonAddress contactNumber')
+    .populate('staffId', 'name skills')
+    .populate('services.serviceId', 'name category');
+
+  return successResponse(res, populatedAppointment, 'Appointment booked successfully! Confirmation email sent.', 201);
+});
+
+// Get appointment details
+export const getAppointmentDetails = asyncHandler(async (req, res) => {
+  const { appointmentId } = req.params;
+  const userId = req.user.id;
+  const userType = req.user.type;
+
+  let filter = { _id: appointmentId };
+
+  // Add user-specific filters
+  switch (userType) {
+    case 'customer':
+      filter.customerId = userId;
+      break;
+    case 'salon':
+      filter.salonId = userId;
+      break;
+    case 'staff':
+      filter.staffId = userId;
+      break;
+    // Admin can access all appointments
+  }
+
+  const appointment = await Appointment.findOne(filter)
+    .populate('customerId', 'name email contactNumber')
+    .populate('salonId', 'salonName salonAddress contactNumber businessHours')
+    .populate('staffId', 'name skills contactNumber')
+    .populate('services.serviceId', 'name description category price duration');
+
+  if (!appointment) {
+    return notFoundResponse(res, 'Appointment');
+  }
+
+  return successResponse(res, appointment, 'Appointment details retrieved successfully');
+});
+
+// Update appointment
+export const updateAppointment = asyncHandler(async (req, res) => {
+  const { appointmentId } = req.params;
+  const userId = req.user.id;
+  const userType = req.user.type;
+  const updates = req.body;
+
+  let filter = { _id: appointmentId };
+
+  // Add user-specific filters
+  switch (userType) {
+    case 'customer':
+      filter.customerId = userId;
+      break;
+    case 'salon':
+      filter.salonId = userId;
+      break;
+    case 'staff':
+      filter.staffId = userId;
+      break;
+  }
+
+  const appointment = await Appointment.findOne(filter);
+  if (!appointment) {
+    return notFoundResponse(res, 'Appointment');
+  }
+
+  // Restrict what each user type can update
+  const allowedUpdates = {};
+
+  switch (userType) {
+    case 'customer':
+      if (appointment.status === 'Pending') {
+        if (updates.customerNotes) allowedUpdates.customerNotes = updates.customerNotes;
+        if (updates.specialRequests) allowedUpdates.specialRequests = updates.specialRequests;
+      }
+      break;
+
+    case 'salon':
+    case 'staff':
+      if (updates.status) allowedUpdates.status = updates.status;
+      if (updates.salonNotes) allowedUpdates.salonNotes = updates.salonNotes;
+      if (updates.staffNotes) allowedUpdates.staffNotes = updates.staffNotes;
+      if (updates.staffId) allowedUpdates.staffId = updates.staffId;
+      break;
+
+    case 'admin':
+      Object.assign(allowedUpdates, updates);
+      break;
+  }
+
+  Object.assign(appointment, allowedUpdates);
+  await appointment.save();
+
+  return successResponse(res, appointment, 'Appointment updated successfully');
+});
+
+// Get available time slots
+export const getAvailableSlots = asyncHandler(async (req, res) => {
+  const { salonId, date, staffId } = req.query;
+
+  if (!salonId || !date) {
+    return errorResponse(res, 'Salon ID and date are required', 400);
+  }
+
+  // Get salon business hours
+  const salon = await Salon.findById(salonId);
+  if (!salon) {
+    return notFoundResponse(res, 'Salon');
+  }
+
+  const requestedDate = new Date(date);
+  const dayName = requestedDate.toLocaleDateString('en-US', { weekday: 'long' });
+
+  if (!salon.businessHours.workingDays.includes(dayName)) {
+    return successResponse(res, [], 'Salon is closed on this day');
+  }
+
+  // Generate time slots based on business hours
+  const openTime = salon.businessHours.openTime;
+  const closeTime = salon.businessHours.closeTime;
+
+  const slots = [];
+  const [openHour, openMin] = openTime.split(':').map(Number);
+  const [closeHour, closeMin] = closeTime.split(':').map(Number);
+
+  let currentHour = openHour;
+  let currentMin = openMin;
+
+  while (currentHour < closeHour || (currentHour === closeHour && currentMin < closeMin)) {
+    const timeSlot = `${currentHour.toString().padStart(2, '0')}:${currentMin.toString().padStart(2, '0')}`;
+    slots.push(timeSlot);
+
+    currentMin += 30; // 30-minute slots
+    if (currentMin >= 60) {
+      currentMin = 0;
+      currentHour++;
+    }
+  }
+
+  // Get existing appointments for the date
+  const existingAppointments = await Appointment.find({
+    salonId,
+    appointmentDate: new Date(date),
+    status: { $in: ['Pending', 'Confirmed', 'In-Progress'] },
+    ...(staffId && { staffId })
+  });
+
+  // Remove occupied slots
+  const availableSlots = slots.filter(slot => {
+    return !existingAppointments.some(appointment => {
+      return slot >= appointment.appointmentTime && slot < appointment.estimatedEndTime;
+    });
+  });
+
+  return successResponse(res, availableSlots, 'Available time slots retrieved successfully');
+});
+
+// Get appointments summary
+export const getAppointmentsSummary = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+  const userType = req.user.type;
+
+  let matchFilter = {};
+
+  switch (userType) {
+    case 'customer':
+      matchFilter.customerId = userId;
+      break;
+    case 'salon':
+      matchFilter.salonId = userId;
+      break;
+    case 'staff':
+      matchFilter.staffId = userId;
+      break;
+  }
+
+  const summary = await Appointment.aggregate([
+    { $match: matchFilter },
+    {
+      $group: {
+        _id: '$status',
+        count: { $sum: 1 },
+        totalAmount: { $sum: '$finalAmount' }
+      }
+    }
+  ]);
+
+  const formattedSummary = {
+    pending: 0,
+    confirmed: 0,
+    'in-progress': 0,
+    completed: 0,
+    cancelled: 0,
+    'no-show': 0,
+    totalRevenue: 0
+  };
+
+  summary.forEach(item => {
+    const status = item._id.toLowerCase().replace('-', '-');
+    formattedSummary[status] = item.count;
+    if (item._id === 'Completed') {
+      formattedSummary.totalRevenue = item.totalAmount;
+    }
+  });
+
+  return successResponse(res, formattedSummary, 'Appointments summary retrieved successfully');
+});
+
+export default {
+  bookAppointment,
+  getAppointmentDetails,
+  updateAppointment,
+  getAvailableSlots,
+  getAppointmentsSummary
+};

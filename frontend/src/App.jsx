@@ -1,0 +1,290 @@
+import React, { Suspense } from 'react'
+import { Routes, Route, Navigate } from 'react-router-dom'
+import { useAuth } from './contexts/AuthContext'
+import LoadingSpinner from './components/common/LoadingSpinner'
+
+// Lazy load components for better performance
+const Home = React.lazy(() => import('./pages/common/Home'))
+const Login = React.lazy(() => import('./pages/auth/Login'))
+const Register = React.lazy(() => import('./pages/auth/Register'))
+const ForgotPassword = React.lazy(() => import('./pages/auth/ForgotPassword'))
+const OAuthCallback = React.lazy(() => import('./components/auth/OAuthCallback'))
+
+// Admin Pages
+const AdminDashboard = React.lazy(() => import('./pages/admin/AdminDashboard'))
+const ManageSalons = React.lazy(() => import('./pages/admin/ManageSalons'))
+const AdminManageStaff = React.lazy(() => import('./pages/admin/ManageStaff'))
+const ManageCustomers = React.lazy(() => import('./pages/admin/ManageCustomers'))
+const ManageAppointments = React.lazy(() => import('./pages/admin/ManageAppointments'))
+const PendingApprovals = React.lazy(() => import('./pages/admin/PendingApprovals'))
+const ApprovedSalons = React.lazy(() => import('./pages/admin/ApprovedSalons'))
+
+// Salon Pages
+const SalonDashboard = React.lazy(() => import('./pages/salon/SalonDashboard'))
+const SalonSetup = React.lazy(() => import('./pages/salon/SalonSetup'))
+const WaitingApproval = React.lazy(() => import('./pages/salon/WaitingApproval'))
+const EditSalonProfile = React.lazy(() => import('./pages/salon/EditSalonProfile'))
+const AddStaff = React.lazy(() => import('./pages/salon/AddStaff'))
+const ManageStaff = React.lazy(() => import('./pages/salon/ManageStaff'))
+const ManageServices = React.lazy(() => import('./pages/salon/ManageServices'))
+
+// Staff Pages
+const StaffDashboard = React.lazy(() => import('./pages/staff/StaffDashboard'))
+const StaffSetup = React.lazy(() => import('./pages/staff/StaffSetup'))
+const StaffWaitingApproval = React.lazy(() => import('./pages/staff/StaffWaitingApproval'))
+
+// Customer Pages
+const CustomerDashboard = React.lazy(() => import('./pages/customer/CustomerDashboard'))
+const BookAppointment = React.lazy(() => import('./pages/customer/BookAppointment'))
+const SalonDetails = React.lazy(() => import('./pages/customer/SalonDetails'))
+
+// Common Pages
+const About = React.lazy(() => import('./pages/common/About'))
+const Contact = React.lazy(() => import('./pages/common/Contact'))
+const NotFound = React.lazy(() => import('./pages/common/NotFound'))
+const Unauthorized = React.lazy(() => import('./pages/common/Unauthorized'))
+
+// Protected Route Component
+const ProtectedRoute = ({ children, allowedRoles = [] }) => {
+  const { user, loading } = useAuth()
+
+  if (loading) {
+    return <LoadingSpinner />
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (allowedRoles.length > 0 && !allowedRoles.includes(user.type)) {
+    return <Navigate to="/unauthorized" replace />
+  }
+
+  return children
+}
+
+const Root = () => {
+  const { loading } = useAuth()
+
+  if (loading) {
+    return <LoadingSpinner />
+  }
+
+  // Always show Home page at root URL
+  return <Home />
+}
+
+// Redirect based on user type and setup status
+const DashboardRedirect = () => {
+  const { user } = useAuth()
+
+  if (!user) {
+    return <Navigate to="/login" replace />
+  }
+
+  switch (user.type) {
+    case 'admin':
+      return <Navigate to="/admin/dashboard" replace />
+    case 'salon':
+      if (user.approvalStatus === 'pending') {
+        return <Navigate to="/salon/waiting-approval" replace />;
+      }
+      if (user.approvalStatus === 'rejected') {
+        return <Navigate to="/unauthorized" replace />; // Or a specific rejection page
+      }
+      return <Navigate to={user.setupCompleted ? "/salon/dashboard" : "/salon/setup"} replace />;
+    case 'staff':
+      if (user.approvalStatus === 'pending') {
+        return <Navigate to="/staff/waiting-approval" replace />;
+      }
+      if (user.approvalStatus === 'rejected') {
+        return <Navigate to="/unauthorized" replace />;
+      }
+      return <Navigate to={user.setupCompleted ? "/staff/dashboard" : "/staff/setup"} replace />
+    case 'customer':
+      return <Navigate to="/customer/dashboard" replace />
+    default:
+      return <Navigate to="/login" replace />
+  }
+}
+
+// Setup Required Route - redirects to setup if not completed
+const SetupRequiredRoute = ({ children, setupPath }) => {
+  const { user } = useAuth()
+
+  if (!user) {
+    return <Navigate to="/login" replace />
+  }
+
+  // If user is a salon and approvalStatus is pending, redirect to waiting approval page
+  if (user.type === 'salon' && user.approvalStatus === 'pending') {
+    return <Navigate to="/salon/waiting-approval" replace />;
+  }
+
+  // If user is a staff and approvalStatus is pending, redirect to waiting approval page
+  if (user.type === 'staff' && user.approvalStatus === 'pending') {
+    return <Navigate to="/staff/waiting-approval" replace />;
+  }
+
+  if (!user.setupCompleted) {
+    return <Navigate to={setupPath} replace />
+  }
+
+  return children
+}
+
+function App() {
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Suspense fallback={<LoadingSpinner />}>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<Root />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/contact" element={<Contact />} />
+
+          {/* Auth Routes */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/auth/callback" element={<OAuthCallback />} />
+          <Route path="/unauthorized" element={<Unauthorized />} />
+
+          {/* Dashboard Redirect */}
+          <Route path="/dashboard" element={<DashboardRedirect />} />
+
+          {/* Admin Routes */}
+          <Route
+            path="/admin/*"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <Routes>
+                  <Route path="dashboard" element={<AdminDashboard />} />
+                  <Route path="salons" element={<ManageSalons />} />
+                  <Route path="pending-approvals" element={<PendingApprovals />} />
+                  <Route path="staff" element={<AdminManageStaff />} />
+                  <Route path="customers" element={<ManageCustomers />} />
+                  <Route path="appointments" element={<ManageAppointments />} />
+                  <Route path="approved-salons" element={<ApprovedSalons />} />
+                </Routes>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Salon Routes */}
+          <Route
+            path="/salon/setup"
+            element={
+              <ProtectedRoute allowedRoles={['salon']}>
+                <SalonSetup />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/salon/waiting-approval"
+            element={
+              <ProtectedRoute allowedRoles={['salon']}>
+                <WaitingApproval />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/salon/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={['salon']}>
+                <SetupRequiredRoute setupPath="/salon/setup">
+                  <SalonDashboard />
+                </SetupRequiredRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/salon/edit-profile"
+            element={
+              <ProtectedRoute allowedRoles={['salon']}>
+                <SetupRequiredRoute setupPath="/salon/setup">
+                  <EditSalonProfile />
+                </SetupRequiredRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/salon/staff/new"
+            element={
+              <ProtectedRoute allowedRoles={['salon']}>
+                <SetupRequiredRoute setupPath="/salon/setup">
+                  <AddStaff />
+                </SetupRequiredRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/salon/staff"
+            element={
+              <ProtectedRoute allowedRoles={['salon']}>
+                <SetupRequiredRoute setupPath="/salon/setup">
+                  <ManageStaff />
+                </SetupRequiredRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/salon/services"
+            element={
+              <ProtectedRoute allowedRoles={['salon']}>
+                <SetupRequiredRoute setupPath="/salon/setup">
+                  <ManageServices />
+                </SetupRequiredRoute>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Staff Routes */}
+          <Route
+            path="/staff/*"
+            element={
+              <ProtectedRoute allowedRoles={['staff']}>
+                <Routes>
+                  <Route path="dashboard" element={<StaffDashboard />} />
+                  <Route path="setup" element={<StaffSetup />} />
+                  <Route path="waiting-approval" element={<StaffWaitingApproval />} />
+                </Routes>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Customer Routes */}
+          <Route
+            path="/customer/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={['customer']}>
+                <CustomerDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/customer/book-appointment"
+            element={
+              <ProtectedRoute allowedRoles={['customer']}>
+                <BookAppointment />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/customer/salon/:salonId"
+            element={
+              <ProtectedRoute allowedRoles={['customer']}>
+                <SalonDetails />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* 404 Route */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </Suspense>
+    </div>
+  )
+}
+
+export default App
