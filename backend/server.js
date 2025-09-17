@@ -42,7 +42,8 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https:"],
+      // Allow images from same-origin, data URLs, and other http/https origins (dev backends)
+      imgSrc: ["'self'", "data:", "blob:", "https:", "http:"],
       scriptSrc: ["'self'", "https://apis.google.com"],
     },
   },
@@ -96,14 +97,7 @@ app.use(cors(corsOptions));
 // Handle preflight
 app.options('*', cors(corsOptions));
 
-// Serve static files with proper CORS headers
-app.use('/uploads', (req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', corsOptions.origin);
-  res.setHeader('Access-Control-Allow-Methods', corsOptions.methods.join(','));
-  res.setHeader('Access-Control-Allow-Headers', corsOptions.allowedHeaders.join(','));
-  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-  express.static('uploads')(req, res, next);
-});
+// Serve static files with proper CORS headers (handled below at the consolidated handler)
 
 // Rate limiting
 const limiter = rateLimit({
@@ -148,50 +142,58 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Configure static file serving with absolute path
+// Configure static file serving
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const uploadsDir = path.join(__dirname, '..', 'uploads');
 
-// Serve static files with CORS
-app.use('/uploads', (req, res, next) => {
-  // Set CORS headers
+// Enable broad CORS and CORP headers for static asset access from admin frontend
+app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  // Allow other origins to fetch these resources (fixes NotSameOrigin blocks)
   res.header('Cross-Origin-Resource-Policy', 'cross-origin');
-  
-  // Handle preflight
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  
-  // Serve the file
-  express.static(uploadsDir, {
-    setHeaders: (res, path) => {
-      // Set cache control for images
-      if (/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(path)) {
-        res.set('Cache-Control', 'public, max-age=86400');
-      }
-      
-      // Set content type based on file extension
-      if (/\.(jpg|jpeg)$/i.test(path)) {
-        res.set('Content-Type', 'image/jpeg');
-      } else if (/\.png$/i.test(path)) {
-        res.set('Content-Type', 'image/png');
-      } else if (/\.gif$/i.test(path)) {
-        res.set('Content-Type', 'image/gif');
-      } else if (/\.webp$/i.test(path)) {
-        res.set('Content-Type', 'image/webp');
-      } else if (/\.svg$/i.test(path)) {
-        res.set('Content-Type', 'image/svg+xml');
-      } else if (/\.pdf$/i.test(path)) {
-        res.set('Content-Type', 'application/pdf');
-      }
-    }
-  })(req, res, next);
+  res.header('Cross-Origin-Embedder-Policy', 'require-corp');
+  next();
 });
+
+// Serve static files from uploads directory
+app.use('/uploads', (req, res, next) => {
+  // Allow all origins for development/static assets
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+}, express.static(path.join(__dirname, 'uploads'), {
+  setHeaders: (res, filePath) => {
+    // Set cache control for images
+    if (/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(filePath)) {
+      res.set('Cache-Control', 'public, max-age=86400');
+    }
+    
+    // Set content type based on file extension
+    if (/\.(jpg|jpeg)$/i.test(filePath)) {
+      res.set('Content-Type', 'image/jpeg');
+    } else if (/\.png$/i.test(filePath)) {
+      res.set('Content-Type', 'image/png');
+    } else if (/\.gif$/i.test(filePath)) {
+      res.set('Content-Type', 'image/gif');
+    } else if (/\.webp$/i.test(filePath)) {
+      res.set('Content-Type', 'image/webp');
+    } else if (/\.svg$/i.test(filePath)) {
+      res.set('Content-Type', 'image/svg+xml');
+    } else if (/\.pdf$/i.test(filePath)) {
+      res.set('Content-Type', 'application/pdf');
+    }
+  }
+}));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
