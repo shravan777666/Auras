@@ -110,6 +110,42 @@ export const createStaff = asyncHandler(async (req, res) => {
   successResponse(res, newStaff, 'Staff created and assigned to your salon successfully');
 });
 
+// Helper function to convert file path to full URL
+const getFileUrl = (filePath, req) => {
+  if (!filePath) return null;
+  
+  // Normalize path separators
+  const normalizedPath = String(filePath).replace(/\\/g, '/');
+  
+  // Get base URL from environment or use default
+  const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 5005}`;
+  
+  // Ensure leading slash for path part
+  const pathWithSlash = normalizedPath.startsWith('/') ? normalizedPath : `/${normalizedPath}`;
+  
+  // Construct the full URL
+  const fullUrl = `${baseUrl}${pathWithSlash}`;
+  
+  return fullUrl;
+};
+
+// Helper function to convert documents object with file paths to URLs
+const convertDocumentsToUrls = (documents, req) => {
+  if (!documents) return {};
+  
+  const converted = {};
+  
+  if (documents.governmentId) {
+    converted.governmentId = getFileUrl(documents.governmentId, req);
+  }
+  
+  if (documents.certificates && Array.isArray(documents.certificates)) {
+    converted.certificates = documents.certificates.map(certPath => getFileUrl(certPath, req));
+  }
+  
+  return converted;
+};
+
 // Complete staff profile setup
 export const setupProfile = asyncHandler(async (req, res) => {
   const userId = req.user.id;
@@ -161,6 +197,26 @@ export const setupProfile = asyncHandler(async (req, res) => {
   const parsedAvailability = parseIfString(availability) || staff.availability;
   const parsedAddress = parseIfString(address) || staff.address;
 
+  // Handle uploaded files
+  const documents = {};
+  if (req.files) {
+    console.log('Processing uploaded staff files:', Object.keys(req.files));
+    if (req.files.profilePicture && req.files.profilePicture[0]) {
+      staff.profilePicture = req.files.profilePicture[0].path;
+      console.log('Profile picture uploaded:', staff.profilePicture);
+    }
+    if (req.files.governmentId && req.files.governmentId[0]) {
+      documents.governmentId = req.files.governmentId[0].path;
+      console.log('Government ID uploaded:', documents.governmentId);
+    }
+    if (req.files.certificates) {
+      documents.certificates = req.files.certificates.map(file => file.path);
+      console.log('Certificates uploaded:', documents.certificates);
+    }
+  } else {
+    console.log('No files uploaded for staff');
+  }
+
   // Update staff information
   staff.contactNumber = contactNumber || staff.contactNumber;
   staff.skills = Array.isArray(parsedSkills) ? parsedSkills : staff.skills;
@@ -171,6 +227,7 @@ export const setupProfile = asyncHandler(async (req, res) => {
   staff.gender = gender || staff.gender;
   staff.address = parsedAddress;
   staff.position = position || staff.position;
+  staff.documents = documents;
   staff.setupCompleted = true;
 
   await staff.save();
@@ -188,6 +245,8 @@ export const setupProfile = asyncHandler(async (req, res) => {
     
   const responseData = {
     ...staff.toObject(),
+    documents: convertDocumentsToUrls(staff.documents, req),
+    profilePicture: staff.profilePicture ? getFileUrl(staff.profilePicture, req) : null,
     message: staff.approvalStatus === 'pending' 
       ? 'Please wait for admin approval before accessing the dashboard.'
       : undefined,

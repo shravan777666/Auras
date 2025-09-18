@@ -13,6 +13,7 @@ import {
 } from '../controllers/staffController.js';
 import { requireStaff, requireStaffSetup, requireSalonOwner } from '../middleware/roleAuth.js';
 import { validateStaffSetup, validatePagination, validateObjectId } from '../middleware/validation.js';
+import { upload } from '../middleware/upload.js';
 
 const router = express.Router();
 
@@ -26,7 +27,11 @@ router.use(requireStaff);
 
 
 // Setup (no setup completion required)
-router.post('/setup', validateStaffSetup, setupProfile);
+router.post('/setup', upload.fields([
+  { name: 'profilePicture', maxCount: 1 },
+  { name: 'governmentId', maxCount: 1 },
+  { name: 'certificates', maxCount: 10 }
+]), validateStaffSetup, setupProfile);
 
 // Routes that require completed setup
 router.get('/dashboard', requireStaffSetup, getDashboard);

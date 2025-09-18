@@ -1,6 +1,7 @@
 import Admin from '../models/Admin.js';
 import Salon from '../models/Salon.js';
 import Staff from '../models/Staff.js';
+import User from '../models/User.js';
 import Customer from '../models/Customer.js';
 import Appointment from '../models/Appointment.js';
 import Service from '../models/Service.js';
@@ -326,18 +327,70 @@ export const getPendingStaff = asyncHandler(async (req, res) => {
     const allStaff = await Staff.find({}).select('name email approvalStatus role isActive').lean();
     console.log('All staff in database:', allStaff);
     
-    // Find staff with exact "pending" approval status (case-sensitive)
+    // Find staff with pending approval status (including undefined/null)
     const pendingStaff = await Staff.find({
-      approvalStatus: 'pending',
-      isActive: true
+      $and: [
+        {
+          $or: [
+            { approvalStatus: 'pending' },
+            { approvalStatus: { $exists: false } },
+            { approvalStatus: null }
+          ]
+        },
+        {
+          $or: [
+            { isActive: true },
+            { isActive: { $exists: false } },
+            { isActive: null }
+          ]
+        }
+      ]
     })
     .populate('assignedSalon', 'salonName ownerName')
-    .select('name email contactNumber position skills experience approvalStatus setupCompleted createdAt assignedSalon role')
+    .populate('user', 'name email')
+    .select('name email contactNumber position skills experience approvalStatus setupCompleted createdAt assignedSalon role documents profilePicture profileImageUrl certifications')
     .sort({ createdAt: -1 })
     .lean();
     
     console.log('Found pending staff with exact "pending" query:', pendingStaff.length);
-    console.log('Pending staff details:', pendingStaff);
+    console.log('Pending staff details:', JSON.stringify(pendingStaff, null, 2));
+
+    // Convert file paths to URLs
+    const staffWithUrls = pendingStaff.map(staff => {
+      // Handle both old and new field names
+      const documents = {
+        governmentId: staff.documents?.governmentId || null,
+        certificates: staff.documents?.certificates || staff.certifications || []
+      };
+      
+      const profilePicture = staff.profilePicture || staff.profileImageUrl || null;
+      
+      console.log(`Processing staff ${staff._id}:`, {
+        originalDocuments: staff.documents,
+        originalCertifications: staff.certifications,
+        originalProfilePicture: staff.profilePicture,
+        originalProfileImageUrl: staff.profileImageUrl,
+        processedDocuments: documents,
+        processedProfilePicture: profilePicture
+      });
+      
+      const convertedDocuments = convertDocumentsToUrls(documents, req);
+      const convertedProfilePicture = profilePicture ? getFileUrl(profilePicture, req) : null;
+      
+      console.log(`Converted URLs for staff ${staff._id}:`, {
+        convertedDocuments,
+        convertedProfilePicture
+      });
+      
+      return {
+        ...staff,
+        // Use name and email from user reference if not directly available
+        name: staff.name || staff.user?.name || 'Unknown',
+        email: staff.email || staff.user?.email || 'Unknown',
+        documents: convertedDocuments,
+        profilePicture: convertedProfilePicture
+      };
+    });
 
     // Set no-cache headers to prevent caching issues
     res.set({
@@ -346,7 +399,7 @@ export const getPendingStaff = asyncHandler(async (req, res) => {
       'Expires': '0'
     });
 
-    return successResponse(res, pendingStaff, 'Pending staff retrieved successfully');
+    return successResponse(res, staffWithUrls, 'Pending staff retrieved successfully');
   } catch (error) {
     console.error('Error in getPendingStaff:', error);
     return errorResponse(res, `Failed to fetch pending staff: ${error.message}`, 500);
@@ -396,26 +449,52 @@ export const approveStaff = asyncHandler(async (req, res) => {
 
 // Reject staff member
 export const rejectStaff = asyncHandler(async (req, res) => {
+  console.log('=== REJECTING STAFF ===');
+  console.log('Staff ID:', req.params.staffId);
+  console.log('Request body:', req.body);
+  
   const { staffId } = req.params;
-  const { reason } = req.body;
+  const { reason } = req.body || {};
 
-  if (!reason) {
+  console.log('Extracted staffId:', staffId);
+  console.log('Extracted reason:', reason);
+
+  if (!reason || String(reason).trim().length === 0) {
+    console.log('No reason provided');
     return errorResponse(res, 'Rejection reason is required', 400);
   }
 
-  const staff = await Staff.findById(staffId);
-  if (!staff) {
-    return errorResponse(res, 'Staff member not found', 404);
+  try {
+    const staff = await Staff.findById(staffId);
+    if (!staff) {
+      console.log('Staff not found with ID:', staffId);
+      return errorResponse(res, 'Staff member not found', 404);
+    }
+
+    console.log('Found staff:', staff.name, staff.email, 'current status:', staff.approvalStatus);
+
+    if (staff.approvalStatus === 'approved') {
+      return errorResponse(res, 'Cannot reject an already approved staff member', 400);
+    }
+
+    staff.approvalStatus = 'rejected';
+    staff.rejectionReason = String(reason).trim();
+
+    await staff.save().catch((err) => {
+      console.error('Error saving staff rejection:', err);
+      throw err;
+    });
+
+    console.log('Staff rejected successfully');
+
+    // You might want to send an email notification here
+    // await sendStaffRejectionEmail(staff.email, reason);
+
+    return successResponse(res, staff, 'Staff member rejected successfully');
+  } catch (error) {
+    console.error('rejectStaff controller error:', error);
+    return errorResponse(res, error.message || 'Failed to reject staff', 500);
   }
-
-  staff.approvalStatus = 'rejected';
-  staff.rejectionReason = reason;
-  await staff.save();
-
-  // You might want to send an email notification here
-  // await sendStaffRejectionEmail(staff.email, reason);
-
-  return successResponse(res, staff, 'Staff member rejected successfully');
 });
 
 // Get all customers with pagination
@@ -516,7 +595,7 @@ export const getPendingSalons = asyncHandler(async (req, res) => {
         { approvalStatus: null }
       ]
     })
-    .select('salonName email contactNumber address ownerName licenseNumber experience documents')
+    .select('salonName email contactNumber address salonAddress businessHours description ownerName documents')
     .lean()
     .then(salons => {
       // Ensure documents is always an object with the expected structure

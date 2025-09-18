@@ -73,6 +73,10 @@ const AdminDashboard = () => {
   const [pendingStaff, setPendingStaff] = useState([]);
   const [showPendingStaffModal, setShowPendingStaffModal] = useState(false);
   const [pendingStaffCount, setPendingStaffCount] = useState(0);
+  const [selectedStaff, setSelectedStaff] = useState(null);
+  const [showDocumentModal, setShowDocumentModal] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
 
   useEffect(() => {
     fetchDashboardStats();
@@ -178,7 +182,14 @@ const AdminDashboard = () => {
       setLoading(true);
       console.log('Fetching pending staff for modal...');
       const response = await adminService.getPendingStaff();
-      console.log('Modal pending staff response:', response);
+      console.log('=== FETCHED PENDING STAFF DATA ===');
+      console.log('API Response:', response);
+      console.log('Staff Data:', response.data);
+      if (response.data && response.data.length > 0) {
+        console.log('First staff member:', response.data[0]);
+        console.log('First staff profile picture:', response.data[0].profilePicture);
+        console.log('First staff documents:', response.data[0].documents);
+      }
       setPendingStaff(response.data || []);
       setPendingStaffCount(response.data ? response.data.length : 0);
       setShowPendingStaffModal(true);
@@ -216,6 +227,49 @@ const AdminDashboard = () => {
     } catch (error) {
       console.error('Error approving staff:', error);
       toast.error('Failed to approve staff member');
+    }
+  };
+
+  const handleViewDocuments = (staff) => {
+    console.log('=== VIEWING DOCUMENTS FOR STAFF ===');
+    console.log('Staff data:', staff);
+    console.log('Profile Picture:', staff.profilePicture);
+    console.log('Documents:', staff.documents);
+    console.log('Certificates:', staff.documents?.certificates);
+    console.log('Government ID:', staff.documents?.governmentId);
+    setSelectedStaff(staff);
+    setShowDocumentModal(true);
+  };
+
+  const handleRejectStaff = (staff) => {
+    setSelectedStaff(staff);
+    setRejectionReason('');
+    setShowRejectModal(true);
+  };
+
+  const confirmRejectStaff = async () => {
+    if (!rejectionReason.trim()) {
+      toast.error('Please provide a reason for rejection');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await adminService.rejectStaff(selectedStaff._id, { reason: rejectionReason });
+      toast.success('Staff member rejected successfully!');
+      setShowRejectModal(false);
+      setRejectionReason('');
+      // Refresh the pending staff list
+      const response = await adminService.getPendingStaff();
+      setPendingStaff(response.data || []);
+      setPendingStaffCount(response.data ? response.data.length : 0);
+      // Refresh dashboard stats
+      fetchDashboardStats();
+    } catch (error) {
+      console.error('Error rejecting staff:', error);
+      toast.error('Failed to reject staff member');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -538,6 +592,87 @@ const AdminDashboard = () => {
                         </div>
                       </div>
                     </div>
+
+                    {/* Documents Section */}
+                    <div className="mb-4 p-3 bg-gray-50 rounded-lg border">
+                      <div className="flex justify-between items-center mb-3">
+                        <h4 className="font-medium text-gray-800 flex items-center">
+                          <span className="mr-2">📄</span>
+                          Uploaded Documents
+                        </h4>
+                        <button
+                          onClick={() => handleViewDocuments(staff)}
+                          className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
+                        >
+                          View All Documents
+                        </button>
+                      </div>
+                      
+                      {/* Quick preview */}
+                      <div className="grid grid-cols-3 gap-2">
+                        {/* Profile Picture Preview */}
+                        <div className="flex flex-col items-center">
+                          {staff.profilePicture ? (
+                            <div className="relative">
+                              <img
+                                src={staff.profilePicture}
+                                alt="Profile"
+                                className="w-12 h-12 object-cover rounded-lg cursor-pointer hover:opacity-80"
+                                onClick={() => window.open(staff.profilePicture, '_blank')}
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                  e.target.nextSibling.style.display = 'flex';
+                                }}
+                              />
+                              <div className="hidden w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
+                                <span className="text-lg">👤</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
+                              <span className="text-lg">👤</span>
+                            </div>
+                          )}
+                          <span className="text-xs text-gray-600 mt-1">Profile</span>
+                        </div>
+
+                        {/* Government ID Preview */}
+                        <div className="flex flex-col items-center">
+                          {staff.documents?.governmentId ? (
+                            <div 
+                              className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center cursor-pointer hover:opacity-80"
+                              onClick={() => window.open(staff.documents.governmentId, '_blank')}
+                            >
+                              <span className="text-lg">🆔</span>
+                            </div>
+                          ) : (
+                            <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
+                              <span className="text-lg">🆔</span>
+                            </div>
+                          )}
+                          <span className="text-xs text-gray-600 mt-1">ID</span>
+                        </div>
+
+                        {/* Certificates Preview */}
+                        <div className="flex flex-col items-center">
+                          {staff.documents?.certificates?.length > 0 ? (
+                            <div 
+                              className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center cursor-pointer hover:opacity-80"
+                              onClick={() => handleViewDocuments(staff)}
+                            >
+                              <span className="text-lg">📜</span>
+                            </div>
+                          ) : (
+                            <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
+                              <span className="text-lg">📜</span>
+                            </div>
+                          )}
+                          <span className="text-xs text-gray-600 mt-1">
+                            Certs ({staff.documents?.certificates?.length || 0})
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                     
                     <div className="flex justify-end space-x-2 pt-3 border-t border-orange-200">
                       <button
@@ -548,9 +683,7 @@ const AdminDashboard = () => {
                         <span>Approve</span>
                       </button>
                       <button
-                        onClick={() => {
-                          toast.info('Reject functionality will be implemented soon');
-                        }}
+                        onClick={() => handleRejectStaff(staff)}
                         className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors flex items-center space-x-1"
                       >
                         <span>✗</span>
@@ -571,6 +704,152 @@ const AdminDashboard = () => {
                 className="px-6 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Document Viewer Modal */}
+      {showDocumentModal && selectedStaff && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">Documents - {selectedStaff.name}</h2>
+              <button
+                onClick={() => setShowDocumentModal(false)}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Profile Picture */}
+              {selectedStaff.profilePicture && (
+                <div className="bg-white rounded-lg border p-4">
+                  <h3 className="font-medium text-gray-800 mb-3">Profile Picture</h3>
+                  <img
+                    src={selectedStaff.profilePicture}
+                    alt="Profile Picture"
+                    className="w-full h-48 object-cover rounded-lg mb-3 cursor-pointer hover:opacity-80"
+                    onClick={() => window.open(selectedStaff.profilePicture, '_blank')}
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'block';
+                    }}
+                  />
+                  <div className="hidden text-center text-gray-500">Failed to load image</div>
+                  <button
+                    onClick={() => window.open(selectedStaff.profilePicture, '_blank')}
+                    className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600 transition-colors"
+                  >
+                    View Full Size
+                  </button>
+                </div>
+              )}
+
+              {/* Government ID */}
+              {selectedStaff.documents?.governmentId && (
+                <div className="bg-white rounded-lg border p-4">
+                  <h3 className="font-medium text-gray-800 mb-3">Government ID</h3>
+                  <div className="w-full h-48 bg-red-50 rounded-lg flex items-center justify-center mb-3">
+                    <span className="text-6xl">🆔</span>
+                  </div>
+                  <button
+                    onClick={() => window.open(selectedStaff.documents.governmentId, '_blank')}
+                    className="w-full bg-red-500 text-white py-2 rounded hover:bg-red-600 transition-colors"
+                  >
+                    View Document
+                  </button>
+                </div>
+              )}
+
+              {/* Certificates */}
+              {selectedStaff.documents?.certificates?.map((cert, index) => (
+                <div key={index} className="bg-white rounded-lg border p-4">
+                  <h3 className="font-medium text-gray-800 mb-3">Certificate {index + 1}</h3>
+                  <div className="w-full h-48 bg-green-50 rounded-lg flex items-center justify-center mb-3">
+                    <span className="text-6xl">📜</span>
+                  </div>
+                  <button
+                    onClick={() => window.open(cert, '_blank')}
+                    className="w-full bg-green-500 text-white py-2 rounded hover:bg-green-600 transition-colors"
+                  >
+                    View Certificate
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {!selectedStaff.profilePicture && !selectedStaff.documents?.governmentId && !selectedStaff.documents?.certificates?.length && (
+              <div className="text-center py-8">
+                <div className="text-gray-400 text-6xl mb-4">📄</div>
+                <p className="text-gray-500 text-lg">No documents uploaded</p>
+                <p className="text-gray-400 text-sm">This staff member hasn't uploaded any documents yet</p>
+              </div>
+            )}
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setShowDocumentModal(false)}
+                className="px-6 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Staff Modal */}
+      {showRejectModal && selectedStaff && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-red-600">Reject Staff Member</h2>
+              <button
+                onClick={() => setShowRejectModal(false)}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <p className="text-gray-700 mb-2">
+                Are you sure you want to reject <strong>{selectedStaff.name}</strong>?
+              </p>
+              <p className="text-sm text-gray-500 mb-4">
+                Please provide a reason for rejection. This action cannot be undone.
+              </p>
+              
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Rejection Reason *
+              </label>
+              <textarea
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="Please provide a detailed reason for rejection..."
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                rows={4}
+                required
+              />
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowRejectModal(false)}
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmRejectStaff}
+                disabled={loading || !rejectionReason.trim()}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Rejecting...' : 'Reject Staff'}
               </button>
             </div>
           </div>

@@ -49,5 +49,23 @@ export const adminService = {
   async rejectSalon(salonId, data) {
     const response = await api.post(`/admin/salons/${salonId}/reject`, data);
     return response.data;
+  },
+
+  async getPendingStaff() {
+    console.log('=== ADMIN SERVICE: Calling /admin/staff/pending ===');
+    const response = await api.get('/admin/staff/pending');
+    console.log('=== ADMIN SERVICE: Raw response ===', response);
+    console.log('=== ADMIN SERVICE: Response data ===', response.data);
+    return response.data;
+  },
+
+  async approveStaff(staffId) {
+    const response = await api.post(`/admin/staff/${staffId}/approve`);
+    return response.data;
+  },
+
+  async rejectStaff(staffId, data) {
+    const response = await api.post(`/admin/staff/${staffId}/reject`, data);
+    return response.data;
   }
 };

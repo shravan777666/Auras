@@ -10,6 +10,8 @@ const storage = multer.diskStorage({
       uploadPath += 'licenses/';
     } else if (file.fieldname === 'salonLogo' || file.fieldname === 'salonImages') {
       uploadPath += 'images/';
+    } else if (file.fieldname === 'profilePicture' || file.fieldname === 'governmentId' || file.fieldname === 'certificates') {
+      uploadPath += 'staff/';
     }
     cb(null, uploadPath);
   },
@@ -42,6 +44,12 @@ const upload = multer({
       checkFileType(file, cb, /jpeg|jpg|png|pdf/, 5 * 1024 * 1024, 'Business License');
     } else if (file.fieldname === 'salonLogo' || file.fieldname === 'salonImages') {
       checkFileType(file, cb, /jpeg|jpg|png/, 5 * 1024 * 1024, 'Image');
+    } else if (file.fieldname === 'profilePicture') {
+      checkFileType(file, cb, /jpeg|jpg|png/, 5 * 1024 * 1024, 'Profile Picture');
+    } else if (file.fieldname === 'governmentId') {
+      checkFileType(file, cb, /jpeg|jpg|png|pdf/, 5 * 1024 * 1024, 'Government ID');
+    } else if (file.fieldname === 'certificates') {
+      checkFileType(file, cb, /jpeg|jpg|png|pdf/, 5 * 1024 * 1024, 'Certificate');
     } else {
       cb(new Error('Unknown field name'));
     }
@@ -57,6 +65,8 @@ export const uploadErrorHandler = (err, req, res, next) => {
   }
   next();
 };
+
+export { upload };
 
 export const salonSetupUploads = upload.fields([
   { name: 'businessLicense', maxCount: 1 },

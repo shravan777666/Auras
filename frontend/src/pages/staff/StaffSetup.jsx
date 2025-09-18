@@ -6,7 +6,6 @@ import {
   User,
   Phone,
   MapPin,
-  Calendar,
   Upload,
   FileText,
   Image,
@@ -52,17 +51,7 @@ const StaffSetup = () => {
     specialization: ''
   });
 
-  const [availability, setAvailability] = useState({
-    workingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
-    workingHours: {
-      startTime: '09:00',
-      endTime: '18:00'
-    },
-    breakTime: {
-      startTime: '13:00',
-      endTime: '14:00'
-    }
-  });
+  // Availability step has been removed per requirements
 
   const [files, setFiles] = useState({
     profilePicture: null,
@@ -74,8 +63,7 @@ const StaffSetup = () => {
     { number: 1, title: 'Personal Information', icon: User },
     { number: 2, title: 'Address Details', icon: MapPin },
     { number: 3, title: 'Professional Info', icon: Briefcase },
-    { number: 4, title: 'Availability', icon: Calendar },
-    { number: 5, title: 'Documents & Photos', icon: Upload }
+    { number: 4, title: 'Documents & Photos', icon: Upload }
   ];
 
   const positionOptions = [
@@ -93,7 +81,7 @@ const StaffSetup = () => {
     'Hair Extensions','Keratin Treatment','Hair Spa'
   ];
 
-  const workingDayOptions = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  // Removed working day options since availability step is no longer used
 
   // On mount, if coming from registration
   useEffect(() => {
@@ -132,31 +120,7 @@ const StaffSetup = () => {
     setProfessionalInfo({ ...professionalInfo, skills: updatedSkills });
   };
 
-  const handleAvailabilityChange = (e) => {
-    const { name, value } = e.target;
-    if (name.startsWith('workingHours.')) {
-      const field = name.split('.')[1];
-      setAvailability({
-        ...availability,
-        workingHours: { ...availability.workingHours, [field]: value }
-      });
-    } else if (name.startsWith('breakTime.')) {
-      const field = name.split('.')[1];
-      setAvailability({
-        ...availability,
-        breakTime: { ...availability.breakTime, [field]: value }
-      });
-    } else {
-      setAvailability({ ...availability, [name]: value });
-    }
-  };
-
-  const handleWorkingDaysChange = (day) => {
-    const updatedDays = availability.workingDays.includes(day)
-      ? availability.workingDays.filter(d => d !== day)
-      : [...availability.workingDays, day];
-    setAvailability({ ...availability, workingDays: updatedDays });
-  };
+  // Removed availability handlers
 
   const handleFileChange = (e, fileType) => {
     const file = e.target.files[0];
@@ -183,8 +147,6 @@ const StaffSetup = () => {
       case 3:
         return professionalInfo.position && professionalInfo.skills.length > 0;
       case 4:
-        return availability.workingDays.length > 0 && availability.workingHours.startTime && availability.workingHours.endTime;
-      case 5:
         return files.profilePicture && files.governmentId;
       default:
         return false;
@@ -205,7 +167,7 @@ const StaffSetup = () => {
 
   // ✅ UPDATED handleSubmit
   const handleSubmit = async () => {
-    if (!validateStep(5)) {
+    if (!validateStep(4)) {
       toast.error('Please complete all required fields');
       return;
     }
@@ -213,20 +175,34 @@ const StaffSetup = () => {
     setLoading(true);
 
     try {
-      const payload = {
-        contactNumber: personalInfo.contactNumber,
-        dateOfBirth: personalInfo.dateOfBirth,
-        gender: personalInfo.gender,
-        address: { ...address },
-        skills: [...professionalInfo.skills],
-        experience: { ...professionalInfo.experience },
-        availability: { ...availability },
-        specialization: professionalInfo.specialization,
-        position: professionalInfo.position,
-      };
+      // Create FormData to handle file uploads
+      const formData = new FormData();
+      
+      // Add text fields
+      formData.append('contactNumber', personalInfo.contactNumber);
+      formData.append('dateOfBirth', personalInfo.dateOfBirth);
+      formData.append('gender', personalInfo.gender);
+      formData.append('address', JSON.stringify({ ...address }));
+      formData.append('skills', JSON.stringify([...professionalInfo.skills]));
+      formData.append('experience', JSON.stringify({ ...professionalInfo.experience }));
+      formData.append('specialization', professionalInfo.specialization);
+      formData.append('position', professionalInfo.position);
+
+      // Add files
+      if (files.profilePicture) {
+        formData.append('profilePicture', files.profilePicture);
+      }
+      if (files.governmentId) {
+        formData.append('governmentId', files.governmentId);
+      }
+      if (files.certificates && files.certificates.length > 0) {
+        files.certificates.forEach((cert, index) => {
+          formData.append('certificates', cert);
+        });
+      }
 
       const { staffService } = await import('../../services/staff');
-      const response = await staffService.setup(payload);
+      const response = await staffService.setup(formData);
 
       if (response && response.data) {
         if (response.data.token) {
@@ -341,57 +317,6 @@ const StaffSetup = () => {
         );
 
       case 4:
-        return (
-          <div className="space-y-4">
-            <label className="block font-medium">Working Days</label>
-            <div className="grid grid-cols-2 gap-2">
-              {workingDayOptions.map(day => (
-                <label key={day} className="flex items-center space-x-2">
-                  <input type="checkbox"
-                    checked={availability.workingDays.includes(day)}
-                    onChange={() => handleWorkingDaysChange(day)} />
-                  <span>{day}</span>
-                </label>
-              ))}
-            </div>
-
-            <div className="flex space-x-4">
-              <div>
-                <label>Start Time</label>
-                <input type="time" name="workingHours.startTime"
-                  value={availability.workingHours.startTime}
-                  onChange={handleAvailabilityChange}
-                  className="border rounded-lg px-2 py-1" />
-              </div>
-              <div>
-                <label>End Time</label>
-                <input type="time" name="workingHours.endTime"
-                  value={availability.workingHours.endTime}
-                  onChange={handleAvailabilityChange}
-                  className="border rounded-lg px-2 py-1" />
-              </div>
-            </div>
-
-            <div className="flex space-x-4">
-              <div>
-                <label>Break Start</label>
-                <input type="time" name="breakTime.startTime"
-                  value={availability.breakTime.startTime}
-                  onChange={handleAvailabilityChange}
-                  className="border rounded-lg px-2 py-1" />
-              </div>
-              <div>
-                <label>Break End</label>
-                <input type="time" name="breakTime.endTime"
-                  value={availability.breakTime.endTime}
-                  onChange={handleAvailabilityChange}
-                  className="border rounded-lg px-2 py-1" />
-              </div>
-            </div>
-          </div>
-        );
-
-      case 5:
         return (
           <div className="space-y-4">
             <div>

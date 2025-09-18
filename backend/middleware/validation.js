@@ -16,7 +16,7 @@ export const validatePagination = [
 ];
 
 export const validateObjectId = (name) => [
-  param(name).isString().isLength({ min: 8 }), // placeholder validation
+  param(name).isMongoId().withMessage(`Invalid ${name} format`),
   handleValidation
 ];
 

@@ -43,8 +43,8 @@ router.post('/salons/:salonId/reject', validateObjectId('salonId'), rejectSalon)
 // Staff Management
 router.get('/staff', validatePagination, getAllStaff);
 router.get('/staff/pending', getPendingStaff);
-router.post('/staff/:staffId/approve', approveStaff);
-router.post('/staff/:staffId/reject', rejectStaff);
+router.post('/staff/:staffId/approve', validateObjectId('staffId'), approveStaff);
+router.post('/staff/:staffId/reject', validateObjectId('staffId'), rejectStaff);
 
 // Debug route to check all staff
 router.get('/staff/debug', async (req, res) => {

@@ -40,6 +40,10 @@ const StaffSchema = new mongoose.Schema(
       }
     },
     profilePicture: { type: String },
+    documents: {
+      governmentId: { type: String },
+      certificates: [{ type: String }]
+    },
     isActive: { type: Boolean, default: true },
     setupCompleted: { type: Boolean, default: false },
     // Approval workflow fields
