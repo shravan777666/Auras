@@ -13,7 +13,10 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  Modal,
+  CardMedia,
+  IconButton
 } from '@mui/material';
 import { adminService } from '../../services/admin';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
@@ -26,6 +29,164 @@ const ManageSalons = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [selectedSalon, setSelectedSalon] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imageModalOpen, setImageModalOpen] = useState(false);
+
+  // Utility function to get file type
+  const getFileType = (filename) => {
+    if (!filename) return 'unknown';
+    const extension = filename.toLowerCase().split('.').pop();
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension)) {
+      return 'image';
+    } else if (extension === 'pdf') {
+      return 'pdf';
+    }
+    return 'unknown';
+  };
+
+  // Document Card Component
+  const DocumentCard = ({ document, label }) => {
+    const fileType = getFileType(document);
+    const [imageError, setImageError] = useState(false);
+
+    const handleImageClick = () => {
+      setSelectedImage(document);
+      setImageModalOpen(true);
+    };
+
+    const handleImageError = () => {
+      setImageError(true);
+    };
+
+    if (fileType === 'image') {
+      return (
+        <Card sx={{ maxWidth: 200, cursor: 'pointer' }} onClick={handleImageClick}>
+          <CardContent sx={{ p: 1 }}>
+            <Typography variant="caption" color="text.secondary" gutterBottom>
+              {label}
+            </Typography>
+            {imageError ? (
+              <Box
+                sx={{
+                  height: 120,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  bgcolor: 'grey.100',
+                  borderRadius: 1
+                }}
+              >
+                <Box textAlign="center">
+                  <Box
+                    sx={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: '50%',
+                      bgcolor: 'grey.300',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '20px',
+                      color: 'grey.600',
+                      mx: 'auto'
+                    }}
+                  >
+                    📷
+                  </Box>
+                  <Typography variant="caption" color="text.secondary">
+                    Image not available
+                  </Typography>
+                </Box>
+              </Box>
+            ) : (
+              <CardMedia
+                component="img"
+                sx={{
+                  height: 120,
+                  objectFit: 'cover',
+                  borderRadius: 1
+                }}
+                image={document}
+                alt={label}
+                onError={handleImageError}
+              />
+            )}
+          </CardContent>
+        </Card>
+      );
+    } else if (fileType === 'pdf') {
+      return (
+        <Card sx={{ maxWidth: 200 }}>
+          <CardContent sx={{ p: 1, textAlign: 'center' }}>
+            <Typography variant="caption" color="text.secondary" gutterBottom>
+              {label}
+            </Typography>
+            <Box
+              sx={{
+                height: 120,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                bgcolor: 'grey.50',
+                borderRadius: 1,
+                border: '1px dashed #ccc'
+              }}
+            >
+              <Box
+                sx={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: '50%',
+                  bgcolor: 'error.main',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '24px',
+                  color: 'white',
+                  mb: 1,
+                  mx: 'auto'
+                }}
+              >
+                📄
+              </Box>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => window.open(document, '_blank')}
+              >
+                View PDF
+              </Button>
+            </Box>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    return (
+      <Card sx={{ maxWidth: 200 }}>
+        <CardContent sx={{ p: 1, textAlign: 'center' }}>
+          <Typography variant="caption" color="text.secondary" gutterBottom>
+            {label}
+          </Typography>
+          <Box
+            sx={{
+              height: 120,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              bgcolor: 'grey.100',
+              borderRadius: 1
+            }}
+          >
+            <Typography variant="body2" color="text.secondary">
+              Unknown file type
+            </Typography>
+          </Box>
+        </CardContent>
+      </Card>
+    );
+  };
 
   useEffect(() => {
     fetchSalons();
@@ -84,6 +245,11 @@ const ManageSalons = () => {
   const handleCloseDialog = () => {
     setSelectedSalon(null);
     setOpenDialog(false);
+  };
+
+  const handleCloseImageModal = () => {
+    setSelectedImage(null);
+    setImageModalOpen(false);
   };
 
   if (loading) return <LoadingSpinner />;
@@ -289,6 +455,41 @@ const ManageSalons = () => {
                   )}
                 </Box>
               </Box>
+
+              {/* Documents Section */}
+              {selectedSalon.documents && Object.keys(selectedSalon.documents).length > 0 && (
+                <Box mb={3}>
+                  <Typography variant="h6" gutterBottom>Documents & Images</Typography>
+                  <Grid container spacing={2}>
+                    {selectedSalon.documents.businessLicense && (
+                      <Grid item>
+                        <DocumentCard 
+                          document={selectedSalon.documents.businessLicense} 
+                          label="Business License"
+                        />
+                      </Grid>
+                    )}
+                    {selectedSalon.documents.salonImages && selectedSalon.documents.salonImages.length > 0 && 
+                      selectedSalon.documents.salonImages.map((image, index) => (
+                        <Grid item key={index}>
+                          <DocumentCard 
+                            document={image} 
+                            label={`Salon Image ${index + 1}`}
+                          />
+                        </Grid>
+                      ))
+                    }
+                    {selectedSalon.documents.salonLogo && (
+                      <Grid item>
+                        <DocumentCard 
+                          document={selectedSalon.documents.salonLogo} 
+                          label="Salon Logo"
+                        />
+                      </Grid>
+                    )}
+                  </Grid>
+                </Box>
+              )}
             </DialogContent>
             <DialogActions>
               <Button onClick={handleCloseDialog} color="inherit">
@@ -305,6 +506,72 @@ const ManageSalons = () => {
           </>
         )}
       </Dialog>
+
+      {/* Full Screen Image Modal */}
+      <Modal
+        open={imageModalOpen}
+        onClose={handleCloseImageModal}
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          p: 2
+        }}
+      >
+        <Box
+          sx={{
+            position: 'relative',
+            maxWidth: '90vw',
+            maxHeight: '90vh',
+            bgcolor: 'background.paper',
+            boxShadow: 24,
+            borderRadius: 2,
+            outline: 'none'
+          }}
+        >
+          <IconButton
+            onClick={handleCloseImageModal}
+            sx={{
+              position: 'absolute',
+              right: 8,
+              top: 8,
+              zIndex: 1,
+              bgcolor: 'background.paper',
+              '&:hover': {
+                bgcolor: 'grey.100'
+              }
+            }}
+          >
+            <Box
+              sx={{
+                width: 24,
+                height: 24,
+                borderRadius: '50%',
+                bgcolor: 'grey.800',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '16px',
+                color: 'white'
+              }}
+            >
+              ×
+            </Box>
+          </IconButton>
+          {selectedImage && (
+            <img
+              src={selectedImage}
+              alt="Full size view"
+              style={{
+                maxWidth: '100%',
+                maxHeight: '90vh',
+                objectFit: 'contain',
+                display: 'block'
+              }}
+            />
+          )}
+        </Box>
+      </Modal>
     </Box>
   );
 };

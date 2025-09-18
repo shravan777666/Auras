@@ -4,12 +4,17 @@ export const adminService = {
   // Dashboard
   async getDashboardStats() {
     const response = await api.get('/admin/dashboard/stats');
-    return response.data;
+    return response.data?.data || {};
   },
 
   async getApprovedSalonsCount() {
     const response = await api.get('/admin/salons/count');
-    return response.data;
+    return response.data?.data || {};
+  },
+
+  async getTotalSalonsCount() {
+    const response = await api.get('/admin/salons/total-count');
+    return response.data?.data || {};
   },
 
   // Salon Management
@@ -51,7 +56,7 @@ export const adminService = {
   // Staff Management
   async getAllStaff(params = {}) {
     const response = await api.get('/admin/staff', { params });
-    return response.data;
+    return response.data?.data || [];
   },
 
   async getPendingStaff() {
@@ -64,7 +69,7 @@ export const adminService = {
         _t: Date.now() // Cache buster
       }
     });
-    return response.data;
+    return response.data?.data || [];
   },
 
   async approveStaff(staffId) {

@@ -15,6 +15,103 @@ import {
 import { adminService } from '../../services/adminService';
 import toast from 'react-hot-toast';
 
+// Utility function to determine file type
+const getFileType = (url) => {
+  if (!url) return 'unknown';
+  const extension = url.split('.').pop().toLowerCase();
+  const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
+  const pdfExtensions = ['pdf'];
+  
+  if (imageExtensions.includes(extension)) return 'image';
+  if (pdfExtensions.includes(extension)) return 'pdf';
+  return 'unknown';
+};
+
+// Document Card Component
+const DocumentCard = ({ title, url, type, bgColor, buttonColor }) => {
+  const [imageError, setImageError] = useState(false);
+  const [isFullScreenOpen, setIsFullScreenOpen] = useState(false);
+
+  const handleImageError = () => {
+    setImageError(true);
+  };
+
+  const openFullScreen = () => {
+    if (type === 'image') {
+      setIsFullScreenOpen(true);
+    } else {
+      window.open(url, '_blank');
+    }
+  };
+
+  const renderContent = () => {
+    if (type === 'image' && !imageError) {
+      return (
+        <>
+          <img
+            src={url}
+            alt={title}
+            className="w-full h-48 object-cover rounded-lg mb-3 cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={openFullScreen}
+            onError={handleImageError}
+          />
+          {/* Full screen modal for images */}
+          {isFullScreenOpen && (
+            <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[100]" onClick={() => setIsFullScreenOpen(false)}>
+              <div className="relative max-w-[90vw] max-h-[90vh]">
+                <img
+                  src={url}
+                  alt={title}
+                  className="max-w-full max-h-full object-contain"
+                  onClick={(e) => e.stopPropagation()}
+                />
+                <button
+                  onClick={() => setIsFullScreenOpen(false)}
+                  className="absolute top-4 right-4 text-white text-3xl hover:text-gray-300"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      );
+    } else if (type === 'pdf') {
+      return (
+        <div className={`w-full h-48 ${bgColor} rounded-lg flex flex-col items-center justify-center mb-3`}>
+          <div className="text-6xl mb-2">📄</div>
+          <span className="text-sm text-gray-600 font-medium">PDF Document</span>
+        </div>
+      );
+    } else {
+      // Fallback for unknown types or image errors
+      return (
+        <div className={`w-full h-48 ${bgColor} rounded-lg flex flex-col items-center justify-center mb-3`}>
+          <div className="text-6xl mb-2">
+            {type === 'image' ? '🖼️' : '📄'}
+          </div>
+          <span className="text-sm text-gray-600 font-medium">
+            {imageError ? 'Failed to load image' : 'Document'}
+          </span>
+        </div>
+      );
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-xl border-2 border-gray-100 p-4 shadow-md hover:shadow-lg transition-all duration-200">
+      <h3 className="font-semibold text-gray-800 mb-3 text-center">{title}</h3>
+      {renderContent()}
+      <button
+        onClick={openFullScreen}
+        className={`w-full ${buttonColor} text-white py-2 px-4 rounded-lg transition-colors font-medium`}
+      >
+        {type === 'image' && !imageError ? 'View Full Size' : type === 'pdf' ? 'Open PDF' : 'View Document'}
+      </button>
+    </div>
+  );
+};
+
 // Stat Card Component
 const StatCard = ({ title, value, icon, color, unit = '', onClick }) => {
   const Icon = icon;
@@ -107,18 +204,54 @@ const AdminDashboard = () => {
   const fetchDashboardStats = async (retryCount = 0) => {
     try {
       setLoading(true);
+      console.log('=== FETCHING DASHBOARD STATS ===');
+      console.log('Current API Base URL:', import.meta.env.VITE_API_URL);
+      console.log('Current Frontend Port:', window.location.port);
+      console.log('Attempt:', retryCount + 1);
+      
       const data = await adminService.getDashboardStats();
-      setStats({
-        totalSalons: data.totalSalons || 0,
+      console.log('=== DASHBOARD STATS RESPONSE ===', data);
+      
+      // Fallback: If totalSalons is 0, try the dedicated endpoint
+      let totalSalons = data.totalSalons || 0;
+      if (totalSalons === 0) {
+        console.log('=== TRYING FALLBACK TOTAL SALON COUNT ===');
+        try {
+          const salonCountData = await adminService.getApprovedSalonsCount();
+          console.log('=== FALLBACK SALON COUNT RESPONSE (approved only) ===', salonCountData);
+          totalSalons = salonCountData.count ?? 0;
+        } catch (fallbackError) {
+          console.error('Fallback salon count failed:', fallbackError);
+        }
+      }
+      
+      const updatedStats = {
+        totalSalons: totalSalons,
         totalStaff: data.totalStaff || 0,
         totalCustomers: data.totalCustomers || 0,
         totalAppointments: data.totalAppointments || 0,
         activeAppointments: data.activeAppointments || 0,
         completedAppointments: data.completedAppointments || 0,
         totalRevenue: data.totalRevenue || 0
-      });
+      };
+      
+      setStats(updatedStats);
+      console.log('=== FINAL STATS SET ===', updatedStats);
+      
+      // Show success message if salon count is now correct
+      if (totalSalons > 0) {
+        console.log(`✅ Successfully loaded ${totalSalons} salons`);
+      } else {
+        console.warn('⚠️ Total salons is still 0 - check database or API');
+      }
+      
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
       
       // Retry logic for timeout errors with exponential backoff
       if (error.code === 'ECONNABORTED' && retryCount < 3) {
@@ -168,7 +301,7 @@ const AdminDashboard = () => {
       console.log('Fetching pending staff count...');
       const response = await adminService.getPendingStaff();
       console.log('Pending staff response:', response);
-      const count = response.data ? response.data.length : 0;
+      const count = Array.isArray(response) ? response.length : (response?.data ? response.data.length : 0);
       console.log('Setting pending staff count to:', count);
       setPendingStaffCount(count);
     } catch (error) {
@@ -183,15 +316,14 @@ const AdminDashboard = () => {
       console.log('Fetching pending staff for modal...');
       const response = await adminService.getPendingStaff();
       console.log('=== FETCHED PENDING STAFF DATA ===');
-      console.log('API Response:', response);
-      console.log('Staff Data:', response.data);
-      if (response.data && response.data.length > 0) {
-        console.log('First staff member:', response.data[0]);
-        console.log('First staff profile picture:', response.data[0].profilePicture);
-        console.log('First staff documents:', response.data[0].documents);
+      console.log('Staff Data:', response);
+      if (response && response.length > 0) {
+        console.log('First staff member:', response[0]);
+        console.log('First staff profile picture:', response[0].profilePicture);
+        console.log('First staff documents:', response[0].documents);
       }
-      setPendingStaff(response.data || []);
-      setPendingStaffCount(response.data ? response.data.length : 0);
+      setPendingStaff(response || []);
+      setPendingStaffCount(response ? response.length : 0);
       setShowPendingStaffModal(true);
     } catch (error) {
       console.error('Error fetching pending staff:', error);
@@ -283,7 +415,12 @@ const AdminDashboard = () => {
       <header className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
+            <div>
             <h1 className="text-xl font-bold text-gray-800">Admin Dashboard</h1>
+              <div className="text-xs text-gray-500">
+                Frontend: {window.location.port} | API: {import.meta.env.VITE_API_URL}
+              </div>
+            </div>
             <div className="flex items-center space-x-2">
               <Link to="/" className="p-2 rounded-full hover:bg-gray-100 transition-colors">
                 <Home className="h-5 w-5 text-gray-600" />
@@ -315,10 +452,34 @@ const AdminDashboard = () => {
 
         {/* Main Statistics Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-          <div onClick={fetchAllSalonsDetails} className="cursor-pointer">
+          <div onClick={() => navigate('/admin/salons')} className="cursor-pointer relative">
             <StatCard title="Total Salons" value={stats.totalSalons} icon={Store} color="border-primary-500" />
+            {/* Debug Button */}
+            <button 
+              onClick={async (e) => {
+                e.stopPropagation();
+                try {
+                  console.log('🔍 Direct salon count test...');
+                  const data = await adminService.getApprovedSalonsCount();
+                  console.log('📊 Direct approved salon count result:', data);
+                  const count = data.count ?? 0;
+                  alert(`Direct API call result: ${count} salons`);
+                  // Update the stats with the direct result
+                  setStats(prev => ({ ...prev, totalSalons: count }));
+                } catch (error) {
+                  console.error('❌ Direct salon count failed:', error);
+                  alert(`API Error: ${error.message}`);
+                }
+              }}
+              className="absolute top-2 right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded hover:bg-blue-600"
+              title="Test direct salon count API"
+            >
+              🔄
+            </button>
           </div>
-          <StatCard title="Total Staff" value={stats.totalStaff} icon={Users} color="border-secondary-500" />
+          <div onClick={() => navigate('/admin/staff')} className="cursor-pointer">
+            <StatCard title="Total Staff" value={stats.totalStaff} icon={Users} color="border-secondary-500" />
+          </div>
           <StatCard title="Total Customers" value={stats.totalCustomers} icon={User} color="border-success-500" />
           <StatCard title="Total Revenue" value={stats.totalRevenue} icon={DollarSign} color="border-warning-500" unit="₹" />
         </div>
@@ -550,7 +711,21 @@ const AdminDashboard = () => {
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                       <div className="space-y-2">
-                        <h3 className="font-semibold text-lg text-gray-800">{staff.name || 'Name not provided'}</h3>
+                        <div className="flex items-center space-x-3">
+                          <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
+                            {staff.profilePicture ? (
+                              <img
+                                src={staff.profilePicture}
+                                alt={staff.name || 'Profile'}
+                                className="w-full h-full object-cover"
+                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                              />
+                            ) : (
+                              <span className="text-xl">👤</span>
+                            )}
+                          </div>
+                          <h3 className="font-semibold text-lg text-gray-800">{staff.name || 'Name not provided'}</h3>
+                        </div>
                         <div className="space-y-1 text-sm">
                           <p className="flex items-center text-gray-600">
                             <span className="font-medium w-16">Email:</span> 
@@ -608,35 +783,8 @@ const AdminDashboard = () => {
                         </button>
                       </div>
                       
-                      {/* Quick preview */}
-                      <div className="grid grid-cols-3 gap-2">
-                        {/* Profile Picture Preview */}
-                        <div className="flex flex-col items-center">
-                          {staff.profilePicture ? (
-                            <div className="relative">
-                              <img
-                                src={staff.profilePicture}
-                                alt="Profile"
-                                className="w-12 h-12 object-cover rounded-lg cursor-pointer hover:opacity-80"
-                                onClick={() => window.open(staff.profilePicture, '_blank')}
-                                onError={(e) => {
-                                  e.target.style.display = 'none';
-                                  e.target.nextSibling.style.display = 'flex';
-                                }}
-                              />
-                              <div className="hidden w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
-                                <span className="text-lg">👤</span>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
-                              <span className="text-lg">👤</span>
-                            </div>
-                          )}
-                          <span className="text-xs text-gray-600 mt-1">Profile</span>
-                        </div>
-
-                        {/* Government ID Preview */}
+                      {/* Quick preview: only ID Proof */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                         <div className="flex flex-col items-center">
                           {staff.documents?.governmentId ? (
                             <div 
@@ -651,25 +799,6 @@ const AdminDashboard = () => {
                             </div>
                           )}
                           <span className="text-xs text-gray-600 mt-1">ID</span>
-                        </div>
-
-                        {/* Certificates Preview */}
-                        <div className="flex flex-col items-center">
-                          {staff.documents?.certificates?.length > 0 ? (
-                            <div 
-                              className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center cursor-pointer hover:opacity-80"
-                              onClick={() => handleViewDocuments(staff)}
-                            >
-                              <span className="text-lg">📜</span>
-                            </div>
-                          ) : (
-                            <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
-                              <span className="text-lg">📜</span>
-                            </div>
-                          )}
-                          <span className="text-xs text-gray-600 mt-1">
-                            Certs ({staff.documents?.certificates?.length || 0})
-                          </span>
                         </div>
                       </div>
                     </div>
@@ -713,12 +842,15 @@ const AdminDashboard = () => {
       {/* Document Viewer Modal */}
       {showDocumentModal && selectedStaff && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[80vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">Documents - {selectedStaff.name}</h2>
+          <div className="bg-white rounded-lg p-6 w-full max-w-5xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-800">Documents - {selectedStaff.name}</h2>
+                <p className="text-gray-600 text-sm">Click on images to view full size, or click buttons to open documents</p>
+              </div>
               <button
                 onClick={() => setShowDocumentModal(false)}
-                className="text-gray-500 hover:text-gray-700 text-2xl"
+                className="text-gray-500 hover:text-gray-700 text-3xl font-semibold"
               >
                 ✕
               </button>
@@ -727,73 +859,51 @@ const AdminDashboard = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {/* Profile Picture */}
               {selectedStaff.profilePicture && (
-                <div className="bg-white rounded-lg border p-4">
-                  <h3 className="font-medium text-gray-800 mb-3">Profile Picture</h3>
-                  <img
-                    src={selectedStaff.profilePicture}
-                    alt="Profile Picture"
-                    className="w-full h-48 object-cover rounded-lg mb-3 cursor-pointer hover:opacity-80"
-                    onClick={() => window.open(selectedStaff.profilePicture, '_blank')}
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.nextSibling.style.display = 'block';
-                    }}
-                  />
-                  <div className="hidden text-center text-gray-500">Failed to load image</div>
-                  <button
-                    onClick={() => window.open(selectedStaff.profilePicture, '_blank')}
-                    className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600 transition-colors"
-                  >
-                    View Full Size
-                  </button>
-                </div>
+                <DocumentCard
+                  title="Profile Picture"
+                  url={selectedStaff.profilePicture}
+                  type="image"
+                  bgColor="bg-blue-50"
+                  buttonColor="bg-blue-500 hover:bg-blue-600"
+                />
               )}
 
               {/* Government ID */}
               {selectedStaff.documents?.governmentId && (
-                <div className="bg-white rounded-lg border p-4">
-                  <h3 className="font-medium text-gray-800 mb-3">Government ID</h3>
-                  <div className="w-full h-48 bg-red-50 rounded-lg flex items-center justify-center mb-3">
-                    <span className="text-6xl">🆔</span>
-                  </div>
-                  <button
-                    onClick={() => window.open(selectedStaff.documents.governmentId, '_blank')}
-                    className="w-full bg-red-500 text-white py-2 rounded hover:bg-red-600 transition-colors"
-                  >
-                    View Document
-                  </button>
-                </div>
+                <DocumentCard
+                  title="Government ID"
+                  url={selectedStaff.documents.governmentId}
+                  type={getFileType(selectedStaff.documents.governmentId)}
+                  bgColor="bg-red-50"
+                  buttonColor="bg-red-500 hover:bg-red-600"
+                />
               )}
 
               {/* Certificates */}
               {selectedStaff.documents?.certificates?.map((cert, index) => (
-                <div key={index} className="bg-white rounded-lg border p-4">
-                  <h3 className="font-medium text-gray-800 mb-3">Certificate {index + 1}</h3>
-                  <div className="w-full h-48 bg-green-50 rounded-lg flex items-center justify-center mb-3">
-                    <span className="text-6xl">📜</span>
-                  </div>
-                  <button
-                    onClick={() => window.open(cert, '_blank')}
-                    className="w-full bg-green-500 text-white py-2 rounded hover:bg-green-600 transition-colors"
-                  >
-                    View Certificate
-                  </button>
-                </div>
+                <DocumentCard
+                  key={index}
+                  title={`Certificate ${index + 1}`}
+                  url={cert}
+                  type={getFileType(cert)}
+                  bgColor="bg-green-50"
+                  buttonColor="bg-green-500 hover:bg-green-600"
+                />
               ))}
             </div>
 
             {!selectedStaff.profilePicture && !selectedStaff.documents?.governmentId && !selectedStaff.documents?.certificates?.length && (
-              <div className="text-center py-8">
-                <div className="text-gray-400 text-6xl mb-4">📄</div>
-                <p className="text-gray-500 text-lg">No documents uploaded</p>
-                <p className="text-gray-400 text-sm">This staff member hasn't uploaded any documents yet</p>
+              <div className="text-center py-12">
+                <div className="text-gray-400 text-8xl mb-4">📄</div>
+                <p className="text-gray-500 text-xl font-medium">No documents uploaded</p>
+                <p className="text-gray-400 text-sm mt-2">This staff member hasn't uploaded any documents yet</p>
               </div>
             )}
 
-            <div className="mt-6 flex justify-end">
+            <div className="mt-8 flex justify-end">
               <button
                 onClick={() => setShowDocumentModal(false)}
-                className="px-6 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
+                className="px-8 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors font-medium"
               >
                 Close
               </button>

@@ -59,6 +59,7 @@ const convertDocumentsToUrls = (documents, req) => {
   
   const converted = {};
   
+  // For salon documents
   if (documents.businessLicense) {
     converted.businessLicense = getFileUrl(documents.businessLicense, req);
   }
@@ -71,6 +72,15 @@ const convertDocumentsToUrls = (documents, req) => {
     converted.salonImages = documents.salonImages.map(imagePath => getFileUrl(imagePath, req));
   }
   
+  // For staff documents
+  if (documents.governmentId) {
+    converted.governmentId = getFileUrl(documents.governmentId, req);
+  }
+  
+  if (documents.certificates && Array.isArray(documents.certificates)) {
+    converted.certificates = documents.certificates.map(certPath => getFileUrl(certPath, req));
+  }
+  
   return converted;
 };
 
@@ -79,9 +89,15 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
   console.log('=== FETCHING DASHBOARD STATS ===');
   
   try {
+    // Count approved salons of type 'salon'
+    const approvedSalonFilter = {
+      type: 'salon',
+      approvalStatus: 'approved'
+    };
+    
     // Use simpler queries with timeouts and error handling
     const statsPromises = [
-      Salon.countDocuments({ isActive: true, approvalStatus: 'approved' }).maxTimeMS(5000),
+      Salon.countDocuments(approvedSalonFilter).maxTimeMS(5000), // Count approved salons
       Staff.countDocuments({ isActive: true }).maxTimeMS(5000),
       Customer.countDocuments({ isActive: true }).maxTimeMS(5000),
       Appointment.countDocuments().maxTimeMS(5000),
@@ -112,8 +128,12 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
     }
 
     console.log('Dashboard stats calculated successfully');
+    console.log('=== SALON COUNT DEBUG ===');
+    console.log('Total approved salons found:', totalSalons);
+    console.log('Query used:', approvedSalonFilter);
+    console.log('This counts salons with type="salon" and approvalStatus="approved"');
 
-    return successResponse(res, {
+    const responseData = {
       totalSalons: totalSalons || 0,
       totalStaff: totalStaff || 0,
       totalCustomers: totalCustomers || 0,
@@ -121,7 +141,12 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
       activeAppointments: activeAppointments || 0,
       completedAppointments: completedAppointments || 0,
       totalRevenue: totalRevenue || 0
-    }, 'Dashboard statistics retrieved successfully');
+    };
+    
+    console.log('=== SENDING RESPONSE ===');
+    console.log('Response data:', JSON.stringify(responseData, null, 2));
+
+    return successResponse(res, responseData, 'Dashboard statistics retrieved successfully');
   } catch (error) {
     console.error('Error in getDashboardStats:', error);
     
@@ -141,11 +166,20 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
 // Get total approved salons count (separate endpoint for real-time updates)
 export const getApprovedSalonsCount = asyncHandler(async (req, res) => {
   const count = await Salon.countDocuments({ 
-    isActive: true, 
-    approvalStatus: 'approved' 
+    type: 'salon',
+    approvalStatus: 'approved'
   });
 
   return successResponse(res, { count }, 'Approved salons count retrieved successfully');
+});
+
+// Get total registered salons count (all salons regardless of approval status)
+export const getTotalSalonsCount = asyncHandler(async (req, res) => {
+  const count = await Salon.countDocuments({ 
+    isActive: true 
+  });
+
+  return successResponse(res, { count }, 'Total registered salons count retrieved successfully');
 });
 
 // Get all salons with pagination
@@ -192,10 +226,11 @@ export const getAllSalons = asyncHandler(async (req, res) => {
     
     console.log('Approved salons found:', salons.length);
 
-    // Ensure ownerName exists for older records
+    // Ensure ownerName exists for older records and convert document URLs
     const salonsWithOwnerName = salons.map(salon => ({
       ...salon,
-      ownerName: salon.ownerName || salon.salonName || 'Unknown Owner'
+      ownerName: salon.ownerName || salon.salonName || 'Unknown Owner',
+      documents: convertDocumentsToUrls(salon.documents, req)
     }));
 
     const totalPages = Math.ceil(totalSalons / limit);
@@ -224,14 +259,15 @@ export const getAllSalonsDetails = asyncHandler(async (req, res) => {
     const salons = await Salon.find(filter)
       .populate('services', 'name category price duration') // Populate service details
       .populate('staff', 'name email skills employmentStatus') // Populate staff details
-      .select('salonName ownerName email contactNumber salonAddress businessHours description services staff approvalStatus isVerified createdAt')
+      .select('salonName ownerName email contactNumber salonAddress businessHours description documents services staff approvalStatus isVerified createdAt')
       .sort({ createdAt: -1 })
       .lean();
 
-    // Ensure ownerName exists for older records
+    // Ensure ownerName exists for older records and convert document URLs
     const salonsWithOwnerName = salons.map(salon => ({
       ...salon,
-      ownerName: salon.ownerName || salon.salonName || 'Unknown Owner'
+      ownerName: salon.ownerName || salon.salonName || 'Unknown Owner',
+      documents: convertDocumentsToUrls(salon.documents, req)
     }));
 
     return successResponse(res, { 
@@ -290,7 +326,7 @@ export const getAllStaff = asyncHandler(async (req, res) => {
   const limit = parseInt(req.query.limit) || 10;
   const skip = (page - 1) * limit;
 
-  const filter = { isActive: true };
+  const filter = { isActive: true, approvalStatus: 'approved' };
   if (req.query.search) {
     filter.$or = [
       { name: { $regex: req.query.search, $options: 'i' } },
@@ -299,14 +335,54 @@ export const getAllStaff = asyncHandler(async (req, res) => {
     ];
   }
 
-  const [staff, totalStaff] = await Promise.all([
+  const [staffDocs, totalStaff] = await Promise.all([
     Staff.find(filter)
       .populate('assignedSalon', 'salonName ownerName')
+      .populate('user', 'name email')
+      .select('name email contactNumber role position skills experience approvalStatus isVerified createdAt assignedSalon documents profilePicture profileImageUrl certifications')
       .skip(skip)
       .limit(limit)
-      .sort({ createdAt: -1 }),
+      .sort({ createdAt: -1 })
+      .lean(),
     Staff.countDocuments(filter)
   ]);
+
+  // Normalize and convert file paths to absolute URLs
+  const staff = staffDocs.map(s => {
+    const documents = {
+      governmentId: s.documents?.governmentId || null,
+      certificates: s.documents?.certificates || s.certifications || []
+    };
+    const profilePicture = s.profilePicture || s.profileImageUrl || null;
+    const converted = {
+      ...s,
+      name: s.name || s.user?.name || 'Unknown',
+      email: s.email || s.user?.email || 'Unknown',
+      documents: convertDocumentsToUrls(documents, req),
+      profilePicture: profilePicture ? getFileUrl(profilePicture, req) : null
+    };
+    // Ensure consistent structure for frontend
+    if (!converted.documents) converted.documents = {};
+    if (!Array.isArray(converted.documents.certificates)) converted.documents.certificates = [];
+    return converted;
+  });
+
+  // Debug logging for first few items
+  try {
+    console.log('Approved staff fetched:', staff.length);
+    staff.slice(0, 3).forEach((st, idx) => {
+      console.log(`Staff[${idx}]`, {
+        id: st._id,
+        name: st.name,
+        email: st.email,
+        profilePicture: st.profilePicture,
+        governmentId: st.documents?.governmentId,
+        certificates: st.documents?.certificates
+      });
+    });
+  } catch (e) {
+    // ignore logging errors
+  }
 
   const totalPages = Math.ceil(totalStaff / limit);
 

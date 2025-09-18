@@ -2,6 +2,7 @@ import express from 'express';
 import {
   getDashboardStats,
   getApprovedSalonsCount,
+  getTotalSalonsCount,
   getAllSalons,
   getAllSalonsDetails,
   updateSalonStatus,
@@ -30,6 +31,7 @@ router.use(verifyRoles(['admin']));
 // Dashboard
 router.get('/dashboard/stats', getDashboardStats);
 router.get('/salons/count', getApprovedSalonsCount);
+router.get('/salons/total-count', getTotalSalonsCount);
 
 // Salon Management
 router.get('/salons', validatePagination, getAllSalons);
@@ -55,6 +57,31 @@ router.get('/staff/debug', async (req, res) => {
       success: true,
       count: allStaff.length,
       staff: allStaff 
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Debug route to check all salons
+router.get('/salons/debug', async (req, res) => {
+  try {
+    const Salon = (await import('../models/Salon.js')).default;
+    const allSalons = await Salon.find({}).select('salonName email approvalStatus isActive setupCompleted').lean();
+    const activeSalons = await Salon.find({ isActive: true }).select('salonName email approvalStatus isActive setupCompleted').lean();
+    const totalCount = await Salon.countDocuments({});
+    const activeCount = await Salon.countDocuments({ isActive: true });
+    const approvedCount = await Salon.countDocuments({ isActive: true, approvalStatus: 'approved' });
+    
+    res.json({ 
+      success: true,
+      counts: {
+        total: totalCount,
+        active: activeCount,
+        approved: approvedCount
+      },
+      allSalons: allSalons,
+      activeSalons: activeSalons
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

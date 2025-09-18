@@ -2,7 +2,12 @@ import axios from 'axios'
 import toast from 'react-hot-toast'
 
 // Base API configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5005/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5010/api';
+console.log('🔧 API Configuration:', {
+  VITE_API_URL: import.meta.env.VITE_API_URL,
+  API_BASE_URL: API_BASE_URL,
+  NODE_ENV: import.meta.env.NODE_ENV
+});
 
 // Create axios instance with base configuration
 const api = axios.create({
@@ -20,6 +25,17 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
+    
+    // Debug logging for admin dashboard requests
+    if (config.url.includes('admin/dashboard/stats')) {
+      console.log('🚀 Making dashboard stats request:', {
+        url: config.url,
+        baseURL: config.baseURL,
+        fullURL: config.baseURL + config.url,
+        hasToken: !!token
+      });
+    }
+    
     return config
   },
   (error) => {
