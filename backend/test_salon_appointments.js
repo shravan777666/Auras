@@ -90,7 +90,7 @@ const testSalonAppointments = async () => {
     
     // Verify the appointment appears in salon's appointments
     const updatedAppointments = await Appointment.find({ salonId: salon._id })
-      .populate('customerId', 'name email contactNumber')
+      .populate('customerId', 'name email')
       .populate('staffId', 'name skills')
       .populate('services.serviceId', 'name price duration')
       .sort({ createdAt: -1 });
@@ -114,7 +114,7 @@ const testSalonAppointments = async () => {
     // Test the salon appointments API endpoint data structure
     console.log('🔍 Testing salon appointments API endpoint data structure...');
     const apiAppointments = await Appointment.find({ salonId: salon._id })
-      .populate('customerId', 'name email contactNumber')
+      .populate('customerId', 'name email')
       .populate('staffId', 'name skills')
       .populate('services.serviceId', 'name price duration')
       .sort({ createdAt: -1 })

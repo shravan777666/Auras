@@ -30,6 +30,7 @@ const CustomerDashboard = () => {
   const [salonsLoading, setSalonsLoading] = useState(false)
   const [pendingAppointments, setPendingAppointments] = useState([])
   const [pendingLoading, setPendingLoading] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState(null)
 
   useEffect(() => {
     fetchDashboardData()
@@ -112,9 +113,14 @@ const CustomerDashboard = () => {
   const fetchPendingAppointments = async () => {
     try {
       setPendingLoading(true)
-      const response = await customerService.getPendingAppointments({ limit: 5 })
+      const response = await customerService.getPendingAppointments({ limit: 10 }) // Increased limit
       if (response.success) {
         setPendingAppointments(response.data || [])
+        setLastUpdated(new Date())
+        console.log(`Fetched ${response.data?.length || 0} pending appointments for customer`)
+      } else {
+        console.warn('Failed to fetch pending appointments:', response?.message)
+        setPendingAppointments([])
       }
     } catch (error) {
       console.error('Error fetching pending appointments:', error)
@@ -249,11 +255,28 @@ const CustomerDashboard = () => {
         {/* Pending Approvals */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-gray-900">Pending Approvals</h2>
-            <Link to="/customer/my-bookings" className="text-sm text-primary-600 hover:text-primary-500 flex items-center">
-              View all bookings
-              <ArrowRight className="h-4 w-4 ml-1" />
-            </Link>
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">Pending Approvals</h2>
+              {lastUpdated && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Last updated: {lastUpdated.toLocaleTimeString()}
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={fetchPendingAppointments}
+                disabled={pendingLoading}
+                className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+              >
+                <Clock className="h-4 w-4" />
+                {pendingLoading ? 'Refreshing...' : 'Refresh'}
+              </button>
+              <Link to="/customer/my-bookings" className="text-sm text-primary-600 hover:text-primary-500 flex items-center">
+                View all bookings
+                <ArrowRight className="h-4 w-4 ml-1" />
+              </Link>
+            </div>
           </div>
           
           {pendingLoading ? (

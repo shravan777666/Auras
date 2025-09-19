@@ -76,6 +76,16 @@ export const register = async (req, res) => {
       });
     }
 
+    // If customer user, also create customer profile
+    if (userType === 'customer') {
+      const Customer = (await import('../models/Customer.js')).default;
+      await Customer.create({
+        _id: user._id,
+        name,
+        email,
+      });
+    }
+
     const token = signToken(user);
 
     const safeUser = {

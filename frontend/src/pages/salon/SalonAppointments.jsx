@@ -11,7 +11,6 @@ import {
   XCircle,
   AlertCircle,
   MoreHorizontal,
-  Phone,
   Mail,
   MapPin,
   Filter,
@@ -218,8 +217,7 @@ const SalonAppointments = () => {
           <div className="space-y-4">
             {filteredAppointments.map((appointment) => {
               const customerName = appointment.customerId?.name || 'Unknown Customer';
-              const customerEmail = appointment.customerId?.email || '';
-              const customerPhone = appointment.customerId?.contactNumber || '';
+              const customerEmail = appointment.customerId?.email || 'No email';
               const services = appointment.services || [];
               const staffName = appointment.staffId?.name || 'Not Assigned';
               
@@ -248,13 +246,9 @@ const SalonAppointments = () => {
                           <User className="h-4 w-4 mr-2" />
                           <span>{staffName}</span>
                         </div>
-                        <div className="flex items-center text-sm text-gray-600">
-                          <Phone className="h-4 w-4 mr-2" />
-                          <span>{customerPhone || 'No phone'}</span>
-                        </div>
                       </div>
 
-                      {customerEmail && (
+                      {customerEmail && customerEmail !== 'No email' && (
                         <div className="flex items-center text-sm text-gray-600 mb-4">
                           <Mail className="h-4 w-4 mr-2" />
                           <span>{customerEmail}</span>

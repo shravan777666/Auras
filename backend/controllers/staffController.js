@@ -470,7 +470,7 @@ export const getAppointments = asyncHandler(async (req, res) => {
 
   const [appointments, totalAppointments] = await Promise.all([
     Appointment.find(filter)
-      .populate('customerId', 'name email contactNumber')
+      .populate('customerId', 'name email')
       .populate('salonId', 'salonName')
       .populate('services.serviceId', 'name price duration')
       .skip(skip)
@@ -539,7 +539,7 @@ export const getTodaySchedule = asyncHandler(async (req, res) => {
     },
     status: { $in: ['Confirmed', 'In-Progress', 'Pending'] }
   })
-  .populate('customerId', 'name contactNumber')
+  .populate('customerId', 'name email')
   .populate('services.serviceId', 'name duration')
   .sort({ appointmentTime: 1 });
 

@@ -50,6 +50,7 @@ const SalonDashboard = () => {
   const [loadingAppointments, setLoadingAppointments] = useState(false);
   const [reviews, setReviews] = useState([]);
   const [isAddServiceModalOpen, setIsAddServiceModalOpen] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   const handleServiceAdded = () => {
     fetchDashboardData();
@@ -74,17 +75,26 @@ const SalonDashboard = () => {
   const fetchPendingAppointments = async () => {
     try {
       setLoadingAppointments(true);
+      console.log('Fetching pending appointments...');
+      
       // Fetch only pending appointments for the current salon
       const res = await salonService.getAppointments({ 
         page: 1, 
-        limit: 10, 
+        limit: 20, // Increased limit to show more appointments
         status: 'Pending' 
       });
+      
+      console.log('Appointments API response:', res);
+      
       if (res && res.success) {
         // Filter appointments to ensure they belong to this salon
         const pendingAppointments = res.data || [];
         setUpcoming(pendingAppointments);
-        console.log(`Fetched ${pendingAppointments.length} pending appointments for salon`);
+        setLastUpdated(new Date());
+        console.log(`Fetched ${pendingAppointments.length} pending appointments for salon:`, pendingAppointments);
+      } else {
+        console.warn('Failed to fetch pending appointments:', res?.message);
+        setUpcoming([]);
       }
     } catch (error) {
       console.error('Error fetching pending appointments:', error);
@@ -326,7 +336,14 @@ const SalonDashboard = () => {
       {/* Upcoming Appointments */}
       <div className="bg-white p-6 rounded-lg shadow-md mb-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">Pending Appointments</h2>
+          <div>
+            <h2 className="text-xl font-semibold">Pending Appointments</h2>
+            {lastUpdated && (
+              <p className="text-xs text-gray-500 mt-1">
+                Last updated: {lastUpdated.toLocaleTimeString()}
+              </p>
+            )}
+          </div>
           <div className="flex gap-2">
             <button
               onClick={fetchPendingAppointments}
@@ -352,19 +369,40 @@ const SalonDashboard = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Services</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date & Time</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer Name</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Service</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Appointment Date & Time</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {(upcoming || []).map((appt) => {
-                const customerName = appt.customerId?.name || 'Unknown Customer';
-                const customerEmail = appt.customerId?.email || 'No email';
-                const customerPhone = appt.customerId?.contactNumber || 'No phone';
+                // Debug logging to see the actual data structure
+                console.log('Appointment data:', appt);
+                console.log('Customer data:', appt.customerId);
+                
+                // Handle populated customer data from backend
+                let customerName = 'Unknown Customer';
+                let customerEmail = 'No email';
+                
+                if (appt.customerId) {
+                  if (typeof appt.customerId === 'object' && appt.customerId.name) {
+                    // Customer data is populated by backend
+                    customerName = appt.customerId.name;
+                    customerEmail = appt.customerId.email || 'No email';
+                  } else if (typeof appt.customerId === 'string') {
+                    // Fallback if customer data is not populated
+                    customerName = `Customer ID: ${appt.customerId.slice(-6)}`;
+                    customerEmail = 'No email';
+                  } else {
+                    // Handle null or undefined customerId
+                    customerName = 'Unknown Customer';
+                    customerEmail = 'No email';
+                  }
+                }
+                
                 const services = appt.services || [];
                 const appointmentDate = appt.appointmentDate ? new Date(appt.appointmentDate).toLocaleDateString() : 'N/A';
                 const appointmentTime = appt.appointmentTime || 'N/A';
@@ -378,15 +416,11 @@ const SalonDashboard = () => {
                     <td className="px-4 py-3">
                       <div className="text-sm">
                         <div className="font-medium text-gray-900">{customerName}</div>
-                        <div className="text-gray-500 text-xs">{customerEmail}</div>
                         <div className="text-gray-500 text-xs">ID: {bookingId.slice(-6)}</div>
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="text-sm">
-                        <div className="text-gray-900">{customerPhone}</div>
-                        <div className="text-gray-500 text-xs">{customerEmail}</div>
-                      </div>
+                      <div className="text-sm text-gray-900">{customerEmail}</div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="text-sm">
@@ -455,8 +489,8 @@ const SalonDashboard = () => {
         {/* Show count of pending appointments */}
         {upcoming && upcoming.length > 0 && (
           <div className="mt-4 text-sm text-gray-600 flex items-center justify-between">
-            <span>Showing {Math.min(upcoming.length, 10)} pending appointment{upcoming.length !== 1 ? 's' : ''}</span>
-            {upcoming.length >= 10 && (
+            <span>Showing {Math.min(upcoming.length, 20)} pending appointment{upcoming.length !== 1 ? 's' : ''}</span>
+            {upcoming.length >= 20 && (
               <span className="text-indigo-600 font-medium">View all to see more</span>
             )}
           </div>

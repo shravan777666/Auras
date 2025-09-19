@@ -669,11 +669,31 @@ export const removeStaff = asyncHandler(async (req, res) => {
 
 // Get salon appointments
 export const getAppointments = asyncHandler(async (req, res) => {
-  const salonId = req.user.id;
+  const userId = req.user.id;
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
   const skip = (page - 1) * limit;
 
+  // Get user record to find salon
+  const User = (await import('../models/User.js')).default;
+  const user = await User.findById(userId);
+  
+  if (!user) {
+    return notFoundResponse(res, 'Salon user');
+  }
+  
+  if (user.type !== 'salon') {
+    return errorResponse(res, 'Access denied: Only salon owners can access appointments', 403);
+  }
+
+  // Find salon by email
+  const salon = await Salon.findOne({ email: user.email });
+  
+  if (!salon) {
+    return notFoundResponse(res, 'Salon profile');
+  }
+
+  const salonId = salon._id;
   const filter = { salonId };
 
   if (req.query.status) {
@@ -688,9 +708,11 @@ export const getAppointments = asyncHandler(async (req, res) => {
     };
   }
 
+  console.log('Fetching appointments with filter:', filter);
+
   const [appointments, totalAppointments] = await Promise.all([
     Appointment.find(filter)
-      .populate('customerId', 'name email contactNumber')
+      .populate('customerId', 'name email')
       .populate('staffId', 'name skills')
       .populate('services.serviceId', 'name price duration')
       .skip(skip)
@@ -698,6 +720,14 @@ export const getAppointments = asyncHandler(async (req, res) => {
       .sort({ appointmentDate: -1, appointmentTime: -1 }),
     Appointment.countDocuments(filter)
   ]);
+
+  console.log(`Found ${appointments.length} appointments for salon ${salonId}`);
+  
+  // Debug: Log the first appointment to see the populated data structure
+  if (appointments.length > 0) {
+    console.log('Sample appointment data:', JSON.stringify(appointments[0], null, 2));
+    console.log('Customer data in first appointment:', appointments[0].customerId);
+  }
 
   const totalPages = Math.ceil(totalAppointments / limit);
 

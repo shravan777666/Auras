@@ -18,7 +18,14 @@ export const bookAppointment = asyncHandler(async (req, res) => {
     console.log('Booking appointment request:', req.body);
     console.log('User:', req.user);
     
-    const customerId = req.user.id;
+    const userId = req.user.id;
+
+    // Find customer profile
+    const customerProfile = await Customer.findById(userId);
+    if (!customerProfile) {
+      return errorResponse(res, 'Customer profile not found', 404);
+    }
+    const customerId = customerProfile._id;
     const {
       salonId,
       services,
@@ -149,10 +156,10 @@ export const bookAppointment = asyncHandler(async (req, res) => {
   await appointment.save();
 
   // Update customer booking stats
-  const customer = await Customer.findById(customerId);
-  if (customer) {
-    customer.totalBookings = (customer.totalBookings || 0) + 1;
-    await customer.save();
+  const customerToUpdate = await Customer.findById(customerId);
+  if (customerToUpdate) {
+    customerToUpdate.totalBookings = (customerToUpdate.totalBookings || 0) + 1;
+    await customerToUpdate.save();
   }
 
   // Check if it's first visit to this salon
@@ -178,8 +185,8 @@ export const bookAppointment = asyncHandler(async (req, res) => {
     };
 
     await sendAppointmentConfirmation(
-      customer.email,
-      customer.name,
+      customerProfile.email,
+      customerProfile.name,
       appointmentDetails
     );
   } catch (emailError) {
@@ -223,7 +230,7 @@ export const getAppointmentDetails = asyncHandler(async (req, res) => {
   }
 
   const appointment = await Appointment.findOne(filter)
-    .populate('customerId', 'name email contactNumber')
+    .populate('customerId', 'name email')
     .populate('salonId', 'salonName salonAddress contactNumber businessHours')
     .populate('staffId', 'name skills contactNumber')
     .populate('services.serviceId', 'name description category price duration');

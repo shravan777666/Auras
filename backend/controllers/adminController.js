@@ -627,7 +627,7 @@ export const getAllAppointments = asyncHandler(async (req, res) => {
 
   const [appointments, totalAppointments] = await Promise.all([
     Appointment.find(filter)
-      .populate('customerId', 'name email contactNumber')
+      .populate('customerId', 'name email')
       .populate('salonId', 'salonName ownerName')
       .populate('staffId', 'name skills')
       .populate('services.serviceId', 'name category')
