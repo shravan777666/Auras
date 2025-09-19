@@ -14,16 +14,29 @@ import {
 
 // Book new appointment
 export const bookAppointment = asyncHandler(async (req, res) => {
-  const customerId = req.user.id;
-  const {
-    salonId,
-    services,
-    appointmentDate,
-    appointmentTime,
-    staffId,
-    customerNotes,
-    specialRequests
-  } = req.body;
+  try {
+    console.log('Booking appointment request:', req.body);
+    console.log('User:', req.user);
+    
+    const customerId = req.user.id;
+    const {
+      salonId,
+      services,
+      appointmentDate,
+      appointmentTime,
+      staffId,
+      customerNotes,
+      specialRequests
+    } = req.body;
+
+    // Validate required fields
+    if (!salonId || !services || !appointmentDate || !appointmentTime) {
+      return errorResponse(res, 'Missing required fields: salonId, services, appointmentDate, appointmentTime', 400);
+    }
+
+    if (!Array.isArray(services) || services.length === 0) {
+      return errorResponse(res, 'At least one service must be selected', 400);
+    }
 
   // Verify salon exists and is active
   const salon = await Salon.findOne({ _id: salonId, isActive: true });
@@ -50,14 +63,21 @@ export const bookAppointment = asyncHandler(async (req, res) => {
 
   for (const service of services) {
     const serviceRecord = serviceRecords.find(s => s._id.toString() === service.serviceId);
-    totalDuration += serviceRecord.duration;
-    totalAmount += serviceRecord.discountedPrice;
+    const durationMinutes = Number(serviceRecord.duration) || 0;
+    const unitPrice = (
+      serviceRecord.discountedPrice !== undefined && serviceRecord.discountedPrice !== null
+        ? Number(serviceRecord.discountedPrice)
+        : Number(serviceRecord.price)
+    ) || 0;
+
+    totalDuration += durationMinutes;
+    totalAmount += unitPrice;
 
     serviceDetails.push({
       serviceId: service.serviceId,
       serviceName: serviceRecord.name,
-      price: serviceRecord.discountedPrice,
-      duration: serviceRecord.duration
+      price: unitPrice,
+      duration: durationMinutes
     });
   }
 
@@ -118,8 +138,8 @@ export const bookAppointment = asyncHandler(async (req, res) => {
     appointmentDate: new Date(appointmentDate),
     appointmentTime,
     estimatedDuration: totalDuration,
-    totalAmount,
-    finalAmount: totalAmount,
+    totalAmount: Number(totalAmount) || 0,
+    finalAmount: Number(totalAmount) || 0,
     customerNotes,
     specialRequests,
     status: 'Pending',
@@ -130,7 +150,10 @@ export const bookAppointment = asyncHandler(async (req, res) => {
 
   // Update customer booking stats
   const customer = await Customer.findById(customerId);
-  customer.totalBookings += 1;
+  if (customer) {
+    customer.totalBookings = (customer.totalBookings || 0) + 1;
+    await customer.save();
+  }
 
   // Check if it's first visit to this salon
   const previousBookings = await Appointment.countDocuments({
@@ -144,22 +167,25 @@ export const bookAppointment = asyncHandler(async (req, res) => {
     await appointment.save();
   }
 
-  await customer.save();
+  // Send confirmation email (optional - don't fail if email fails)
+  try {
+    const appointmentDetails = {
+      salonName: salon.salonName,
+      date: appointmentDate,
+      time: appointmentTime,
+      services: serviceDetails.map(s => s.serviceName),
+      totalAmount
+    };
 
-  // Send confirmation email
-  const appointmentDetails = {
-    salonName: salon.salonName,
-    date: appointmentDate,
-    time: appointmentTime,
-    services: serviceDetails.map(s => s.serviceName),
-    totalAmount
-  };
-
-  await sendAppointmentConfirmation(
-    customer.email,
-    customer.name,
-    appointmentDetails
-  );
+    await sendAppointmentConfirmation(
+      customer.email,
+      customer.name,
+      appointmentDetails
+    );
+  } catch (emailError) {
+    console.error('Failed to send confirmation email:', emailError);
+    // Don't fail the appointment booking if email fails
+  }
 
   // Populate appointment for response
   const populatedAppointment = await Appointment.findById(appointment._id)
@@ -167,7 +193,11 @@ export const bookAppointment = asyncHandler(async (req, res) => {
     .populate('staffId', 'name skills')
     .populate('services.serviceId', 'name category');
 
-  return successResponse(res, populatedAppointment, 'Appointment booked successfully! Confirmation email sent.', 201);
+    return successResponse(res, populatedAppointment, 'Appointment booked successfully! Confirmation email sent.', 201);
+  } catch (error) {
+    console.error('Error booking appointment:', error);
+    return errorResponse(res, `Failed to book appointment: ${error.message}`, 500);
+  }
 });
 
 // Get appointment details

@@ -2,6 +2,7 @@ import React, { Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
 import LoadingSpinner from './components/common/LoadingSpinner'
+import ErrorBoundary from './components/common/ErrorBoundary'
 
 // Lazy load components for better performance
 const Home = React.lazy(() => import('./pages/common/Home'))
@@ -27,6 +28,7 @@ const EditSalonProfile = React.lazy(() => import('./pages/salon/EditSalonProfile
 const AddStaff = React.lazy(() => import('./pages/salon/AddStaff'))
 const ManageStaff = React.lazy(() => import('./pages/salon/ManageStaff'))
 const ManageServices = React.lazy(() => import('./pages/salon/ManageServices'))
+const SalonAppointments = React.lazy(() => import('./pages/salon/SalonAppointments'))
 
 // Staff Pages
 const StaffDashboard = React.lazy(() => import('./pages/staff/StaffDashboard'))
@@ -37,6 +39,7 @@ const StaffWaitingApproval = React.lazy(() => import('./pages/staff/StaffWaiting
 const CustomerDashboard = React.lazy(() => import('./pages/customer/CustomerDashboard'))
 const BookAppointment = React.lazy(() => import('./pages/customer/BookAppointment'))
 const SalonDetails = React.lazy(() => import('./pages/customer/SalonDetails'))
+const MyBookings = React.lazy(() => import('./pages/customer/MyBookings'))
 
 // Common Pages
 const About = React.lazy(() => import('./pages/common/About'))
@@ -136,6 +139,7 @@ const SetupRequiredRoute = ({ children, setupPath }) => {
 function App() {
   return (
     <div className="min-h-screen bg-gray-50">
+      <ErrorBoundary>
       <Suspense fallback={<LoadingSpinner />}>
         <Routes>
           {/* Public Routes */}
@@ -238,6 +242,16 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/salon/appointments"
+            element={
+              <ProtectedRoute allowedRoles={['salon']}>
+                <SetupRequiredRoute setupPath="/salon/setup">
+                  <SalonAppointments />
+                </SetupRequiredRoute>
+              </ProtectedRoute>
+            }
+          />
 
           {/* Staff Routes */}
           <Route
@@ -271,10 +285,26 @@ function App() {
             }
           />
           <Route
+            path="/customer/book-appointment/:salonId"
+            element={
+              <ProtectedRoute allowedRoles={['customer']}>
+                <BookAppointment />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/customer/salon/:salonId"
             element={
               <ProtectedRoute allowedRoles={['customer']}>
                 <SalonDetails />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/customer/my-bookings"
+            element={
+              <ProtectedRoute allowedRoles={['customer']}>
+                <MyBookings />
               </ProtectedRoute>
             }
           />
@@ -283,6 +313,7 @@ function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
+      </ErrorBoundary>
     </div>
   )
 }

@@ -71,4 +71,18 @@ export const salonService = {
     const response = await api.get(`/salon/services?${params.toString()}`);
     return response.data;
   },
+
+  async getServiceCatalog(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    const response = await api.get(`/service/catalog${query ? `?${query}` : ''}`);
+    return response.data;
+  },
+
+  async updateAppointmentStatus(appointmentId, status, salonNotes = '') {
+    const response = await api.patch(`/salon/appointments/${appointmentId}/status`, {
+      status,
+      salonNotes
+    });
+    return response.data;
+  },
 };

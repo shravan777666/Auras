@@ -12,44 +12,63 @@ import {
 
 // Get customer dashboard
 export const getDashboard = asyncHandler(async (req, res) => {
-  const customerId = req.user.id;
+  const customerId = req.user?.id;
+  try {
+    if (!customerId) {
+      return successResponse(res, {
+        customerInfo: null,
+        statistics: { totalBookings: 0, upcomingBookings: 0, completedBookings: 0 },
+        favoriteServices: [],
+        recentBookings: []
+      }, 'No customer ID in token; returning empty dashboard');
+    }
 
-  const [
-    customerInfo,
-    totalBookings,
-    upcomingBookings,
-    completedBookings,
-    favoriteServices,
-    recentBookings
-  ] = await Promise.all([
-    Customer.findById(customerId),
-    Appointment.countDocuments({ customerId }),
-    Appointment.countDocuments({ 
-      customerId,
-      status: { $in: ['Pending', 'Confirmed'] },
-      appointmentDate: { $gte: new Date() }
-    }),
-    Appointment.countDocuments({ customerId, status: 'Completed' }),
-    Service.find({ 
-      _id: { $in: customerInfo?.preferences?.favoriteServices || [] }
-    }).limit(5),
-    Appointment.find({ customerId })
-      .populate('salonId', 'salonName')
-      .populate('services.serviceId', 'name')
-      .sort({ createdAt: -1 })
-      .limit(5)
-  ]);
+    const customerInfo = await Customer.findById(customerId).lean();
 
-  return successResponse(res, {
-    customerInfo,
-    statistics: {
+    const [
       totalBookings,
       upcomingBookings,
-      completedBookings
-    },
-    favoriteServices,
-    recentBookings
-  }, 'Dashboard data retrieved successfully');
+      completedBookings,
+      favoriteServices,
+      recentBookings
+    ] = await Promise.all([
+      Appointment.countDocuments({ customerId }),
+      Appointment.countDocuments({ 
+        customerId,
+        status: { $in: ['Pending', 'Confirmed'] },
+        appointmentDate: { $gte: new Date() }
+      }),
+      Appointment.countDocuments({ customerId, status: 'Completed' }),
+      Service.find({ 
+        _id: { $in: (customerInfo?.preferences?.favoriteServices || []).filter(Boolean) }
+      }).select('name category').limit(5).lean(),
+      Appointment.find({ customerId })
+        .populate('salonId', 'salonName')
+        .populate('services.serviceId', 'name')
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .lean()
+    ]);
+
+    return successResponse(res, {
+      customerInfo,
+      statistics: {
+        totalBookings: Number(totalBookings) || 0,
+        upcomingBookings: Number(upcomingBookings) || 0,
+        completedBookings: Number(completedBookings) || 0
+      },
+      favoriteServices: Array.isArray(favoriteServices) ? favoriteServices : [],
+      recentBookings: Array.isArray(recentBookings) ? recentBookings : []
+    }, 'Dashboard data retrieved successfully');
+  } catch (error) {
+    console.error('Customer dashboard error:', { error: error?.message, stack: error?.stack, user: req.user });
+    return successResponse(res, {
+      customerInfo: null,
+      statistics: { totalBookings: 0, upcomingBookings: 0, completedBookings: 0 },
+      favoriteServices: [],
+      recentBookings: []
+    }, 'Dashboard data fallback due to server error');
+  }
 });
 
 // Get customer profile
@@ -96,7 +115,7 @@ export const browseSalons = asyncHandler(async (req, res) => {
   const limit = parseInt(req.query.limit) || 12;
   const skip = (page - 1) * limit;
 
-  const filter = { isActive: true, setupCompleted: true };
+  const filter = { isActive: true, setupCompleted: true, approvalStatus: 'approved' };
 
   // Location filter
   if (req.query.city) {
@@ -123,7 +142,7 @@ export const browseSalons = asyncHandler(async (req, res) => {
   const [salons, totalSalons] = await Promise.all([
     Salon.find(filter)
       .populate('services', 'name category price')
-      .select('salonName salonAddress description businessHours rating salonImages')
+      .select('salonName salonAddress contactNumber description businessHours rating documents services')
       .skip(skip)
       .limit(limit)
       .sort({ 'rating.average': -1, createdAt: -1 }),

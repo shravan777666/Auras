@@ -2,7 +2,7 @@ import axios from 'axios'
 import toast from 'react-hot-toast'
 
 // Base API configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5010/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5005/api';
 console.log('🔧 API Configuration:', {
   VITE_API_URL: import.meta.env.VITE_API_URL,
   API_BASE_URL: API_BASE_URL,

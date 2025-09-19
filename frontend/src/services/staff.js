@@ -7,7 +7,10 @@ export const staffService = {
   },
 
   async createStaff(staffData) {
-    const response = await api.post('/staff/create', staffData);
+    const isFormData = typeof FormData !== 'undefined' && staffData instanceof FormData;
+    const response = await api.post('/staff/create', staffData, {
+      headers: isFormData ? { 'Content-Type': 'multipart/form-data' } : undefined,
+    });
     return response.data;
   },
 

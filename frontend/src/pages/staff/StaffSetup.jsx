@@ -55,8 +55,7 @@ const StaffSetup = () => {
 
   const [files, setFiles] = useState({
     profilePicture: null,
-    governmentId: null,
-    certificates: []
+    governmentId: null
   });
 
   const steps = [
@@ -125,18 +124,10 @@ const StaffSetup = () => {
   const handleFileChange = (e, fileType) => {
     const file = e.target.files[0];
     if (file) {
-      if (fileType === 'certificates') {
-        setFiles({ ...files, certificates: [...files.certificates, file] });
-      } else {
-        setFiles({ ...files, [fileType]: file });
-      }
+      setFiles({ ...files, [fileType]: file });
     }
   };
-
-  const removeCertificate = (index) => {
-    const updatedCertificates = files.certificates.filter((_, i) => i !== index);
-    setFiles({ ...files, certificates: updatedCertificates });
-  };
+  
 
   const validateStep = (step) => {
     switch (step) {
@@ -195,11 +186,7 @@ const StaffSetup = () => {
       if (files.governmentId) {
         formData.append('governmentId', files.governmentId);
       }
-      if (files.certificates && files.certificates.length > 0) {
-        files.certificates.forEach((cert, index) => {
-          formData.append('certificates', cert);
-        });
-      }
+      // Certificates removed per requirements
 
       const { staffService } = await import('../../services/staff');
       const response = await staffService.setup(formData);
@@ -331,20 +318,7 @@ const StaffSetup = () => {
                 onChange={(e) => handleFileChange(e, 'governmentId')} />
             </div>
 
-            <div>
-              <label>Certificates</label>
-              <input type="file" multiple
-                onChange={(e) => handleFileChange(e, 'certificates')} />
-              <ul className="mt-2 space-y-1">
-                {files.certificates.map((file, idx) => (
-                  <li key={idx} className="flex justify-between items-center">
-                    {file.name}
-                    <button type="button" onClick={() => removeCertificate(idx)}
-                      className="text-red-500 text-sm">Remove</button>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            {/* Certificates field removed */}
           </div>
         );
 

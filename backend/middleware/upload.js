@@ -10,7 +10,7 @@ const storage = multer.diskStorage({
       uploadPath += 'licenses/';
     } else if (file.fieldname === 'salonLogo' || file.fieldname === 'salonImages') {
       uploadPath += 'images/';
-    } else if (file.fieldname === 'profilePicture' || file.fieldname === 'governmentId' || file.fieldname === 'certificates') {
+    } else if (file.fieldname === 'profilePicture' || file.fieldname === 'governmentId') {
       uploadPath += 'staff/';
     }
     cb(null, uploadPath);
@@ -48,8 +48,6 @@ const upload = multer({
       checkFileType(file, cb, /jpeg|jpg|png/, 5 * 1024 * 1024, 'Profile Picture');
     } else if (file.fieldname === 'governmentId') {
       checkFileType(file, cb, /jpeg|jpg|png|pdf/, 5 * 1024 * 1024, 'Government ID');
-    } else if (file.fieldname === 'certificates') {
-      checkFileType(file, cb, /jpeg|jpg|png|pdf/, 5 * 1024 * 1024, 'Certificate');
     } else {
       cb(new Error('Unknown field name'));
     }

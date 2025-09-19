@@ -301,6 +301,24 @@ export const searchServices = asyncHandler(async (req, res) => {
   });
 });
 
+// Predefined catalog for salon owners to add from (fallback if not using DB seed)
+export const getServiceCatalog = asyncHandler(async (req, res) => {
+  // If you later seed a catalog collection, fetch from DB here
+  const catalog = [
+    { name: 'Haircut', category: 'Hair', description: 'Professional haircut and styling', price: 499 },
+    { name: 'Hair Color', category: 'Hair', description: 'Single process hair coloring', price: 1499 },
+    { name: 'Keratin Treatment', category: 'Hair', description: 'Smoothening and frizz control treatment', price: 2999 },
+    { name: 'Facial', category: 'Skin', description: 'Deep cleansing and rejuvenation facial', price: 999 },
+    { name: 'Bridal Makeup', category: 'Makeup', description: 'Full bridal makeup package', price: 6999 },
+    { name: 'Manicure', category: 'Nails', description: 'Classic manicure with polish', price: 399 },
+    { name: 'Pedicure', category: 'Nails', description: 'Classic pedicure with polish', price: 499 },
+    { name: 'Massage', category: 'Body', description: 'Relaxing full body massage', price: 1499 },
+  ];
+  const { category } = req.query;
+  const result = category ? catalog.filter(i => i.category.toLowerCase() === String(category).toLowerCase()) : catalog;
+  return successResponse(res, result, 'Service catalog retrieved successfully');
+});
+
 export default {
   createService,
   getSalonServices,
@@ -310,5 +328,6 @@ export default {
   assignStaff,
   getCategories,
   getPopularServices,
-  searchServices
+  searchServices,
+  getServiceCatalog
 };

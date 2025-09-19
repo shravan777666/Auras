@@ -462,14 +462,36 @@ export const getSalonStaff = asyncHandler(async (req, res) => {
     return notFoundResponse(res, 'Salon user');
   }
 
-  // Find salon by email and populate staff
-  const salon = await Salon.findOne({ email: user.email }).populate('staff', 'name email skills employmentStatus');
-
+  // Find salon by email and then fetch staff with full details
+  const salon = await Salon.findOne({ email: user.email });
   if (!salon) {
     return notFoundResponse(res, 'Salon profile');
   }
 
-  return successResponse(res, salon.staff, 'Salon staff retrieved successfully');
+  const staffDocs = await Staff.find({ assignedSalon: salon._id })
+    .populate('user', 'name email')
+    .select('name email contactNumber position skills experience specialization dateOfBirth gender address approvalStatus employmentStatus isActive createdAt documents profilePicture profileImageUrl certifications')
+    .lean();
+
+  const staff = staffDocs.map(s => {
+    const documents = {
+      governmentId: s.documents?.governmentId || null,
+      certificates: s.documents?.certificates || s.certifications || []
+    };
+    const profilePicture = s.profilePicture || s.profileImageUrl || null;
+    return {
+      ...s,
+      name: s.name || s.user?.name || 'Unknown',
+      email: s.email || s.user?.email || 'Unknown',
+      documents: {
+        governmentId: documents.governmentId ? getFileUrl(documents.governmentId) : null,
+        certificates: Array.isArray(documents.certificates) ? documents.certificates.map(p => getFileUrl(p)) : []
+      },
+      profilePicture: profilePicture ? getFileUrl(profilePicture) : null
+    };
+  });
+
+  return successResponse(res, staff, 'Salon staff retrieved successfully');
 });
 
 export const addService = asyncHandler(async (req, res) => {
@@ -702,7 +724,7 @@ export const updateAppointmentStatus = asyncHandler(async (req, res) => {
     return notFoundResponse(res, 'Appointment');
   }
 
-  await appointment.updateStatus(status, 'Salon');
+  await appointment.updateStatus(status);
 
   if (salonNotes) {
     appointment.salonNotes = salonNotes;

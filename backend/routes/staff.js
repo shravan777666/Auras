@@ -19,7 +19,16 @@ const router = express.Router();
 
 // Public routes
 router.post('/register', register);
-router.post('/create', requireSalonOwner, createStaff);
+router.post(
+  '/create',
+  requireSalonOwner,
+  upload.fields([
+    { name: 'profilePicture', maxCount: 1 },
+    { name: 'governmentId', maxCount: 1 }
+  ]),
+  validateStaffSetup,
+  createStaff
+);
 
 // All routes below require staff authentication
 router.use(requireStaff);
@@ -29,8 +38,7 @@ router.use(requireStaff);
 // Setup (no setup completion required)
 router.post('/setup', upload.fields([
   { name: 'profilePicture', maxCount: 1 },
-  { name: 'governmentId', maxCount: 1 },
-  { name: 'certificates', maxCount: 10 }
+  { name: 'governmentId', maxCount: 1 }
 ]), validateStaffSetup, setupProfile);
 
 // Routes that require completed setup

@@ -47,6 +47,7 @@ const SalonDashboard = () => {
   const [error, setError] = useState(null);
   const [showWelcome, setShowWelcome] = useState(false);
   const [upcoming, setUpcoming] = useState([]);
+  const [loadingAppointments, setLoadingAppointments] = useState(false);
   const [reviews, setReviews] = useState([]);
   const [isAddServiceModalOpen, setIsAddServiceModalOpen] = useState(false);
 
@@ -70,6 +71,30 @@ const SalonDashboard = () => {
     }
   };
 
+  const fetchPendingAppointments = async () => {
+    try {
+      setLoadingAppointments(true);
+      // Fetch only pending appointments for the current salon
+      const res = await salonService.getAppointments({ 
+        page: 1, 
+        limit: 10, 
+        status: 'Pending' 
+      });
+      if (res && res.success) {
+        // Filter appointments to ensure they belong to this salon
+        const pendingAppointments = res.data || [];
+        setUpcoming(pendingAppointments);
+        console.log(`Fetched ${pendingAppointments.length} pending appointments for salon`);
+      }
+    } catch (error) {
+      console.error('Error fetching pending appointments:', error);
+      toast.error('Failed to fetch pending appointments');
+      setUpcoming([]);
+    } finally {
+      setLoadingAppointments(false);
+    }
+  };
+
   useEffect(() => {
     // Check if coming from setup completion
     if (location.state?.fromSetup) {
@@ -84,19 +109,16 @@ const SalonDashboard = () => {
     fetchDashboardData();
   }, []);
 
-  // Fetch a few upcoming appointments preview
+  // Fetch pending appointments for upcoming section with auto-refresh
   useEffect(() => {
-    const fetchUpcoming = async () => {
-      try {
-        const res = await salonService.getAppointments({ page: 1, limit: 5 });
-        if (res && res.success) {
-          setUpcoming(res.data || []);
-        }
-      } catch (_) {
-        // ignore preview errors
-      }
-    };
-    fetchUpcoming();
+    fetchPendingAppointments();
+    
+    // Set up auto-refresh every 30 seconds for live data
+    const refreshInterval = setInterval(() => {
+      fetchPendingAppointments();
+    }, 30000);
+    
+    return () => clearInterval(refreshInterval);
   }, []);
 
   // Placeholder recent reviews (since API not provided)
@@ -304,51 +326,141 @@ const SalonDashboard = () => {
       {/* Upcoming Appointments */}
       <div className="bg-white p-6 rounded-lg shadow-md mb-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">Upcoming Appointments</h2>
-          <button
-            onClick={() => navigate('/salon/appointments')}
-            className="px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg"
-          >
-            View All
-          </button>
+          <h2 className="text-xl font-semibold">Pending Appointments</h2>
+          <div className="flex gap-2">
+            <button
+              onClick={fetchPendingAppointments}
+              disabled={loadingAppointments}
+              className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loadingAppointments ? 'Refreshing...' : 'Refresh'}
+            </button>
+            <button
+              onClick={() => navigate('/salon/appointments')}
+              className="px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg"
+            >
+              View All
+            </button>
+          </div>
         </div>
         <div className="overflow-x-auto">
+          {loadingAppointments && (
+            <div className="flex justify-center py-4">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
+            </div>
+          )}
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Service</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Services</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date & Time</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {(upcoming || []).slice(0, 5).map((appt) => (
-                <tr key={appt._id}>
-                  <td className="px-4 py-3 text-sm text-gray-700">{appt.customerId?.name || '—'}</td>
-                  <td className="px-4 py-3 text-sm text-gray-700">{appt.services?.[0]?.serviceId?.name || '—'}</td>
-                  <td className="px-4 py-3 text-sm text-gray-700">{new Date(appt.appointmentDate).toLocaleDateString()}</td>
-                  <td className="px-4 py-3 text-sm text-gray-700">{appt.appointmentTime || '—'}</td>
-                  <td className="px-4 py-3 text-sm">
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      appt.status === 'Completed' ? 'bg-green-100 text-green-700' :
-                      appt.status === 'Pending' ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-blue-100 text-blue-700'
-                    }`}>
-                      {appt.status || 'Scheduled'}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {(upcoming || []).map((appt) => {
+                const customerName = appt.customerId?.name || 'Unknown Customer';
+                const customerEmail = appt.customerId?.email || 'No email';
+                const customerPhone = appt.customerId?.contactNumber || 'No phone';
+                const services = appt.services || [];
+                const appointmentDate = appt.appointmentDate ? new Date(appt.appointmentDate).toLocaleDateString() : 'N/A';
+                const appointmentTime = appt.appointmentTime || 'N/A';
+                const totalAmount = appt.finalAmount || appt.totalAmount || 0;
+                const bookingId = appt._id;
+                const customerNotes = appt.customerNotes || '';
+                const specialRequests = appt.specialRequests || '';
+                
+                return (
+                  <tr key={appt._id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <div className="text-sm">
+                        <div className="font-medium text-gray-900">{customerName}</div>
+                        <div className="text-gray-500 text-xs">{customerEmail}</div>
+                        <div className="text-gray-500 text-xs">ID: {bookingId.slice(-6)}</div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="text-sm">
+                        <div className="text-gray-900">{customerPhone}</div>
+                        <div className="text-gray-500 text-xs">{customerEmail}</div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="text-sm">
+                        {services.length > 0 ? (
+                          <div>
+                            <div className="font-medium text-gray-900">
+                              {services[0].serviceName || services[0].serviceId?.name || 'Service'}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              ₹{services[0].price || services[0].serviceId?.price || 0}
+                            </div>
+                            {services.length > 1 && (
+                              <div className="text-xs text-gray-500">
+                                +{services.length - 1} more service{services.length > 2 ? 's' : ''}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-gray-500">No services</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="text-sm">
+                        <div className="font-medium text-gray-900">{appointmentDate}</div>
+                        <div className="text-gray-500">{appointmentTime}</div>
+                        {appt.estimatedDuration && (
+                          <div className="text-xs text-gray-400">{appt.estimatedDuration} mins</div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                      <div>₹{totalAmount}</div>
+                      {(customerNotes || specialRequests) && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          {customerNotes && <div>Note: {customerNotes.slice(0, 30)}{customerNotes.length > 30 ? '...' : ''}</div>}
+                          {specialRequests && <div>Special: {specialRequests.slice(0, 30)}{specialRequests.length > 30 ? '...' : ''}</div>}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-700">
+                        {appt.status || 'Pending'}
+                      </span>
+                      <div className="text-xs text-gray-400 mt-1">
+                        {new Date(appt.createdAt || appt.dateCreated).toLocaleDateString()}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
               {(!upcoming || upcoming.length === 0) && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-gray-500 text-sm">No upcoming appointments found.</td>
+                  <td colSpan={6} className="px-4 py-8 text-center">
+                    <div className="text-gray-500">
+                      <div className="text-sm font-medium">No pending appointments</div>
+                      <div className="text-xs mt-1">All appointments are up to date!</div>
+                    </div>
+                  </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+        
+        {/* Show count of pending appointments */}
+        {upcoming && upcoming.length > 0 && (
+          <div className="mt-4 text-sm text-gray-600 flex items-center justify-between">
+            <span>Showing {Math.min(upcoming.length, 10)} pending appointment{upcoming.length !== 1 ? 's' : ''}</span>
+            {upcoming.length >= 10 && (
+              <span className="text-indigo-600 font-medium">View all to see more</span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Recent Reviews and Quick Actions */}

@@ -70,44 +70,97 @@ export const register = asyncHandler(async (req, res) => {
 });
 
 export const createStaff = asyncHandler(async (req, res) => {
-  const { name, email, password } = req.body;
   const salonOwnerId = req.user.id;
+  const {
+    name,
+    email,
+    password,
+    contactNumber,
+    skills,
+    experience,
+    availability,
+    specialization,
+    dateOfBirth,
+    gender,
+    address,
+    position
+  } = req.body;
 
-  // Find the salon of the owner
+  if (!name || !email || !password) {
+    return errorResponse(res, 'Name, email and password are required', 400);
+  }
+
   const salon = await Salon.findOne({ ownerId: salonOwnerId });
   if (!salon) {
     return notFoundResponse(res, 'Salon');
   }
 
-  // Check if user already exists
   const existingUser = await User.findOne({ email });
   if (existingUser) {
     return errorResponse(res, 'Email already in use', 400);
   }
 
-  // Create a new user for the staff
   const newUser = await User.create({
     name,
     email,
     password,
     type: 'staff',
-    setupCompleted: false,
+    setupCompleted: true,
   });
 
-  // Create a new staff profile
+  const parseIfString = (val) => {
+    if (!val) return val;
+    if (typeof val === 'string') {
+      try { return JSON.parse(val); } catch (e) { return val; }
+    }
+    return val;
+  };
+
+  const parsedSkills = parseIfString(skills) || [];
+  const parsedExperience = parseIfString(experience) || {};
+  const parsedAvailability = parseIfString(availability) || undefined;
+  const parsedAddress = parseIfString(address) || {};
+
+  const documents = {};
+  if (req.files) {
+    if (req.files.profilePicture && req.files.profilePicture[0]) {
+      documents.profilePicture = req.files.profilePicture[0].path;
+    }
+    if (req.files.governmentId && req.files.governmentId[0]) {
+      documents.governmentId = req.files.governmentId[0].path;
+    }
+  }
+
   const newStaff = await Staff.create({
     name,
     email,
     user: newUser._id,
     assignedSalon: salon._id,
     employmentStatus: 'Employed',
+    contactNumber,
+    skills: Array.isArray(parsedSkills) ? parsedSkills : [],
+    experience: parsedExperience,
+    availability: parsedAvailability,
+    specialization,
+    dateOfBirth,
+    gender,
+    address: parsedAddress,
+    position,
+    profilePicture: documents.profilePicture,
+    documents: { governmentId: documents.governmentId },
+    setupCompleted: true,
   });
 
-  // Add staff to salon's staff array
   salon.staff.push(newStaff._id);
   await salon.save();
 
-  successResponse(res, newStaff, 'Staff created and assigned to your salon successfully');
+  const responseData = {
+    ...newStaff.toObject(),
+    documents: convertDocumentsToUrls(newStaff.documents, req),
+    profilePicture: newStaff.profilePicture ? getFileUrl(newStaff.profilePicture, req) : null,
+  };
+
+  successResponse(res, responseData, 'Staff created and assigned to your salon successfully');
 });
 
 // Helper function to convert file path to full URL
@@ -209,10 +262,7 @@ export const setupProfile = asyncHandler(async (req, res) => {
       documents.governmentId = req.files.governmentId[0].path;
       console.log('Government ID uploaded:', documents.governmentId);
     }
-    if (req.files.certificates) {
-      documents.certificates = req.files.certificates.map(file => file.path);
-      console.log('Certificates uploaded:', documents.certificates);
-    }
+    // Certificates removed per requirements
   } else {
     console.log('No files uploaded for staff');
   }
