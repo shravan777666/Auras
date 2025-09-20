@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { salonService } from '../../services/salon';
+import { reviewService } from '../../services/review';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { toast } from 'react-hot-toast';
 import { 
@@ -131,14 +132,31 @@ const SalonDashboard = () => {
     return () => clearInterval(refreshInterval);
   }, []);
 
-  // Placeholder recent reviews (since API not provided)
+  // Fetch recent reviews for this salon
   useEffect(() => {
-    setReviews([
-      { id: 'r1', customer: 'Aarav Patel', rating: 5, comment: 'Amazing service and friendly staff!', date: '2025-09-01' },
-      { id: 'r2', customer: 'Priya Sharma', rating: 4, comment: 'Great ambiance, will visit again.', date: '2025-08-28' },
-      { id: 'r3', customer: 'Rahul Mehta', rating: 4, comment: 'Professional and on time.', date: '2025-08-25' },
-    ]);
-  }, []);
+    const loadReviews = async () => {
+      try {
+        // Determine salonId from dashboard data once available
+        const salonId = dashboardData?.salonInfo?._id || dashboardData?.salonInfo?.id;
+        if (!salonId) return; // wait until dashboard loads
+        const res = await reviewService.listBySalon(salonId, { page: 1, limit: 5 });
+        if (res?.success) {
+          // Normalize data for rendering
+          const items = (res.data || []).map((r) => ({
+            id: r._id,
+            rating: r.rating,
+            comment: r.comment || '',
+            date: r.createdAt,
+            customer: r.userId?.name || 'Customer',
+          }));
+          setReviews(items);
+        }
+      } catch (e) {
+        console.warn('Failed to load reviews:', e?.message || e);
+      }
+    };
+    loadReviews();
+  }, [dashboardData]);
 
   if (loading) {
     return <LoadingSpinner />;
@@ -502,6 +520,9 @@ const SalonDashboard = () => {
         <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
           <h2 className="text-xl font-semibold mb-4">Recent Reviews</h2>
           <div className="space-y-4">
+            {reviews.length === 0 && (
+              <div className="text-sm text-gray-500">No reviews yet.</div>
+            )}
             {reviews.map((r) => (
               <div key={r.id} className="border border-gray-100 rounded-lg p-4 flex items-start gap-3">
                 <div className="flex items-center gap-1 text-yellow-500">
@@ -512,9 +533,9 @@ const SalonDashboard = () => {
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-medium text-gray-800">{r.customer}</p>
-                    <p className="text-xs text-gray-400">{new Date(r.date).toLocaleDateString()}</p>
+                    <p className="text-xs text-gray-400">{r.date ? new Date(r.date).toLocaleDateString() : ''}</p>
                   </div>
-                  <p className="text-sm text-gray-600 mt-1">{r.comment}</p>
+                  {r.comment && <p className="text-sm text-gray-600 mt-1">{r.comment}</p>}
                 </div>
               </div>
             ))}

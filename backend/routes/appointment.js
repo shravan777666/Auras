@@ -4,7 +4,8 @@ import {
   getAppointmentDetails,
   updateAppointment,
   getAvailableSlots,
-  getAppointmentsSummary
+  getAppointmentsSummary,
+  submitReview
 } from '../controllers/appointmentController.js';
 import { requireAuth, requireCustomer } from '../middleware/roleAuth.js';
 import { validateAppointment, validateObjectId } from '../middleware/validation.js';
@@ -24,5 +25,6 @@ router.get('/slots/available', getAvailableSlots);
 router.get('/summary', getAppointmentsSummary);
 router.get('/:appointmentId', validateObjectId('appointmentId'), getAppointmentDetails);
 router.patch('/:appointmentId', validateObjectId('appointmentId'), updateAppointment);
+router.post('/:appointmentId/review', requireCustomer, validateObjectId('appointmentId'), submitReview);
 
 export default router;

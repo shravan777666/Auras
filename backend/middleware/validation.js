@@ -136,6 +136,19 @@ export const validateAppointment = [
   handleValidation
 ];
 
+// Reviews
+export const validateCreateReview = [
+  body('appointmentId').isMongoId().withMessage('Valid appointmentId is required'),
+  body('rating').isInt({ min: 1, max: 5 }).withMessage('Rating must be between 1 and 5'),
+  body('comment').optional().isString().isLength({ max: 2000 }).withMessage('Comment too long'),
+  handleValidation,
+];
+
+export const validateListReviews = [
+  param('salonId').isMongoId().withMessage('Invalid salonId'),
+  ...validatePagination,
+];
+
 // Auth
 export const validateUserRegistration = [
   body('name').isString().notEmpty(),

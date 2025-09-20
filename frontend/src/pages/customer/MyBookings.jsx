@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { customerService } from '../../services/customer';
+import RateExperience from '../../components/customer/RateExperience';
 import { 
   Calendar, 
   Clock, 
@@ -20,6 +21,8 @@ const MyBookings = () => {
   const [loading, setLoading] = useState(true);
   const [bookings, setBookings] = useState([]);
   const [filter, setFilter] = useState('all'); // all, pending, confirmed, completed, cancelled
+  const [selectedBooking, setSelectedBooking] = useState(null);
+  const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
 
   useEffect(() => {
     fetchBookings();
@@ -36,6 +39,26 @@ const MyBookings = () => {
       console.error('Error fetching bookings:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleOpenRatingModal = (booking) => {
+    setSelectedBooking(booking);
+    setIsRatingModalOpen(true);
+  };
+
+  const handleCloseRatingModal = () => {
+    setSelectedBooking(null);
+    setIsRatingModalOpen(false);
+  };
+
+  const handleSubmitReview = async (appointmentId, reviewData) => {
+    try {
+      await customerService.submitReview(appointmentId, reviewData);
+      fetchBookings(); // Refresh bookings to show updated status
+      handleCloseRatingModal();
+    } catch (error) {
+      console.error('Error submitting review:', error);
     }
   };
 
@@ -95,6 +118,13 @@ const MyBookings = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {isRatingModalOpen && selectedBooking && (
+        <RateExperience
+          appointment={selectedBooking}
+          onSubmit={handleSubmitReview}
+          onCancel={handleCloseRatingModal}
+        />
+      )}
       {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -239,6 +269,14 @@ const MyBookings = () => {
                           {booking.status === 'Pending' && (
                             <button className="px-3 py-1 text-sm text-red-600 hover:text-red-700">
                               Cancel
+                            </button>
+                          )}
+                          {booking.status === 'Completed' && !booking.rating?.overall && (
+                            <button 
+                              onClick={() => handleOpenRatingModal(booking)}
+                              className="px-3 py-1 text-sm text-primary-600 hover:text-primary-700"
+                            >
+                              Rate Experience
                             </button>
                           )}
                         </div>

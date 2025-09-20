@@ -31,6 +31,7 @@ import customerRoutes from './routes/customer.js';
 import serviceRoutes from './routes/service.js';
 import appointmentRoutes from './routes/appointment.js';
 import forgotPasswordRoutes from './routes/forgotPassword.js';
+import reviewRoutes from './routes/review.js';
 
 // Create Express app
 const app = express();
@@ -224,6 +225,7 @@ app.use('/api/customer', customerRoutes);
 app.use('/api/service', serviceRoutes);
 app.use('/api/appointment', appointmentRoutes);
 app.use('/api/forgot-password', forgotPasswordRoutes);
+app.use('/api/reviews', reviewRoutes);
 
 // Handle undefined routes
 app.all('*', (req, res) => {

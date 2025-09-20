@@ -411,10 +411,41 @@ export const getAppointmentsSummary = asyncHandler(async (req, res) => {
   return successResponse(res, formattedSummary, 'Appointments summary retrieved successfully');
 });
 
+export const submitReview = asyncHandler(async (req, res) => {
+  const { appointmentId } = req.params;
+  const { rating, feedback } = req.body;
+  const userId = req.user.id;
+
+  const appointment = await Appointment.findOne({
+    _id: appointmentId,
+    customerId: userId,
+  });
+
+  if (!appointment) {
+    return notFoundResponse(res, 'Appointment');
+  }
+
+  if (appointment.status !== 'Completed') {
+    return errorResponse(res, 'You can only review completed appointments.', 400);
+  }
+
+  if (appointment.rating && appointment.rating.overall) {
+    return errorResponse(res, 'You have already reviewed this appointment.', 400);
+  }
+
+  appointment.rating = rating;
+  appointment.feedback = feedback;
+
+  await appointment.save();
+
+  return successResponse(res, appointment, 'Review submitted successfully');
+});
+
 export default {
   bookAppointment,
   getAppointmentDetails,
   updateAppointment,
   getAvailableSlots,
-  getAppointmentsSummary
+  getAppointmentsSummary,
+  submitReview,
 };
