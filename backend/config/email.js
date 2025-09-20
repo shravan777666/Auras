@@ -2,7 +2,7 @@ import nodemailer from 'nodemailer';
 
 // Create transporter for sending emails
 const createTransporter = () => {
-  return nodemailer.createTransporter({
+  return nodemailer.createTransport({
     service: 'gmail',
     auth: {
       user: process.env.EMAIL_USER,
@@ -14,7 +14,25 @@ const createTransporter = () => {
 // Send OTP email
 export const sendOTPEmail = async (email, otp, userType) => {
   try {
+    // Validate inputs
+    if (!email || !otp || !userType) {
+      throw new Error('Missing required parameters: email, otp, or userType');
+    }
+
+    // Check email configuration
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      throw new Error('Email configuration missing: EMAIL_USER or EMAIL_PASS not set');
+    }
+
     const transporter = createTransporter();
+    
+    // Verify transporter configuration
+    try {
+      await transporter.verify();
+    } catch (verifyError) {
+      console.error('Email transporter verification failed:', verifyError);
+      throw new Error('Email service configuration error');
+    }
     
     const mailOptions = {
       from: process.env.EMAIL_USER,
@@ -66,11 +84,29 @@ export const sendOTPEmail = async (email, otp, userType) => {
     };
 
     const result = await transporter.sendMail(mailOptions);
+    
+    if (!result || !result.messageId) {
+      throw new Error('Failed to send email - no message ID returned');
+    }
+    
     console.log('OTP email sent successfully:', result.messageId);
+    console.log('Email sent from:', process.env.EMAIL_USER);
+    console.log('Email sent to:', email);
     return { success: true, messageId: result.messageId };
+    
   } catch (error) {
     console.error('Error sending OTP email:', error);
-    return { success: false, error: error.message };
+    
+    // Provide more specific error messages
+    if (error.code === 'EAUTH') {
+      return { success: false, error: 'Email authentication failed. Please check email credentials.' };
+    } else if (error.code === 'ECONNECTION') {
+      return { success: false, error: 'Failed to connect to email service. Please try again later.' };
+    } else if (error.code === 'EMESSAGE') {
+      return { success: false, error: 'Invalid email message format.' };
+    } else {
+      return { success: false, error: error.message || 'Unknown email sending error' };
+    }
   }
 };
 

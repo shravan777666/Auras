@@ -1,3 +1,4 @@
+import { validationResult } from 'express-validator';
 import bcrypt from 'bcryptjs';
 import OTP from '../models/OTP.js';
 import Customer from '../models/Customer.js';
@@ -7,148 +8,107 @@ import Admin from '../models/Admin.js';
 import { sendOTPEmail, generateOTP } from '../config/email.js';
 import { successResponse, errorResponse } from '../utils/responses.js';
 
-// Wrapper to ensure all async functions return JSON responses
-const safeAsyncHandler = (fn) => (req, res, next) => {
-  Promise.resolve(fn(req, res, next)).catch((error) => {
-    console.error('=== ASYNC HANDLER ERROR ===');
-    console.error('Error:', error);
-    console.error('Stack:', error.stack);
-    
-    // Ensure we haven't already sent a response
-    if (res.headersSent) {
-      console.error('Headers already sent, cannot send error response');
-      return next(error);
-    }
-    
-    // Always return JSON error response
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error'
-    });
-  });
-};
-
 // Helper function to find user by email and type
 const findUserByEmailAndType = async (email, userType) => {
   let user = null;
   let model = null;
 
-  switch (userType) {
-    case 'customer':
-      model = Customer;
-      user = await Customer.findOne({ email: email.toLowerCase(), type: userType, isActive: true });
-      break;
-    case 'staff':
-      model = Staff;
-      user = await Staff.findOne({ email: email.toLowerCase(), type: userType, isActive: true });
-      break;
-    case 'salon':
-      model = Salon;
-      user = await Salon.findOne({ email: email.toLowerCase(), type: userType, isActive: true });
-      break;
-    case 'admin':
-      model = Admin;
-      user = await Admin.findOne({ email: email.toLowerCase(), type: userType, isActive: true });
-      break;
-    default:
-      return { user: null, model: null };
+  try {
+    switch (userType) {
+      case 'customer':
+        model = Customer;
+        break;
+      case 'staff':
+        model = Staff;
+        break;
+      case 'salon':
+        model = Salon;
+        break;
+      case 'admin':
+        model = Admin;
+        break;
+      default:
+        return { user: null, model: null };
+    }
+    
+    // Search for user with proper error handling
+    user = await model.findOne({ 
+      email: email.toLowerCase(), 
+      isActive: true 
+    });
+    
+    return { user, model };
+  } catch (error) {
+    console.error(`Error finding ${userType} with email ${email}:`, error);
+    throw error; // Re-throw to be handled by calling function
   }
-
-  return { user, model };
 };
 
 // Step 1: Request OTP for password reset
 export const requestPasswordReset = async (req, res) => {
   try {
-    console.log('=== REQUEST PASSWORD RESET ===');
-    console.log('Request body:', req.body);
-    console.log('Content-Type:', req.headers['content-type']);
-
-    // Parse JSON body if not already parsed
-    let body = req.body;
-    if (typeof body === 'string') {
-      try {
-        body = JSON.parse(body);
-      } catch (parseError) {
-        console.error('Failed to parse JSON body:', parseError);
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid JSON in request body'
-        });
-      }
-    }
-
-    const { email, userType } = body;
-
-    // Validate email input
-    if (!email) {
-      console.log('Validation failed: missing email');
+    // Handle validation errors first
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
       return res.status(400).json({
         success: false,
-        message: 'Email is required'
+        message: 'Validation failed',
+        errors: errors.array()
       });
     }
 
-    // Basic email format validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      console.log('Validation failed: invalid email format');
+    const { email, userType } = req.body;
+
+    // Validate required fields explicitly
+    if (!email || !userType) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide a valid email address'
+        message: 'Email and user type are required'
       });
     }
 
     // Validate userType
-    if (!userType) {
-      console.log('Validation failed: missing userType');
+    const validUserTypes = ['customer', 'staff', 'salon', 'admin'];
+    if (!validUserTypes.includes(userType)) {
       return res.status(400).json({
         success: false,
-        message: 'User type is required'
+        message: 'Invalid user type. Must be one of: customer, staff, salon, admin'
       });
     }
 
-    if (!['customer', 'staff', 'salon', 'admin'].includes(userType)) {
-      console.log('Validation failed: invalid userType:', userType);
-      return res.status(400).json({
+    // Find user with proper error handling
+    let user, model;
+    try {
+      const result = await findUserByEmailAndType(email, userType);
+      user = result.user;
+      model = result.model;
+    } catch (dbError) {
+      console.error('Database error in findUserByEmailAndType:', dbError);
+      return res.status(500).json({
         success: false,
-        message: 'Invalid user type. Must be customer, staff, salon, or admin'
+        message: 'Database connection error. Please try again later.'
       });
     }
-
-    // Check if user exists in database
-    console.log('Finding user by email and type...');
-    console.log('Email to search:', email.toLowerCase());
-    console.log('User type:', userType);
-    
-    const { user, model: UserModel } = await findUserByEmailAndType(email, userType);
-
-    console.log('Final user search result:', user ? 'Found' : 'Not found');
 
     if (!user) {
-      console.log('User not found, returning 404');
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: 'No account found with this email address'
       });
     }
 
     // Generate OTP (6-digit number)
-    console.log('Generating OTP...');
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    console.log('OTP generated:', otp);
 
-    // Clean up any existing OTPs for this user
+    // Clean up any existing OTPs for this user with error handling
     try {
-      console.log('Deleting existing OTPs...');
       await OTP.deleteMany({ email: email.toLowerCase(), userType });
     } catch (cleanupError) {
-      console.error('Error cleaning up existing OTPs:', cleanupError);
-      // Continue anyway - this is not critical
+      console.warn('Warning: Failed to cleanup existing OTPs:', cleanupError);
+      // Continue execution - this is not critical
     }
 
     // Create new OTP record
-    console.log('Creating new OTP record...');
     let otpRecord;
     try {
       otpRecord = new OTP({
@@ -161,70 +121,59 @@ export const requestPasswordReset = async (req, res) => {
       });
 
       await otpRecord.save();
-      console.log('OTP record saved to database');
-    } catch (saveError) {
-      console.error('Error saving OTP record:', saveError);
+    } catch (otpSaveError) {
+      console.error('Error saving OTP record:', otpSaveError);
       return res.status(500).json({
         success: false,
-        message: 'Failed to generate reset token'
+        message: 'Failed to generate reset token. Please try again later.'
       });
     }
 
     // Send OTP via email
-    console.log('Sending OTP email...');
-    
-    // Check if email configuration is available
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
       console.log('Email configuration missing - development mode');
       return res.status(200).json({
         success: true,
         message: `Development mode: Your OTP is ${otp}`,
-        data: { 
+        data: {
           otp: otp, // Only for development
           expiresIn: '5 minutes'
         }
       });
     }
 
-    // Send email with proper error handling
+    // Log OTP for debugging (remove in production)
+    console.log(`🔑 OTP for ${email}: ${otp}`);
+
     let emailResult;
     try {
       emailResult = await sendOTPEmail(email.toLowerCase(), otp, userType);
-      console.log('Email result:', emailResult);
     } catch (emailError) {
-      console.error('Email sending error:', emailError);
-      
-      // Clean up OTP record if email failed
+      console.error('Error sending OTP email:', emailError);
+      // Clean up the OTP record if email fails
       try {
         await OTP.deleteOne({ _id: otpRecord._id });
       } catch (cleanupError) {
-        console.error('Failed to cleanup OTP record after email failure:', cleanupError);
+        console.error('Failed to cleanup OTP after email error:', cleanupError);
       }
-      
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to send reset email. Please try again later.'
-      });
-    }
-
-    // Check if email was sent successfully
-    if (!emailResult || !emailResult.success) {
-      console.log('Email sending failed');
-      
-      // Clean up OTP record if email failed
-      try {
-        await OTP.deleteOne({ _id: otpRecord._id });
-      } catch (cleanupError) {
-        console.error('Failed to cleanup OTP record after email failure:', cleanupError);
-      }
-      
       return res.status(500).json({
         success: false,
         message: 'Failed to send reset email. Please check your email address and try again.'
       });
     }
 
-    console.log(`OTP sent successfully to ${email} for ${userType}`);
+    if (!emailResult || !emailResult.success) {
+      // Clean up the OTP record if email sending failed
+      try {
+        await OTP.deleteOne({ _id: otpRecord._id });
+      } catch (cleanupError) {
+        console.error('Failed to cleanup OTP after email failure:', cleanupError);
+      }
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to send reset email. Please check your email address and try again.'
+      });
+    }
 
     // Success response
     return res.status(200).json({
@@ -237,127 +186,265 @@ export const requestPasswordReset = async (req, res) => {
     });
 
   } catch (error) {
-    // Catch any unexpected errors
     console.error('Unexpected error in requestPasswordReset:', error);
-    console.error('Error stack:', error.stack);
     
-    // Ensure we haven't already sent a response
-    if (!res.headersSent) {
+    // Check if it's a database connection error
+    if (error.name === 'MongoError' || error.name === 'MongooseError') {
       return res.status(500).json({
         success: false,
-        message: 'An unexpected error occurred. Please try again later.'
+        message: 'Database connection error. Please try again later.'
       });
     }
+    
+    // Check if it's a validation error
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid data provided. Please check your input and try again.'
+      });
+    }
+    
+    // Generic server error
+    return res.status(500).json({
+      success: false,
+      message: 'An unexpected error occurred. Please try again later.'
+    });
   }
 };
 
 // Step 2: Verify OTP
-export const verifyOTP = safeAsyncHandler(async (req, res) => {
-  const { email, otp, userType } = req.body;
-
-  // Validate input
-  if (!email || !otp || !userType) {
-    return errorResponse(res, 'Email, OTP, and user type are required', 400);
-  }
-
+export const verifyOTP = async (req, res) => {
   try {
-    // Find valid OTP record
-    const otpRecord = await OTP.findOne({
-      email,
-      otp,
-      userType,
-      isUsed: false,
-      expiresAt: { $gt: new Date() }
-    });
+    // Handle validation errors first
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const { email, otp, userType } = req.body;
+
+    // Validate input explicitly
+    if (!email || !otp || !userType) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email, OTP, and user type are required'
+      });
+    }
+
+    // Find valid OTP record with error handling
+    let otpRecord;
+    try {
+      otpRecord = await OTP.findOne({
+        email: email.toLowerCase(),
+        otp,
+        userType,
+        isUsed: false,
+        expiresAt: { $gt: new Date() }
+      });
+    } catch (dbError) {
+      console.error('Database error in verifyOTP:', dbError);
+      return res.status(500).json({
+        success: false,
+        message: 'Database connection error. Please try again later.'
+      });
+    }
 
     if (!otpRecord) {
-      return errorResponse(res, 'Invalid or expired OTP', 400);
+      console.log(`❌ OTP verification failed for ${email}: OTP ${otp} not found or expired`);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired OTP'
+      });
     }
 
     // Mark OTP as used (but don't delete yet - we'll delete after password reset)
-    otpRecord.isUsed = true;
-    await otpRecord.save();
+    try {
+      otpRecord.isUsed = true;
+      await otpRecord.save();
+    } catch (saveError) {
+      console.error('Error saving OTP verification:', saveError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to verify OTP. Please try again.'
+      });
+    }
 
-    return successResponse(res, 
-      { 
-        message: 'OTP verified successfully'
-      }, 
-      'OTP verified. You can now reset your password.'
-    );
+    return res.status(200).json({
+      success: true,
+      message: 'OTP verified successfully',
+      data: {
+        message: 'OTP verified. You can now reset your password.'
+      }
+    });
 
   } catch (error) {
-    console.error('Error in verifyOTP:', error);
-    return errorResponse(res, 'Failed to verify OTP', 500);
+    console.error('Unexpected error in verifyOTP:', error);
+    
+    // Check if it's a database connection error
+    if (error.name === 'MongoError' || error.name === 'MongooseError') {
+      return res.status(500).json({
+        success: false,
+        message: 'Database connection error. Please try again later.'
+      });
+    }
+    
+    // Generic server error
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to verify OTP. Please try again later.'
+    });
   }
-});
+};
 
 // Step 3: Reset password
-export const resetPassword = safeAsyncHandler(async (req, res) => {
-  const { email, otp, newPassword, userType } = req.body;
-
-  // Validate input
-  if (!email || !otp || !newPassword || !userType) {
-    return errorResponse(res, 'All fields are required', 400);
-  }
-
-  if (newPassword.length < 6) {
-    return errorResponse(res, 'Password must be at least 6 characters long', 400);
-  }
-
+export const resetPassword = async (req, res) => {
   try {
-    // Verify OTP record exists and is used (verified)
-    const otpRecord = await OTP.findOne({
-      email,
-      otp,
-      userType,
-      isUsed: true,
-      expiresAt: { $gt: new Date() }
-    });
+    // Handle validation errors first
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const { email, otp, newPassword, userType } = req.body;
+
+    // Validate required fields explicitly
+    if (!email || !otp || !newPassword || !userType) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email, OTP, new password, and user type are required'
+      });
+    }
+
+    // Verify OTP record exists and is used (verified) with error handling
+    let otpRecord;
+    try {
+      otpRecord = await OTP.findOne({
+        email: email.toLowerCase(),
+        otp,
+        userType,
+        isUsed: true,
+        expiresAt: { $gt: new Date() }
+      });
+    } catch (dbError) {
+      console.error('Database error finding OTP record:', dbError);
+      return res.status(500).json({
+        success: false,
+        message: 'Database connection error. Please try again later.'
+      });
+    }
 
     if (!otpRecord) {
-      return errorResponse(res, 'Invalid or expired reset session', 400);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired reset session'
+      });
     }
 
-    // Find user
-    const { user, model } = await findUserByEmailAndType(email, userType);
+    // Find user with error handling
+    let user, model;
+    try {
+      const result = await findUserByEmailAndType(email, userType);
+      user = result.user;
+      model = result.model;
+    } catch (dbError) {
+      console.error('Database error finding user:', dbError);
+      return res.status(500).json({
+        success: false,
+        message: 'Database connection error. Please try again later.'
+      });
+    }
 
     if (!user) {
-      return errorResponse(res, 'User not found', 404);
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
     }
 
-    // Hash new password
-    const saltRounds = 12;
-    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+    // Hash new password with error handling
+    let hashedPassword;
+    try {
+      const saltRounds = 12;
+      hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+    } catch (hashError) {
+      console.error('Error hashing password:', hashError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to process new password. Please try again.'
+      });
+    }
 
-    // Update user password
-    await model.findByIdAndUpdate(user._id, { 
-      password: hashedPassword,
-      updatedAt: new Date()
-    });
+    // Update user password with error handling
+    try {
+      await model.findByIdAndUpdate(user._id, { 
+        password: hashedPassword,
+        updatedAt: new Date()
+      });
+    } catch (updateError) {
+      console.error('Error updating user password:', updateError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to update password. Please try again.'
+      });
+    }
 
-    // Delete the OTP record
-    await OTP.deleteOne({ _id: otpRecord._id });
-
-    // Also clean up any other OTPs for this user
-    await OTP.deleteMany({ email, userType });
+    // Delete the OTP record and cleanup with error handling
+    try {
+      await OTP.deleteOne({ _id: otpRecord._id });
+      // Also clean up any other OTPs for this user
+      await OTP.deleteMany({ email: email.toLowerCase(), userType });
+    } catch (cleanupError) {
+      console.warn('Warning: Failed to cleanup OTP records:', cleanupError);
+      // Don't fail the request if cleanup fails
+    }
 
     console.log(`Password reset successful for ${email} (${userType})`);
 
-    return successResponse(res, 
-      { 
-        message: 'Password reset successful'
-      }, 
-      'Your password has been reset successfully. You can now login with your new password.'
-    );
+    return res.status(200).json({
+      success: true,
+      message: 'Password reset successful',
+      data: {
+        message: 'Your password has been reset successfully. You can now login with your new password.'
+      }
+    });
 
   } catch (error) {
-    console.error('Error in resetPassword:', error);
-    return errorResponse(res, 'Failed to reset password', 500);
+    console.error('Unexpected error in resetPassword:', error);
+    
+    // Check if it's a database connection error
+    if (error.name === 'MongoError' || error.name === 'MongooseError') {
+      return res.status(500).json({
+        success: false,
+        message: 'Database connection error. Please try again later.'
+      });
+    }
+    
+    // Check if it's a validation error
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid data provided. Please check your input and try again.'
+      });
+    }
+    
+    // Generic server error
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to reset password. Please try again later.'
+    });
   }
-});
+};
 
 // Helper: Clean up expired OTPs (can be called periodically)
-export const cleanupExpiredOTPs = safeAsyncHandler(async (req, res) => {
+export const cleanupExpiredOTPs = async (req, res) => {
   try {
     const result = await OTP.deleteMany({
       expiresAt: { $lt: new Date() }
@@ -373,4 +460,4 @@ export const cleanupExpiredOTPs = safeAsyncHandler(async (req, res) => {
     console.error('Error cleaning up expired OTPs:', error);
     return errorResponse(res, 'Failed to cleanup expired OTPs', 500);
   }
-});
+};

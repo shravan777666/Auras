@@ -12,7 +12,10 @@ const handleValidationErrors = (req, res, next) => {
     return res.status(400).json({
       success: false,
       message: 'Validation failed',
-      errors: errors.array()
+      errors: errors.array().map(error => ({
+        field: error.path || error.param,
+        message: error.msg
+      }))
     });
   }
   next();
@@ -20,25 +23,72 @@ const handleValidationErrors = (req, res, next) => {
 
 // Request password reset (send OTP)
 router.post('/request-reset', [
-  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
-  body('userType').isIn(['customer', 'staff', 'salon', 'admin']).withMessage('Valid user type is required'),
+  body('email')
+    .notEmpty()
+    .withMessage('Email is required')
+    .isEmail()
+    .withMessage('Please provide a valid email address')
+    .normalizeEmail()
+    .isLength({ max: 254 })
+    .withMessage('Email is too long'),
+  body('userType')
+    .notEmpty()
+    .withMessage('User type is required')
+    .isIn(['customer', 'staff', 'salon', 'admin'])
+    .withMessage('User type must be one of: customer, staff, salon, admin'),
   handleValidationErrors
 ], requestPasswordReset);
 
 // Verify OTP
 router.post('/verify-otp', [
-  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
-  body('otp').isLength({ min: 6, max: 6 }).withMessage('OTP must be 6 digits'),
-  body('userType').isIn(['customer', 'staff', 'salon', 'admin']).withMessage('Valid user type is required'),
+  body('email')
+    .notEmpty()
+    .withMessage('Email is required')
+    .isEmail()
+    .withMessage('Please provide a valid email address')
+    .normalizeEmail(),
+  body('otp')
+    .notEmpty()
+    .withMessage('OTP is required')
+    .isLength({ min: 6, max: 6 })
+    .withMessage('OTP must be exactly 6 digits')
+    .isNumeric()
+    .withMessage('OTP must contain only numbers'),
+  body('userType')
+    .notEmpty()
+    .withMessage('User type is required')
+    .isIn(['customer', 'staff', 'salon', 'admin'])
+    .withMessage('User type must be one of: customer, staff, salon, admin'),
   handleValidationErrors
 ], verifyOTP);
 
 // Reset password
 router.post('/reset-password', [
-  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
-  body('otp').isLength({ min: 6, max: 6 }).withMessage('OTP must be 6 digits'),
-  body('newPassword').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
-  body('userType').isIn(['customer', 'staff', 'salon', 'admin']).withMessage('Valid user type is required'),
+  body('email')
+    .notEmpty()
+    .withMessage('Email is required')
+    .isEmail()
+    .withMessage('Please provide a valid email address')
+    .normalizeEmail(),
+  body('otp')
+    .notEmpty()
+    .withMessage('OTP is required')
+    .isLength({ min: 6, max: 6 })
+    .withMessage('OTP must be exactly 6 digits')
+    .isNumeric()
+    .withMessage('OTP must contain only numbers'),
+  body('newPassword')
+    .notEmpty()
+    .withMessage('New password is required')
+    .isLength({ min: 6 })
+    .withMessage('Password must be at least 6 characters long')
+    .isLength({ max: 128 })
+    .withMessage('Password is too long'),
+  body('userType')
+    .notEmpty()
+    .withMessage('User type is required')
+    .isIn(['customer', 'staff', 'salon', 'admin'])
+    .withMessage('User type must be one of: customer, staff, salon, admin'),
   handleValidationErrors
 ], resetPassword);
 

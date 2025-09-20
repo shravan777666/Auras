@@ -1,5 +1,5 @@
 import express from 'express';
-import { body, validationResult } from 'express-validator';
+import { body } from 'express-validator';
 import { 
   requestPasswordReset, 
   verifyOTP, 
@@ -8,22 +8,6 @@ import {
 } from '../controllers/forgotPasswordController.js';
 
 const router = express.Router();
-
-// Ensure JSON parsing for all routes
-router.use(express.json());
-
-// Validation middleware
-const validateRequest = (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      message: 'Validation failed',
-      errors: errors.array()
-    });
-  }
-  next();
-};
 
 // Step 1: Request password reset OTP
 router.post('/request-reset', [
@@ -34,7 +18,7 @@ router.post('/request-reset', [
   body('userType')
     .isIn(['customer', 'staff', 'salon', 'admin'])
     .withMessage('Invalid user type')
-], validateRequest, requestPasswordReset);
+], requestPasswordReset);
 
 // Step 2: Verify OTP
 router.post('/verify-otp', [
@@ -49,7 +33,7 @@ router.post('/verify-otp', [
   body('userType')
     .isIn(['customer', 'staff', 'salon', 'admin'])
     .withMessage('Invalid user type')
-], validateRequest, verifyOTP);
+], verifyOTP);
 
 // Step 3: Reset password
 router.post('/reset-password', [
@@ -67,7 +51,7 @@ router.post('/reset-password', [
   body('userType')
     .isIn(['customer', 'staff', 'salon', 'admin'])
     .withMessage('Invalid user type')
-], validateRequest, resetPassword);
+], resetPassword);
 
 // Admin route: Cleanup expired OTPs
 router.delete('/cleanup-expired', cleanupExpiredOTPs);
