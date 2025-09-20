@@ -53,6 +53,13 @@ router.post('/services', requireSalonSetup, addService);
 // Appointment Management
 router.get('/appointments', requireSalonSetup, validatePagination, getAppointments);
 router.patch('/appointments/:appointmentId/status', 
+  (req, res, next) => {
+    console.log('🔧 Route hit: PATCH /appointments/:appointmentId/status', {
+      appointmentId: req.params.appointmentId,
+      body: req.body
+    });
+    next();
+  },
   requireSalonSetup, 
   validateObjectId('appointmentId'), 
   updateAppointmentStatus

@@ -15,8 +15,6 @@ const OAuthCallback = React.lazy(() => import('./components/auth/OAuthCallback')
 const AdminDashboard = React.lazy(() => import('./pages/admin/AdminDashboard'))
 const ManageSalons = React.lazy(() => import('./pages/admin/ManageSalons'))
 const AdminManageStaff = React.lazy(() => import('./pages/admin/ManageStaff'))
-const ManageCustomers = React.lazy(() => import('./pages/admin/ManageCustomers'))
-const ManageAppointments = React.lazy(() => import('./pages/admin/ManageAppointments'))
 const PendingApprovals = React.lazy(() => import('./pages/admin/PendingApprovals'))
 const ApprovedSalons = React.lazy(() => import('./pages/admin/ApprovedSalons'))
 
@@ -167,8 +165,6 @@ function App() {
                   <Route path="salons" element={<ManageSalons />} />
                   <Route path="pending-approvals" element={<PendingApprovals />} />
                   <Route path="staff" element={<AdminManageStaff />} />
-                  <Route path="customers" element={<ManageCustomers />} />
-                  <Route path="appointments" element={<ManageAppointments />} />
                   <Route path="approved-salons" element={<ApprovedSalons />} />
                 </Routes>
               </ProtectedRoute>

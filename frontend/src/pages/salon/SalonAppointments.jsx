@@ -20,7 +20,7 @@ import {
 const SalonAppointments = () => {
   const [loading, setLoading] = useState(true);
   const [appointments, setAppointments] = useState([]);
-  const [filter, setFilter] = useState('all'); // all, Pending, Confirmed, In-Progress, Completed, Cancelled
+  const [filter, setFilter] = useState('all'); // all, Pending, Approved, In-Progress, Completed, Cancelled
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -42,6 +42,11 @@ const SalonAppointments = () => {
       
       const res = await salonService.getAppointments(params);
       if (res?.success) {
+        console.log('🔧 Received appointments:', res.data?.map(apt => ({
+          id: apt._id,
+          status: apt.status,
+          customerName: apt.customerId?.name
+        })));
         setAppointments(res.data || []);
         setTotalPages(res.pagination?.totalPages || 1);
         setTotalAppointments(res.pagination?.totalItems || 0);
@@ -55,7 +60,7 @@ const SalonAppointments = () => {
 
   const getStatusIcon = (status) => {
     switch (status?.toLowerCase()) {
-      case 'confirmed':
+      case 'approved':
         return <CheckCircle className="h-5 w-5 text-green-500" />;
       case 'pending':
         return <AlertCircle className="h-5 w-5 text-yellow-500" />;
@@ -72,7 +77,7 @@ const SalonAppointments = () => {
 
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
-      case 'confirmed':
+      case 'approved':
         return 'bg-green-100 text-green-800';
       case 'pending':
         return 'bg-yellow-100 text-yellow-800';
@@ -114,6 +119,7 @@ const SalonAppointments = () => {
 
   const handleStatusUpdate = async (appointmentId, newStatus) => {
     try {
+      console.log('🔧 Updating appointment status:', { appointmentId, newStatus });
       setUpdatingStatus(appointmentId);
       const response = await salonService.updateAppointmentStatus(appointmentId, newStatus);
       if (response?.success) {
@@ -175,7 +181,7 @@ const SalonAppointments = () => {
             {[
               { key: 'all', label: 'All' },
               { key: 'Pending', label: 'Pending' },
-              { key: 'Confirmed', label: 'Confirmed' },
+              { key: 'Approved', label: 'Approved' },
               { key: 'In-Progress', label: 'In Progress' },
               { key: 'Completed', label: 'Completed' },
               { key: 'Cancelled', label: 'Cancelled' }
@@ -290,11 +296,11 @@ const SalonAppointments = () => {
                           {appointment.status === 'Pending' && (
                             <>
                               <button 
-                                onClick={() => handleStatusUpdate(appointment._id, 'Confirmed')}
+                                onClick={() => handleStatusUpdate(appointment._id, 'Approved')}
                                 disabled={updatingStatus === appointment._id}
                                 className="px-3 py-1 text-sm text-green-600 hover:text-green-700 bg-green-50 border border-green-200 rounded-md hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed"
                               >
-                                {updatingStatus === appointment._id ? 'Confirming...' : 'Confirm'}
+                                {updatingStatus === appointment._id ? 'Approving...' : 'Approve'}
                               </button>
                               <button 
                                 onClick={() => handleStatusUpdate(appointment._id, 'Cancelled')}
@@ -305,7 +311,7 @@ const SalonAppointments = () => {
                               </button>
                             </>
                           )}
-                          {appointment.status === 'Confirmed' && (
+                          {appointment.status === 'Approved' && (
                             <>
                               <button 
                                 onClick={() => handleStatusUpdate(appointment._id, 'In-Progress')}
@@ -387,4 +393,3 @@ const SalonAppointments = () => {
 };
 
 export default SalonAppointments;
-

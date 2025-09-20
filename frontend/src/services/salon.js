@@ -79,7 +79,10 @@ export const salonService = {
   },
 
   async updateAppointmentStatus(appointmentId, status, salonNotes = '') {
-    const response = await api.patch(`/salon/appointments/${appointmentId}/status`, {
+    const url = `/salon/appointments/${appointmentId}/status`;
+    console.log('🔧 Making appointment status update request:', { url, appointmentId, status });
+    console.log('🔧 Full URL will be:', `${api.defaults.baseURL}${url}`);
+    const response = await api.patch(url, {
       status,
       salonNotes
     });

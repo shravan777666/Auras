@@ -157,10 +157,6 @@ const AdminDashboard = () => {
   const [stats, setStats] = useState({
     totalSalons: 0,
     totalStaff: 0,
-    totalCustomers: 0,
-    totalAppointments: 0,
-    activeAppointments: 0,
-    completedAppointments: 0,
     totalRevenue: 0
   });
   const [showSalonListModal, setShowSalonListModal] = useState(false);
@@ -228,10 +224,6 @@ const AdminDashboard = () => {
       const updatedStats = {
         totalSalons: totalSalons,
         totalStaff: data.totalStaff || 0,
-        totalCustomers: data.totalCustomers || 0,
-        totalAppointments: data.totalAppointments || 0,
-        activeAppointments: data.activeAppointments || 0,
-        completedAppointments: data.completedAppointments || 0,
         totalRevenue: data.totalRevenue || 0
       };
       
@@ -265,10 +257,6 @@ const AdminDashboard = () => {
       setStats({
         totalSalons: 0,
         totalStaff: 0,
-        totalCustomers: 0,
-        totalAppointments: 0,
-        activeAppointments: 0,
-        completedAppointments: 0,
         totalRevenue: 0
       });
       
@@ -418,7 +406,7 @@ const AdminDashboard = () => {
             <div>
             <h1 className="text-xl font-bold text-gray-800">Admin Dashboard</h1>
               <div className="text-xs text-gray-500">
-                Frontend: {window.location.port} | API: {import.meta.env.VITE_API_URL}
+                {/* Frontend: {window.location.port} | API: {import.meta.env.VITE_API_URL} */}
               </div>
             </div>
             <div className="flex items-center space-x-2">
@@ -451,7 +439,7 @@ const AdminDashboard = () => {
         </div>
 
         {/* Main Statistics Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
           <div onClick={() => navigate('/admin/salons')} className="cursor-pointer relative">
             <StatCard title="Total Salons" value={stats.totalSalons} icon={Store} color="border-primary-500" />
             {/* Debug Button */}
@@ -480,19 +468,10 @@ const AdminDashboard = () => {
           <div onClick={() => navigate('/admin/staff')} className="cursor-pointer">
             <StatCard title="Total Staff" value={stats.totalStaff} icon={Users} color="border-secondary-500" />
           </div>
-          <StatCard title="Total Customers" value={stats.totalCustomers} icon={User} color="border-success-500" />
           <StatCard title="Total Revenue" value={stats.totalRevenue} icon={DollarSign} color="border-warning-500" unit="₹" />
         </div>
 
-        {/* Appointment Statistics */}
-        <div className="mb-12">
-            <h3 className="text-2xl font-bold text-gray-800 mb-4">Appointment Overview</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <StatCard title="Total Appointments" value={stats.totalAppointments} icon={Calendar} color="border-gray-400" />
-                <StatCard title="Active Appointments" value={stats.activeAppointments} icon={Calendar} color="border-gray-400" />
-                <StatCard title="Completed Appointments" value={stats.completedAppointments} icon={Calendar} color="border-gray-400" />
-            </div>
-        </div>
+        
 
         {/* Pending Staff Approvals Card */}
         <div className="mb-12">
@@ -525,8 +504,6 @@ const AdminDashboard = () => {
             />
             <ActionButton title="Manage Salons" icon={Store} onClick={() => navigate('/admin/salons')} />
             <ActionButton title="Manage Staff" icon={Users} onClick={() => navigate('/admin/staff')} />
-            <ActionButton title="Manage Customers" icon={User} onClick={() => navigate('/admin/customers')} />
-            <ActionButton title="View Appointments" icon={Calendar} onClick={() => navigate('/admin/appointments')} />
           </div>
         </div>
       </main>

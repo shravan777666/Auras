@@ -3,6 +3,7 @@ import Staff from '../models/Staff.js';
 import Service from '../models/Service.js';
 import Appointment from '../models/Appointment.js';
 import jwt from 'jsonwebtoken';
+import { sendAppointmentConfirmation } from '../utils/email.js';
 import { 
   successResponse, 
   errorResponse, 
@@ -722,6 +723,7 @@ export const getAppointments = asyncHandler(async (req, res) => {
   ]);
 
   console.log(`Found ${appointments.length} appointments for salon ${salonId}`);
+  console.log('🔧 Appointment IDs:', appointments.map(apt => apt._id));
   
   // Debug: Log the first appointment to see the populated data structure
   if (appointments.length > 0) {
@@ -741,14 +743,36 @@ export const getAppointments = asyncHandler(async (req, res) => {
 
 // Update appointment status
 export const updateAppointmentStatus = asyncHandler(async (req, res) => {
-  const salonId = req.user.id;
+  // req.user.id is the User._id. We need the corresponding Salon._id for filtering appointments.
+  const userId = req.user.id;
   const { appointmentId } = req.params;
   const { status, salonNotes } = req.body;
+
+  // Resolve salon profile by authenticated salon owner's user record (email link)
+  const User = (await import('../models/User.js')).default;
+  const user = await User.findById(userId);
+  if (!user || user.type !== 'salon') {
+    return errorResponse(res, 'Access denied: Only salon owners can update appointment status', 403);
+  }
+  const salonProfile = await Salon.findOne({ email: user.email });
+  if (!salonProfile) {
+    return notFoundResponse(res, 'Salon profile');
+  }
+  const salonId = salonProfile._id;
+
+  console.log('🔧 Update appointment status request:', {
+    salonId,
+    appointmentId,
+    status,
+    salonNotes
+  });
 
   const appointment = await Appointment.findOne({
     _id: appointmentId,
     salonId: salonId
-  });
+  }).populate('customerId').populate('salonId');
+
+  console.log('🔧 Found appointment:', appointment ? 'Yes' : 'No');
 
   if (!appointment) {
     return notFoundResponse(res, 'Appointment');
@@ -759,6 +783,23 @@ export const updateAppointmentStatus = asyncHandler(async (req, res) => {
   if (salonNotes) {
     appointment.salonNotes = salonNotes;
     await appointment.save();
+  }
+
+  if (status === 'Approved') {
+    const customer = appointment.customerId;
+    const salon = appointment.salonId;
+
+    if (customer && salon) {
+      const appointmentDetails = {
+        salonName: salon.salonName,
+        date: new Date(appointment.appointmentDate).toLocaleDateString(),
+        time: appointment.appointmentTime,
+        services: appointment.services.map(s => s.serviceName),
+        totalAmount: appointment.totalAmount
+      };
+
+      await sendAppointmentConfirmation(customer.email, customer.name, appointmentDetails);
+    }
   }
 
   return successResponse(res, appointment, 'Appointment status updated successfully');

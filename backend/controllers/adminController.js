@@ -98,20 +98,12 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
     // Use simpler queries with timeouts and error handling
     const statsPromises = [
       Salon.countDocuments(approvedSalonFilter).maxTimeMS(5000), // Count approved salons
-      Staff.countDocuments({ isActive: true }).maxTimeMS(5000),
-      Customer.countDocuments({ isActive: true }).maxTimeMS(5000),
-      Appointment.countDocuments().maxTimeMS(5000),
-      Appointment.countDocuments({ status: { $in: ['Pending', 'Confirmed', 'In-Progress'] } }).maxTimeMS(5000),
-      Appointment.countDocuments({ status: 'Completed' }).maxTimeMS(5000)
+      Staff.countDocuments({ isActive: true }).maxTimeMS(5000)
     ];
 
     const [
       totalSalons,
-      totalStaff,
-      totalCustomers,
-      totalAppointments,
-      activeAppointments,
-      completedAppointments
+      totalStaff
     ] = await Promise.all(statsPromises);
 
     // Simplified revenue calculation with fallback
@@ -136,10 +128,6 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
     const responseData = {
       totalSalons: totalSalons || 0,
       totalStaff: totalStaff || 0,
-      totalCustomers: totalCustomers || 0,
-      totalAppointments: totalAppointments || 0,
-      activeAppointments: activeAppointments || 0,
-      completedAppointments: completedAppointments || 0,
       totalRevenue: totalRevenue || 0
     };
     
@@ -154,10 +142,6 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
     return successResponse(res, {
       totalSalons: 0,
       totalStaff: 0,
-      totalCustomers: 0,
-      totalAppointments: 0,
-      activeAppointments: 0,
-      completedAppointments: 0,
       totalRevenue: 0
     }, 'Dashboard statistics retrieved with fallback data');
   }
