@@ -93,7 +93,7 @@ const ManageStaff = () => {
 
               <div className="mt-4">
                 <div className="text-sm font-medium text-gray-800 mb-2">Documents</div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   {/* Profile */}
                   <div className="flex flex-col items-center">
                     {profilePicture ? (
@@ -131,31 +131,8 @@ const ManageStaff = () => {
                     <span className="text-xs text-gray-600 mt-1">ID</span>
                   </div>
 
-                  {/* Certificates (first) */}
-                  <div className="flex flex-col items-center">
-                    {documents.certificates && documents.certificates.length > 0 ? (
-                      getFileType(documents.certificates[0]) === 'image' ? (
-                        <img
-                          src={documents.certificates[0]}
-                          alt="Certificate"
-                          className="w-20 h-20 object-cover rounded-lg cursor-pointer hover:opacity-80"
-                          onClick={() => window.open(documents.certificates[0], '_blank')}
-                        />
-                      ) : (
-                        <div
-                          className="w-20 h-20 bg-green-50 rounded-lg flex items-center justify-center cursor-pointer hover:opacity-80"
-                          onClick={() => window.open(documents.certificates[0], '_blank')}
-                        >📄</div>
-                      )
-                    ) : (
-                      <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center">📜</div>
-                    )}
-                    <span className="text-xs text-gray-600 mt-1">Cert</span>
-                  </div>
+                  
                 </div>
-                {Array.isArray(documents.certificates) && documents.certificates.length > 1 && (
-                  <div className="mt-2 text-xs text-gray-500">+{documents.certificates.length - 1} more certificate(s)</div>
-                )}
                 <div className="mt-3">
                   <button
                     onClick={() => { setSelectedStaff({ ...s, profilePicture, documents }); setShowDocumentModal(true); }}
