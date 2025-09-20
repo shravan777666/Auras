@@ -369,25 +369,33 @@ export const resetPassword = async (req, res) => {
       });
     }
 
-    // Hash new password with error handling
-    let hashedPassword;
-    try {
-      const saltRounds = 12;
-      hashedPassword = await bcrypt.hash(newPassword, saltRounds);
-    } catch (hashError) {
-      console.error('Error hashing password:', hashError);
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to process new password. Please try again.'
-      });
-    }
-
     // Update user password with error handling
     try {
-      await model.findByIdAndUpdate(user._id, { 
-        password: hashedPassword,
-        updatedAt: new Date()
-      });
+      // Update the specific model (Customer, Salon, Staff, Admin)
+      // Use findById and save() to trigger pre-save hooks for password hashing
+      const userDoc = await model.findById(user._id);
+      if (!userDoc) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+      
+      userDoc.password = newPassword; // This will trigger the pre-save hook to hash the password
+      userDoc.updatedAt = new Date();
+      await userDoc.save();
+
+      // Also update the central User model if it exists
+      const User = (await import('../models/User.js')).default;
+      const centralUser = await User.findOne({ email: email.toLowerCase() });
+      if (centralUser) {
+        centralUser.password = newPassword; // This will trigger the pre-save hook to hash the password
+        centralUser.updatedAt = new Date();
+        await centralUser.save();
+        console.log(`✅ Updated password in both ${userType} model and central User model for ${email}`);
+      } else {
+        console.log(`✅ Updated password in ${userType} model for ${email}`);
+      }
     } catch (updateError) {
       console.error('Error updating user password:', updateError);
       return res.status(500).json({

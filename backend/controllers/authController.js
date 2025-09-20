@@ -115,10 +115,47 @@ export const login = async (req, res) => {
       return errorResponse(res, 'Email, password, and user type are required', 400);
     }
 
-    // Find user by email and role
-    const user = await User.findOne({ email, type: userType, isActive: true });
+    // Find user by email and role - first check central User model
+    let user = await User.findOne({ email, type: userType, isActive: true });
+    let userFromSpecificModel = null;
+
+    // If not found in central User model, check specific model as fallback
     if (!user) {
-      return errorResponse(res, 'No user found with provided credentials and role.', 401);
+      console.log(`User not found in central User model, checking ${userType} model...`);
+      
+      switch (userType) {
+        case 'customer':
+          const Customer = (await import('../models/Customer.js')).default;
+          userFromSpecificModel = await Customer.findOne({ email, isActive: true });
+          break;
+        case 'salon':
+          const Salon = (await import('../models/Salon.js')).default;
+          userFromSpecificModel = await Salon.findOne({ email, isActive: true });
+          break;
+        case 'staff':
+          const Staff = (await import('../models/Staff.js')).default;
+          userFromSpecificModel = await Staff.findOne({ email, isActive: true });
+          break;
+        case 'admin':
+          const Admin = (await import('../models/Admin.js')).default;
+          userFromSpecificModel = await Admin.findOne({ email, isActive: true });
+          break;
+      }
+
+      if (!userFromSpecificModel) {
+        return errorResponse(res, 'No user found with provided credentials and role.', 401);
+      }
+
+      // Create a user object compatible with the rest of the login flow
+      user = {
+        _id: userFromSpecificModel._id,
+        name: userFromSpecificModel.name,
+        email: userFromSpecificModel.email,
+        password: userFromSpecificModel.password,
+        type: userType,
+        setupCompleted: userFromSpecificModel.setupCompleted || false,
+        isActive: userFromSpecificModel.isActive
+      };
     }
 
     // Check password
@@ -135,8 +172,13 @@ export const login = async (req, res) => {
       console.log('User email:', user.email);
       console.log('User type:', userType);
       
-      const Salon = (await import('../models/Salon.js')).default;
-      salon = await Salon.findOne({ email: user.email }); // Assign to declared salon
+      // If we already have salon data from specific model lookup, use it
+      if (userFromSpecificModel) {
+        salon = userFromSpecificModel;
+      } else {
+        const Salon = (await import('../models/Salon.js')).default;
+        salon = await Salon.findOne({ email: user.email }); // Assign to declared salon
+      }
       
       console.log('Salon found:', salon ? {
         id: salon._id,
@@ -180,8 +222,13 @@ export const login = async (req, res) => {
       console.log('User email:', user.email);
       console.log('User type:', userType);
       
-      const Staff = (await import('../models/Staff.js')).default;
-      staff = await Staff.findOne({ email: user.email }); // Find staff profile
+      // If we already have staff data from specific model lookup, use it
+      if (userFromSpecificModel) {
+        staff = userFromSpecificModel;
+      } else {
+        const Staff = (await import('../models/Staff.js')).default;
+        staff = await Staff.findOne({ email: user.email }); // Find staff profile
+      }
       
       console.log('Staff found:', staff ? {
         id: staff._id,
