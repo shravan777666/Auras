@@ -4,7 +4,7 @@ import { salonService } from '../../services/salon';
 import LoadingSpinner from '../common/LoadingSpinner';
 import { toast } from 'react-hot-toast';
 
-const AssignStaffModal = ({ isOpen, onClose, appointment, onStaffAssigned }) => {
+const AssignStaffModal = ({ isOpen, onClose, appointment, onStaffAssigned, onRefresh }) => {
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(false);
   const [assigning, setAssigning] = useState(false);
@@ -97,6 +97,9 @@ const AssignStaffModal = ({ isOpen, onClose, appointment, onStaffAssigned }) => 
       if (response?.success) {
         toast.success('Staff assigned successfully');
         onStaffAssigned();
+        if (onRefresh) {
+          onRefresh();
+        }
         onClose();
       } else {
         toast.error(response?.message || 'Failed to assign staff');

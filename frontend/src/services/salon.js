@@ -70,6 +70,12 @@ export const salonService = {
     return response.data;
   },
 
+  async getStaffAppointments(staffId, params = {}) {
+    const queryParams = new URLSearchParams(params).toString();
+    const response = await api.get(`/staff/appointments?staffId=${staffId}&${queryParams}`);
+    return response.data;
+  },
+
   async addService(serviceData) {
     const response = await api.post('/salon/services', serviceData);
     return response.data;

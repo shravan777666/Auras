@@ -93,6 +93,8 @@ const SalonDashboard = () => {
     // Close the modal
     setIsAssignStaffModalOpen(false);
     setSelectedAppointment(null);
+    // Show success message
+    toast.success('Staff assigned successfully! Calendar will refresh automatically.');
   };
 
   const fetchDashboardData = async () => {
@@ -640,6 +642,10 @@ const SalonDashboard = () => {
         }}
         appointment={selectedAppointment}
         onStaffAssigned={handleStaffAssigned}
+        onRefresh={() => {
+          // This will be used to refresh the calendar if needed
+          console.log('Staff assignment completed - calendar should refresh');
+        }}
       />
     </div>
   );
