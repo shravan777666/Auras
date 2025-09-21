@@ -741,6 +741,82 @@ export const getAppointments = asyncHandler(async (req, res) => {
   });
 });
 
+// Get staff availability with appointments
+export const getStaffAvailability = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+  const { startDate, endDate } = req.query;
+
+  // Get user record to find salon
+  const User = (await import('../models/User.js')).default;
+  const user = await User.findById(userId);
+  if (!user || user.type !== 'salon') {
+    return errorResponse(res, 'Access denied: Only salon owners can access staff availability', 403);
+  }
+
+  // Find salon by email
+  const salon = await Salon.findOne({ email: user.email });
+  if (!salon) {
+    return notFoundResponse(res, 'Salon profile');
+  }
+
+  const salonId = salon._id;
+
+  // Get staff assigned to this salon
+  const staff = await Staff.find({
+    assignedSalon: salonId,
+    isActive: true,
+    approvalStatus: 'approved'
+  })
+  .select('name email position skills availability contactNumber profilePicture')
+  .sort({ name: 1 });
+
+  // Get appointments for the date range
+  let appointmentFilter = {
+    salonId: salonId,
+    status: { $in: ['Pending', 'Approved', 'In-Progress'] }
+  };
+
+  if (startDate && endDate) {
+    appointmentFilter.appointmentDate = {
+      $gte: new Date(startDate),
+      $lte: new Date(endDate)
+    };
+  }
+
+  const appointments = await Appointment.find(appointmentFilter)
+    .populate('staffId', 'name')
+    .populate('customerId', 'name')
+    .populate('services.serviceId', 'name duration')
+    .sort({ appointmentDate: 1, appointmentTime: 1 });
+
+  // Group appointments by staff
+  const staffAppointments = staff.map(staffMember => {
+    const staffAppts = appointments.filter(apt =>
+      apt.staffId && apt.staffId._id.toString() === staffMember._id.toString()
+    );
+
+    return {
+      staff: {
+        _id: staffMember._id,
+        name: staffMember.name,
+        position: staffMember.position || 'Staff',
+        availability: staffMember.availability
+      },
+      appointments: staffAppts.map(apt => ({
+        _id: apt._id,
+        date: apt.appointmentDate,
+        time: apt.appointmentTime,
+        status: apt.status,
+        duration: apt.estimatedDuration || apt.services.reduce((total, service) => total + (service.duration || 0), 0),
+        customer: apt.customerId ? apt.customerId.name : 'Unknown Customer',
+        services: apt.services.map(s => s.serviceName || (s.serviceId ? s.serviceId.name : 'Service'))
+      }))
+    };
+  });
+
+  return successResponse(res, { staffAppointments }, 'Staff availability data retrieved successfully');
+});
+
 // Update appointment status
 export const updateAppointmentStatus = asyncHandler(async (req, res) => {
   // req.user.id is the User._id. We need the corresponding Salon._id for filtering appointments.

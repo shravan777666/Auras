@@ -13,6 +13,7 @@ import {
   getAppointments,
   updateAppointmentStatus,
   getSalonStaff,
+  getStaffAvailability,
   addService
 } from '../controllers/salonController.js';
 import { getSalonServices } from '../controllers/serviceController.js';
@@ -42,6 +43,7 @@ router.patch('/profile', updateProfile);
 
 // Staff Management
 router.get('/staff', requireSalonSetup, getSalonStaff);
+router.get('/staff/availability', requireSalonSetup, getStaffAvailability);
 router.get('/staff/available', requireSalonSetup, validatePagination, getAvailableStaff);
 router.post('/staff/hire', requireSalonSetup, hireStaff);
 router.delete('/staff/:staffId', requireSalonSetup, validateObjectId('staffId'), removeStaff);

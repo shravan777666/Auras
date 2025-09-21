@@ -57,6 +57,14 @@ export const salonService = {
     return response.data;
   },
 
+  async getStaffAvailability({ startDate, endDate } = {}) {
+    const params = new URLSearchParams();
+    if (startDate) params.set('startDate', startDate);
+    if (endDate) params.set('endDate', endDate);
+    const response = await api.get(`/salon/staff/availability?${params.toString()}`);
+    return response.data;
+  },
+
   async addService(serviceData) {
     const response = await api.post('/salon/services', serviceData);
     return response.data;

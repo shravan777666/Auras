@@ -28,7 +28,7 @@ import AddServiceModal from '../../components/salon/AddServiceModal';
 
 // A reusable card for displaying statistics
 const StatCard = ({ icon, title, value, color, onClick }) => (
-  <div 
+  <div
     className={`bg-white p-6 rounded-lg shadow-md flex items-center gap-4 border-l-4 ${color} ${onClick ? 'cursor-pointer hover:shadow-lg transition-all' : ''}`}
     onClick={onClick}
   >
@@ -37,6 +37,28 @@ const StatCard = ({ icon, title, value, color, onClick }) => (
       <p className="text-sm font-medium text-gray-500">{title}</p>
       <p className="text-2xl font-bold text-gray-800">{value}</p>
     </div>
+  </div>
+);
+
+// Card for Staff Availability Calendar
+const AvailabilityCard = ({ color, onClick }) => (
+  <div 
+    className={`bg-white p-6 rounded-lg shadow-md border-l-4 ${color} col-span-full cursor-pointer hover:shadow-lg transition-all`}
+    onClick={onClick}
+  >
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <Calendar className="h-5 w-5 text-gray-600" />
+        <h3 className="text-lg font-semibold text-gray-900">Staff Availability Calendar</h3>
+      </div>
+      <div className="text-sm text-gray-500 flex items-center gap-1">
+        <span>View Calendar</span>
+        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+      </div>
+    </div>
+    <p className="text-gray-600 mt-2">View and manage your staff's availability and appointments</p>
   </div>
 );
 
@@ -343,13 +365,19 @@ const SalonDashboard = () => {
           value={statistics.pendingAppointments} 
           color="border-yellow-500"
         />
-        <StatCard 
-          icon={<Calendar size={32} className="text-red-500" />} 
-          title="Appointments Today" 
-          value={statistics.todayAppointments} 
+        <StatCard
+          icon={<Calendar size={32} className="text-red-500" />}
+          title="Staff Availability Calendar"
+          value={statistics.todayAppointments}
           color="border-red-500"
         />
+        <AvailabilityCard 
+          color="border-teal-500" 
+          onClick={() => navigate('/salon/staff-availability')}
+        />
       </div>
+
+
 
       {/* Upcoming Appointments */}
       <div className="bg-white p-6 rounded-lg shadow-md mb-8">
