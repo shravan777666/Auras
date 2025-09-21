@@ -257,17 +257,39 @@ export const updateAppointment = asyncHandler(async (req, res) => {
       filter.customerId = userId;
       break;
     case 'salon':
-      filter.salonId = userId;
+      // For salon users, we need to resolve the salon ID from the user ID
+      const User = (await import('../models/User.js')).default;
+      const user = await User.findById(userId);
+      if (!user || user.type !== 'salon') {
+        return errorResponse(res, 'Access denied: Only salon owners can update appointments', 403);
+      }
+      const salonProfile = await Salon.findOne({ email: user.email });
+      if (!salonProfile) {
+        return notFoundResponse(res, 'Salon profile');
+      }
+      filter.salonId = salonProfile._id;
+      
+      console.log('🔧 Salon appointment update request:', {
+        userId,
+        salonId: salonProfile._id,
+        appointmentId,
+        updates
+      });
       break;
     case 'staff':
       filter.staffId = userId;
       break;
   }
 
+  console.log('🔧 Searching for appointment with filter:', filter);
+  
   const appointment = await Appointment.findOne(filter);
   if (!appointment) {
+    console.log('🔧 Appointment not found with filter:', filter);
     return notFoundResponse(res, 'Appointment');
   }
+  
+  console.log('🔧 Found appointment:', appointment._id);
 
   // Restrict what each user type can update
   const allowedUpdates = {};

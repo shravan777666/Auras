@@ -65,6 +65,11 @@ export const salonService = {
     return response.data;
   },
 
+  async assignStaffToAppointment(appointmentId, data) {
+    const response = await api.patch(`/appointment/${appointmentId}`, data);
+    return response.data;
+  },
+
   async addService(serviceData) {
     const response = await api.post('/salon/services', serviceData);
     return response.data;

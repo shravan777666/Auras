@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import LogoutButton from '../../components/auth/LogoutButton';
 import AddServiceModal from '../../components/salon/AddServiceModal';
+import AssignStaffModal from '../../components/salon/AssignStaffModal';
 
 // A reusable card for displaying statistics
 const StatCard = ({ icon, title, value, color, onClick }) => (
@@ -73,10 +74,25 @@ const SalonDashboard = () => {
   const [loadingAppointments, setLoadingAppointments] = useState(false);
   const [reviews, setReviews] = useState([]);
   const [isAddServiceModalOpen, setIsAddServiceModalOpen] = useState(false);
+  const [isAssignStaffModalOpen, setIsAssignStaffModalOpen] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
 
   const handleServiceAdded = () => {
     fetchDashboardData();
+  };
+
+  const handleAssignStaff = (appointment) => {
+    setSelectedAppointment(appointment);
+    setIsAssignStaffModalOpen(true);
+  };
+
+  const handleStaffAssigned = () => {
+    // Refresh the pending appointments
+    fetchPendingAppointments();
+    // Close the modal
+    setIsAssignStaffModalOpen(false);
+    setSelectedAppointment(null);
   };
 
   const fetchDashboardData = async () => {
@@ -421,6 +437,7 @@ const SalonDashboard = () => {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Appointment Date & Time</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assign Staff</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -515,12 +532,20 @@ const SalonDashboard = () => {
                         {new Date(appt.createdAt || appt.dateCreated).toLocaleDateString()}
                       </div>
                     </td>
+                    <td className="px-4 py-3 text-sm">
+                      <button
+                        onClick={() => handleAssignStaff(appt)}
+                        className="px-3 py-1 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                      >
+                        Assign Staff
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
               {(!upcoming || upcoming.length === 0) && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center">
+                  <td colSpan={7} className="px-4 py-8 text-center">
                     <div className="text-gray-500">
                       <div className="text-sm font-medium">No pending appointments</div>
                       <div className="text-xs mt-1">All appointments are up to date!</div>
@@ -605,6 +630,16 @@ const SalonDashboard = () => {
         isOpen={isAddServiceModalOpen}
         onClose={() => setIsAddServiceModalOpen(false)}
         onServiceAdded={handleServiceAdded}
+      />
+
+      <AssignStaffModal
+        isOpen={isAssignStaffModalOpen}
+        onClose={() => {
+          setIsAssignStaffModalOpen(false);
+          setSelectedAppointment(null);
+        }}
+        appointment={selectedAppointment}
+        onStaffAssigned={handleStaffAssigned}
       />
     </div>
   );
