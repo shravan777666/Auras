@@ -33,6 +33,7 @@ const StaffAvailability = React.lazy(() => import('./pages/salon/StaffAvailabili
 const StaffDashboard = React.lazy(() => import('./pages/staff/StaffDashboard'))
 const StaffSetup = React.lazy(() => import('./pages/staff/StaffSetup'))
 const StaffWaitingApproval = React.lazy(() => import('./pages/staff/StaffWaitingApproval'))
+const CompletedAppointments = React.lazy(() => import('./pages/staff/CompletedAppointments'))
 
 // Customer Pages
 const CustomerDashboard = React.lazy(() => import('./pages/customer/CustomerDashboard'))
@@ -269,6 +270,7 @@ function App() {
                   <Route path="dashboard" element={<StaffDashboard />} />
                   <Route path="setup" element={<StaffSetup />} />
                   <Route path="waiting-approval" element={<StaffWaitingApproval />} />
+                  <Route path="completed-appointments" element={<CompletedAppointments />} />
                 </Routes>
               </ProtectedRoute>
             }

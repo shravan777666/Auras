@@ -9,6 +9,8 @@ import {
   getAppointments,
   updateAppointmentStatus,
   getTodaySchedule,
+  getUpcomingAppointments,
+  getCompletedAppointments,
   createStaff
 } from '../controllers/staffController.js';
 import { requireStaff, requireStaffSetup, requireSalonOwner } from '../middleware/roleAuth.js';
@@ -50,6 +52,8 @@ router.patch('/availability', requireStaffSetup, updateAvailability);
 // Appointment Management
 router.get('/appointments', requireStaffSetup, validatePagination, getAppointments);
 router.get('/schedule/today', requireStaffSetup, getTodaySchedule);
+router.get('/upcoming-appointments', requireStaffSetup, getUpcomingAppointments);
+router.get('/completed-appointments', requireStaffSetup, validatePagination, getCompletedAppointments);
 router.patch('/appointments/:appointmentId/status', 
   requireStaffSetup, 
   validateObjectId('appointmentId'), 

@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { staffService } from '../../services/staff';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import UpcomingAppointmentsCard from '../../components/staff/UpcomingAppointmentsCard';
 import { toast } from 'react-hot-toast';
 import { Calendar, CheckCircle, Clock, TrendingUp } from 'lucide-react';
 
 // A reusable card for displaying statistics
-const StatCard = ({ icon, title, value, color }) => (
-  <div className={`bg-white p-6 rounded-lg shadow-md flex items-center gap-4 border-l-4 ${color}`}>
+const StatCard = ({ icon, title, value, color, onClick }) => (
+  <div 
+    className={`bg-white p-6 rounded-lg shadow-md flex items-center gap-4 border-l-4 ${color} ${onClick ? 'cursor-pointer hover:shadow-lg transition-all' : ''}`}
+    onClick={onClick}
+  >
     {icon}
     <div>
       <p className="text-sm font-medium text-gray-500">{title}</p>
@@ -16,9 +21,11 @@ const StatCard = ({ icon, title, value, color }) => (
 );
 
 const StaffDashboard = () => {
+  const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -61,7 +68,22 @@ const StaffDashboard = () => {
     };
 
     fetchDashboardData();
+
+    // Set up auto-refresh for appointments every 30 seconds
+    const refreshInterval = setInterval(() => {
+      handleRefresh();
+    }, 30000);
+
+    return () => clearInterval(refreshInterval);
   }, []);
+
+  const handleRefresh = () => {
+    setRefreshTrigger(prev => prev + 1);
+  };
+
+  const handleCompletedAppointmentsClick = () => {
+    navigate('/staff/completed-appointments');
+  };
 
   if (loading) {
     return <LoadingSpinner />;
@@ -111,13 +133,13 @@ const StaffDashboard = () => {
           title="Completed Appointments" 
           value={statistics.completedAppointments} 
           color="border-green-500"
+          onClick={handleCompletedAppointmentsClick}
         />
       </div>
 
-      {/* Placeholder for future charts or tables */}
-      <div className="mt-8 bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-xl font-semibold mb-4">Today's Schedule</h2>
-        <p className="text-gray-500">Future implementation: A list of today's appointments will be displayed here.</p>
+      {/* Upcoming Appointments */}
+      <div className="mt-8">
+        <UpcomingAppointmentsCard onRefresh={refreshTrigger} />
       </div>
     </div>
   );

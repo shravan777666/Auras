@@ -33,4 +33,14 @@ export const staffService = {
     const response = await api.get('/staff/appointments', { params });
     return response.data;
   },
+
+  async getUpcomingAppointments(params = {}) {
+    const response = await api.get('/staff/upcoming-appointments', { params });
+    return response.data;
+  },
+
+  async getCompletedAppointments(params = {}) {
+    const response = await api.get('/staff/completed-appointments', { params });
+    return response.data;
+  },
 };

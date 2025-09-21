@@ -546,6 +546,78 @@ export const getTodaySchedule = asyncHandler(async (req, res) => {
   return successResponse(res, appointments, "Today's schedule retrieved successfully");
 });
 
+// Get upcoming appointments for staff
+export const getUpcomingAppointments = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+  const limit = parseInt(req.query.limit) || 10;
+
+  // First find the staff record to get the staff ID
+  const staff = await Staff.findOne({ user: userId });
+  if (!staff) {
+    return notFoundResponse(res, 'Staff profile');
+  }
+
+  const appointments = await Appointment.find({
+    staffId: staff._id,
+    appointmentDate: { $gte: new Date() },
+    status: { $in: ['Pending', 'Confirmed', 'In-Progress'] }
+  })
+  .populate('customerId', 'name email')
+  .populate('salonId', 'salonName')
+  .populate('services.serviceId', 'name price duration')
+  .sort({ appointmentDate: 1, appointmentTime: 1 })
+  .limit(limit);
+
+  return successResponse(res, appointments, 'Upcoming appointments retrieved successfully');
+});
+
+// Get completed appointments for staff
+export const getCompletedAppointments = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const skip = (page - 1) * limit;
+
+  // First find the staff record to get the staff ID
+  const staff = await Staff.findOne({ user: userId });
+  if (!staff) {
+    return notFoundResponse(res, 'Staff profile');
+  }
+
+  const filter = {
+    staffId: staff._id,
+    status: 'Completed'
+  };
+
+  // Add date filtering if provided
+  if (req.query.startDate && req.query.endDate) {
+    filter.appointmentDate = {
+      $gte: new Date(req.query.startDate),
+      $lte: new Date(req.query.endDate)
+    };
+  }
+
+  const [appointments, totalAppointments] = await Promise.all([
+    Appointment.find(filter)
+      .populate('customerId', 'name email')
+      .populate('salonId', 'salonName')
+      .populate('services.serviceId', 'name price duration')
+      .skip(skip)
+      .limit(limit)
+      .sort({ appointmentDate: -1, appointmentTime: -1 }),
+    Appointment.countDocuments(filter)
+  ]);
+
+  const totalPages = Math.ceil(totalAppointments / limit);
+
+  return paginatedResponse(res, appointments, {
+    page,
+    limit,
+    totalPages,
+    totalItems: totalAppointments
+  });
+});
+
 export default {
   register,
   createStaff,
