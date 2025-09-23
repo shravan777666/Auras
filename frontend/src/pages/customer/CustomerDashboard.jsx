@@ -13,6 +13,7 @@ import {
   Plus,
   ArrowRight
 } from 'lucide-react'
+import SalonMap from '../../components/customer/SalonMap'
 
 const CustomerDashboard = () => {
   const { user, logout } = useAuth()
@@ -196,6 +197,9 @@ const CustomerDashboard = () => {
                 <p className="text-gray-600 text-sm">Discover salons near you</p>
               </div>
               <MapPin className="h-8 w-8 text-gray-400" />
+            </div>
+            <div className="mt-4">
+              <SalonMap onNavigateNearest />
             </div>
           </div>
 

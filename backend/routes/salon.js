@@ -19,6 +19,7 @@ import {
 } from '../controllers/salonController.js';
 import { getSalonServices } from '../controllers/serviceController.js';
 import { requireSalonOwner, requireSalonSetup } from '../middleware/roleAuth.js';
+import { getSalonLocations } from '../controllers/salonController.js';
 import { validateSalonSetup, validatePagination, validateObjectId } from '../middleware/validation.js';
 import { salonSetupUploads, uploadErrorHandler } from '../middleware/upload.js';
 
@@ -26,6 +27,7 @@ const router = express.Router();
 
 // Public routes
 router.post('/register', register);
+router.get('/locations', getSalonLocations);
 
 // Revenue by service (requires auth + setup)
 router.get('/dashboard/revenue-by-service', requireSalonOwner, requireSalonSetup, getRevenueByService);

@@ -11,7 +11,9 @@ import {
   getTodaySchedule,
   getUpcomingAppointments,
   getCompletedAppointments,
-  createStaff
+  createStaff,
+  getStaffById,
+  updateStaffById
 } from '../controllers/staffController.js';
 import { requireStaff, requireStaffSetup, requireSalonOwner } from '../middleware/roleAuth.js';
 import { validateStaffSetup, validatePagination, validateObjectId } from '../middleware/validation.js';
@@ -36,7 +38,6 @@ router.post(
 router.use(requireStaff);
 
 
-
 // Setup (no setup completion required)
 router.post('/setup', upload.fields([
   { name: 'profilePicture', maxCount: 1 },
@@ -46,7 +47,7 @@ router.post('/setup', upload.fields([
 // Routes that require completed setup
 router.get('/dashboard', requireStaffSetup, getDashboard);
 router.get('/profile', getProfile);
-router.patch('/profile', updateProfile);
+router.put('/profile', updateProfile);
 router.patch('/availability', requireStaffSetup, updateAvailability);
 
 // Appointment Management
@@ -59,5 +60,14 @@ router.patch('/appointments/:appointmentId/status',
   validateObjectId('appointmentId'), 
   updateAppointmentStatus
 );
+
+// NOTE: Parameter routes must come last to avoid shadowing specific paths like /dashboard
+// Get a staff member by ID (for admins/salon owners)
+router.get('/:id', validateObjectId('id'), getStaffById);
+
+// Update a staff member by ID (for admins/salon owners)
+router.put('/:id', validateObjectId('id'), upload.fields([
+  { name: 'profilePicture', maxCount: 1 },
+]), updateStaffById);
 
 export default router;

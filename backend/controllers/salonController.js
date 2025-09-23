@@ -960,6 +960,42 @@ export const getRevenueByService = asyncHandler(async (req, res) => {
   return successResponse(res, response, 'Revenue data retrieved successfully');
 });
 
+// Public: Get salon locations (name, address, lat, lng)
+export const getSalonLocations = asyncHandler(async (req, res) => {
+  // Return all salons as requested (no approval filter)
+  const salons = await Salon.find({})
+    .select('salonName salonAddress')
+    .lean();
+
+  const locations = (salons || []).map((s) => {
+    // Normalize address
+    let address = '';
+    if (typeof s.salonAddress === 'string') {
+      address = s.salonAddress;
+    } else if (s.salonAddress && typeof s.salonAddress === 'object') {
+      const { street, city, state, postalCode, addressLine1, addressLine2 } = s.salonAddress;
+      address = [addressLine1 || street, addressLine2, city, state, postalCode].filter(Boolean).join(', ');
+    }
+
+    // Try common coordinate shapes inside salonAddress
+    const addr = s.salonAddress || {};
+    // Accept numbers or numeric strings
+    const rawLat = addr.lat ?? addr.latitude ?? addr?.geo?.lat ?? null;
+    const rawLng = addr.lng ?? addr.longitude ?? addr?.geo?.lng ?? null;
+    const lat = typeof rawLat === 'string' ? Number(rawLat) : rawLat;
+    const lng = typeof rawLng === 'string' ? Number(rawLng) : rawLng;
+
+    return {
+      name: s.salonName || 'Salon',
+      address: address || '',
+      lat,
+      lng,
+    };
+  });
+
+  return successResponse(res, locations, 'Salon locations retrieved');
+});
+
 export default {
   register,
   updateDetails,
@@ -975,5 +1011,6 @@ export default {
   updateAppointmentStatus,
   getSalonStaff,
   addService,
-  getRevenueByService
+  getRevenueByService,
+  getSalonLocations
 };

@@ -5,6 +5,10 @@ export const customerService = {
     const response = await api.get('/customer/dashboard');
     return response.data;
   },
+  async getSalonLocations() {
+    const response = await api.get('/salon/locations');
+    return response.data;
+  },
   async browseSalons(params = {}) {
     const query = new URLSearchParams(params).toString();
     const response = await api.get(`/customer/salons${query ? `?${query}` : ''}`);

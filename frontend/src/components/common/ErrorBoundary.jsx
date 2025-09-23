@@ -1,18 +1,19 @@
-import React from 'react'
+import React from 'react';
+import PropTypes from 'prop-types'; // Optional: for prop type checking
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
-    super(props)
-    this.state = { hasError: false, error: null }
+    super(props);
+    this.state = { hasError: false, error: null };
   }
 
   static getDerivedStateFromError(error) {
-    return { hasError: true, error }
+    return { hasError: true, error };
   }
 
   componentDidCatch(error, errorInfo) {
     // eslint-disable-next-line no-console
-    console.error('ErrorBoundary caught an error:', error, errorInfo)
+    console.error('ErrorBoundary caught an error:', error, errorInfo);
   }
 
   render() {
@@ -21,7 +22,9 @@ class ErrorBoundary extends React.Component {
         <div className="min-h-screen flex items-center justify-center p-6">
           <div className="max-w-lg w-full bg-white rounded-xl shadow p-6 text-center">
             <h2 className="text-xl font-semibold text-gray-800 mb-2">Something went wrong</h2>
-            <p className="text-gray-600 mb-4">An unexpected error occurred while rendering this page.</p>
+            <p className="text-gray-600 mb-4">
+              {this.props.customErrorMessage || 'An unexpected error occurred while rendering this page.'}
+            </p>
             <button
               onClick={() => this.setState({ hasError: false, error: null })}
               className="inline-flex items-center px-4 py-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-700"
@@ -30,12 +33,15 @@ class ErrorBoundary extends React.Component {
             </button>
           </div>
         </div>
-      )
+      );
     }
-    return this.props.children
+    return this.props.children;
   }
 }
 
-export default ErrorBoundary
+ErrorBoundary.propTypes = {
+  customErrorMessage: PropTypes.string, // Optional prop for custom error message
+  children: PropTypes.node.isRequired, // Ensures children are provided
+};
 
-
+export default ErrorBoundary;

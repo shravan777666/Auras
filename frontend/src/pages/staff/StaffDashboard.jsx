@@ -4,11 +4,27 @@ import { staffService } from '../../services/staff';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import UpcomingAppointmentsCard from '../../components/staff/UpcomingAppointmentsCard';
 import { toast } from 'react-hot-toast';
-import { Calendar, CheckCircle, Clock, TrendingUp } from 'lucide-react';
+import {
+  Calendar,
+  CheckCircle,
+  Clock,
+  TrendingUp,
+  User,
+  Scissors,
+  BarChart,
+  Settings,
+  Edit2,
+  Bell,
+  Plus,
+} from 'lucide-react';
+import { Doughnut } from 'react-chartjs-2';
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
+
+ChartJS.register(ArcElement, Tooltip, Legend);
 
 // A reusable card for displaying statistics
 const StatCard = ({ icon, title, value, color, onClick }) => (
-  <div 
+  <div
     className={`bg-white p-6 rounded-lg shadow-md flex items-center gap-4 border-l-4 ${color} ${onClick ? 'cursor-pointer hover:shadow-lg transition-all' : ''}`}
     onClick={onClick}
   >
@@ -17,6 +33,14 @@ const StatCard = ({ icon, title, value, color, onClick }) => (
       <p className="text-sm font-medium text-gray-500">{title}</p>
       <p className="text-2xl font-bold text-gray-800">{value}</p>
     </div>
+  </div>
+);
+
+// A reusable card for displaying sections
+const DashboardCard = ({ title, children, className = '' }) => (
+  <div className={`bg-white p-6 rounded-lg shadow-md ${className}`}>
+    <h2 className="text-lg font-semibold text-gray-900 mb-4">{title}</h2>
+    {children}
   </div>
 );
 
@@ -31,8 +55,6 @@ const StaffDashboard = () => {
     const fetchDashboardData = async () => {
       try {
         const response = await staffService.getDashboardData();
-        console.log('Staff Dashboard Response:', response);
-        
         if (response.success) {
           setDashboardData(response.data);
         } else {
@@ -43,24 +65,7 @@ const StaffDashboard = () => {
       } catch (err) {
         console.error('Staff Dashboard Error:', err);
         const errorMsg = err.response?.data?.message || err.message || 'An error occurred while fetching data.';
-        
-        // Handle specific error cases
-        if (err.response?.status === 403) {
-          if (errorMsg.includes('Staff setup required')) {
-            setError('Please complete your staff profile setup to access the dashboard.');
-          } else if (errorMsg.includes('Staff access required')) {
-            setError('You need staff permissions to access this dashboard.');
-          } else {
-            setError(errorMsg);
-          }
-        } else if (err.response?.status === 401) {
-          setError('Please log in to access the dashboard.');
-        } else if (err.response?.status === 404) {
-          setError('Staff profile not found. Please contact support.');
-        } else {
-          setError(errorMsg);
-        }
-        
+        setError(errorMsg);
         toast.error(errorMsg);
       } finally {
         setLoading(false);
@@ -69,20 +74,24 @@ const StaffDashboard = () => {
 
     fetchDashboardData();
 
-    // Set up auto-refresh for appointments every 30 seconds
+    // Set up auto-refresh
     const refreshInterval = setInterval(() => {
-      handleRefresh();
+      setRefreshTrigger(prev => prev + 1);
     }, 30000);
 
     return () => clearInterval(refreshInterval);
   }, []);
 
-  const handleRefresh = () => {
-    setRefreshTrigger(prev => prev + 1);
+  const handleBookNewAppointment = () => {
+    navigate('/staff/book-appointment');
   };
 
-  const handleCompletedAppointmentsClick = () => {
-    navigate('/staff/completed-appointments');
+  const handleSendReminder = () => {
+    toast.success('Reminder sent successfully!');
+  };
+
+  const handleEditProfile = () => {
+    navigate('/staff/profile/edit');
   };
 
   if (loading) {
@@ -97,50 +106,224 @@ const StaffDashboard = () => {
     return <div className="text-center">No dashboard data available.</div>;
   }
 
-  const { staffInfo, statistics, assignedSalon } = dashboardData;
+  const { staffInfo, statistics, todayAppointments, upcomingClients, performance } = dashboardData;
+
+  const getClientProfileImage = (clientName) => {
+    // This is a placeholder for a function that would fetch the client's profile image
+    // For now, it returns a placeholder image
+    return `https://ui-avatars.com/api/?name=${clientName}&background=random&color=fff&rounded=true`;
+  };
+
+  const getDoughnutChartData = () => {
+    if (!performance?.services) return null;
+    const labels = Object.keys(performance.services);
+    const data = Object.values(performance.services);
+    const colors = ['#8884d8', '#82ca9d', '#ffc658', '#a4de6c']; // Example colors
+
+    return {
+      labels,
+      datasets: [
+        {
+          data,
+          backgroundColor: colors.slice(0, labels.length),
+          borderWidth: 1,
+        },
+      ],
+    };
+  };
+
+  const doughnutData = getDoughnutChartData();
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-screen">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Welcome, {staffInfo.name}!</h1>
-        <p className="text-gray-600">
-          {assignedSalon ? `You are currently assigned to ${assignedSalon.salonName}.` : 'You are not currently assigned to a salon.'}
-        </p>
-      </header>
+    <div className="flex bg-gray-50 min-h-screen">
+      {/* Sidebar */}
+      <aside className="w-64 bg-white shadow-lg p-6 flex-shrink-0 border-r border-gray-200">
+        <div className="flex flex-col h-full">
+          <div className="flex items-center mb-8">
+            <h1 className="text-2xl font-bold text-gray-900">Salon Name</h1>
+          </div>
+          <div className="text-center mb-8">
+            <div className="flex flex-col items-center">
+              <img
+                src={staffInfo.profileImage || `https://ui-avatars.com/api/?name=${staffInfo.name}&background=random&color=fff&rounded=true`}
+                alt={staffInfo.name}
+                className="w-24 h-24 rounded-full object-cover shadow-sm mb-2"
+              />
+              <p className="text-lg font-semibold text-gray-800">{staffInfo.name}</p>
+              <button
+                onClick={handleEditProfile}
+                className="text-sm text-blue-600 hover:text-blue-800 transition-colors"
+              >
+                Edit Profile
+              </button>
+            </div>
+          </div>
+          <nav className="flex-grow">
+            <ul>
+              <li className="mb-4">
+                <button onClick={() => navigate('/staff/schedule')} className="w-full text-left flex items-center gap-3 p-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
+                  <User size={20} /> My Schedule
+                </button>
+              </li>
+              <li className="mb-4">
+                <a href="#" className="flex items-center gap-3 p-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
+                  <Scissors size={20} /> Services
+                </a>
+              </li>
+              <li className="mb-4">
+                <a href="#" className="flex items-center gap-3 p-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
+                  <BarChart size={20} /> Reports
+                </a>
+              </li>
+              <li className="mb-4">
+                <a href="#" className="flex items-center gap-3 p-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
+                  <Settings size={20} /> Settings
+                </a>
+              </li>
+            </ul>
+          </nav>
+        </div>
+      </aside>
 
-      {/* Statistics Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard 
-          icon={<Calendar size={32} className="text-blue-500" />} 
-          title="Total Appointments" 
-          value={statistics.totalAppointments} 
-          color="border-blue-500"
-        />
-        <StatCard 
-          icon={<Clock size={32} className="text-yellow-500" />} 
-          title="Today's Appointments" 
-          value={statistics.todayAppointments} 
-          color="border-yellow-500"
-        />
-        <StatCard 
-          icon={<TrendingUp size={32} className="text-indigo-500" />} 
-          title="Upcoming Appointments" 
-          value={statistics.upcomingAppointments} 
-          color="border-indigo-500"
-        />
-        <StatCard 
-          icon={<CheckCircle size={32} className="text-green-500" />} 
-          title="Completed Appointments" 
-          value={statistics.completedAppointments} 
-          color="border-green-500"
-          onClick={handleCompletedAppointmentsClick}
-        />
-      </div>
+      {/* Main Content */}
+      <main className="flex-1 p-8 overflow-y-auto">
+        {/* Header */}
+        <header className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Welcome, {staffInfo.name}!</h1>
+          <p className="text-gray-600">Ready for a productive day?</p>
+        </header>
 
-      {/* Upcoming Appointments */}
-      <div className="mt-8">
-        <UpcomingAppointmentsCard onRefresh={refreshTrigger} />
-      </div>
+        {/* Statistics Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <StatCard
+            icon={<Calendar size={32} className="text-blue-500" />}
+            title="Total Appointments"
+            value={statistics.totalAppointments}
+            color="border-blue-500"
+          />
+          <StatCard
+            icon={<Clock size={32} className="text-yellow-500" />}
+            title="Today's Appointments"
+            value={statistics.todayAppointments}
+            color="border-yellow-500"
+          />
+          <StatCard
+            icon={<TrendingUp size={32} className="text-indigo-500" />}
+            title="Upcoming Appointments"
+            value={statistics.upcomingAppointments}
+            color="border-indigo-500"
+          />
+          <StatCard
+            icon={<CheckCircle size={32} className="text-green-500" />}
+            title="Completed Appointments"
+            value={statistics.completedAppointments}
+            color="border-green-500"
+          />
+        </div>
+
+        {/* Dashboard Sections Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <DashboardCard title="Today's Schedule" className="h-full">
+              {todayAppointments && todayAppointments.length > 0 ? (
+                <ul className="space-y-4">
+                  {todayAppointments.map((appointment, index) => (
+                    <li key={index} className="flex items-center justify-between border-b pb-2">
+                      <div className="flex-1">
+                        <p className="font-semibold text-gray-800">{appointment.clientName}</p>
+                        <p className="text-sm text-gray-500">{appointment.service}</p>
+                      </div>
+                      <p className="text-sm font-medium text-gray-600">{appointment.time}</p>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-gray-500">You have no appointments scheduled for today.</p>
+              )}
+            </DashboardCard>
+          </div>
+
+          <div className="lg:col-span-1">
+            <DashboardCard title="Performance Snapshot" className="h-full">
+              <div className="flex flex-col items-center">
+                <div className="w-full h-40 flex items-center justify-center">
+                  {doughnutData ? (
+                    <Doughnut data={doughnutData} options={{ maintainAspectRatio: false }} />
+                  ) : (
+                    <p className="text-gray-500 text-sm">No performance data available.</p>
+                  )}
+                </div>
+                <div className="flex flex-wrap justify-center mt-4 text-sm gap-4">
+                  {doughnutData?.labels.map((label, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full" style={{ backgroundColor: doughnutData.datasets[0].backgroundColor[index] }}></span>
+                      <span>{label}</span>
+                    </div>
+                  ))}
+                </div>
+                {performance?.clientRating && (
+                  <div className="mt-4 flex items-center gap-2">
+                    <p className="text-gray-600 font-medium">Client Rating:</p>
+                    <div className="flex text-yellow-400">
+                      {[...Array(5)].map((_, i) => (
+                        <span key={i} className={`text-xl ${i < performance.clientRating ? 'text-yellow-400' : 'text-gray-300'}`}>
+                          ★
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </DashboardCard>
+          </div>
+        </div>
+
+        {/* Quick Actions and Upcoming Client Spotlight */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+          <DashboardCard title="Quick Actions">
+            <div className="flex flex-wrap gap-4">
+              <button
+                onClick={handleBookNewAppointment}
+                className="flex-1 min-w-[200px] flex flex-col items-center p-6 bg-gray-100 rounded-lg shadow-sm hover:bg-gray-200 transition-colors"
+              >
+                <Plus size={24} className="text-gray-600 mb-2" />
+                <span className="font-semibold text-gray-800">Book New Appointment</span>
+              </button>
+              <button
+                onClick={handleSendReminder}
+                className="flex-1 min-w-[200px] flex flex-col items-center p-6 bg-gray-100 rounded-lg shadow-sm hover:bg-gray-200 transition-colors"
+              >
+                <Bell size={24} className="text-gray-600 mb-2" />
+                <span className="font-semibold text-gray-800">Send Reminder</span>
+              </button>
+            </div>
+          </DashboardCard>
+
+          <DashboardCard title="Upcoming Client Spotlight">
+            {upcomingClients && upcomingClients.length > 0 ? (
+              <ul className="space-y-4">
+                {upcomingClients.map((client, index) => (
+                  <li key={index} className="flex items-center gap-4">
+                    <img
+                      src={getClientProfileImage(client.name)}
+                      alt={client.name}
+                      className="w-16 h-16 rounded-full object-cover shadow-sm"
+                    />
+                    <div>
+                      <p className="font-semibold text-gray-800">{client.name}</p>
+                      <p className="text-sm text-gray-500">
+                        {client.preferences || 'No preferences listed.'}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-gray-500">No upcoming clients to spotlight.</p>
+            )}
+          </DashboardCard>
+        </div>
+      </main>
     </div>
   );
 };

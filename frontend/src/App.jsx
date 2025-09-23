@@ -35,6 +35,8 @@ const StaffDashboard = React.lazy(() => import('./pages/staff/StaffDashboard'))
 const StaffSetup = React.lazy(() => import('./pages/staff/StaffSetup'))
 const StaffWaitingApproval = React.lazy(() => import('./pages/staff/StaffWaitingApproval'))
 const CompletedAppointments = React.lazy(() => import('./pages/staff/CompletedAppointments'))
+const StaffEditProfile = React.lazy(() => import('./pages/staff/StaffEditProfile'))
+const StaffSchedule = React.lazy(() => import('./pages/staff/StaffSchedule'))
 
 // Customer Pages
 const CustomerDashboard = React.lazy(() => import('./pages/customer/CustomerDashboard'))
@@ -274,15 +276,58 @@ function App() {
 
           {/* Staff Routes */}
           <Route
-            path="/staff/*"
+            path="/staff/setup"
             element={
               <ProtectedRoute allowedRoles={['staff']}>
-                <Routes>
-                  <Route path="dashboard" element={<StaffDashboard />} />
-                  <Route path="setup" element={<StaffSetup />} />
-                  <Route path="waiting-approval" element={<StaffWaitingApproval />} />
-                  <Route path="completed-appointments" element={<CompletedAppointments />} />
-                </Routes>
+                <StaffSetup />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/staff/waiting-approval"
+            element={
+              <ProtectedRoute allowedRoles={['staff']}>
+                <StaffWaitingApproval />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/staff/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={['staff']}>
+                <SetupRequiredRoute setupPath="/staff/setup">
+                  <StaffDashboard />
+                </SetupRequiredRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/staff/completed-appointments"
+            element={
+              <ProtectedRoute allowedRoles={['staff']}>
+                <SetupRequiredRoute setupPath="/staff/setup">
+                  <CompletedAppointments />
+                </SetupRequiredRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/staff/profile/edit"
+            element={
+              <ProtectedRoute allowedRoles={['staff']}>
+                <SetupRequiredRoute setupPath="/staff/setup">
+                  <StaffEditProfile />
+                </SetupRequiredRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/staff/schedule"
+            element={
+              <ProtectedRoute allowedRoles={['staff']}>
+                <SetupRequiredRoute setupPath="/staff/setup">
+                  <StaffSchedule />
+                </SetupRequiredRoute>
               </ProtectedRoute>
             }
           />

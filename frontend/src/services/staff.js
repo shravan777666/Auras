@@ -1,5 +1,45 @@
 import api from './api';
 
+export const getStaffById = async (id) => {
+  try {
+    const response = await api.get(`/staff/${id}`);
+    return response.data.data;
+  } catch (error) {
+    console.error(`Error fetching staff with id ${id}:`, error);
+    throw error;
+  }
+};
+
+export const updateStaffById = async (id, data) => {
+  try {
+    const response = await api.put(`/staff/${id}`, data);
+    return response.data.data;
+  } catch (error) {
+    console.error(`Error updating staff with id ${id}:`, error);
+    throw error;
+  }
+};
+
+export const getProfile = async () => {
+  try {
+    const response = await api.get('/staff/profile');
+    return response.data.data;
+  } catch (error) {
+    console.error('Error fetching staff profile:', error);
+    throw error;
+  }
+};
+
+export const updateProfile = async (data) => {
+  try {
+    const response = await api.put('/staff/profile', data);
+    return response.data.data;
+  } catch (error) {
+    console.error('Error updating staff profile:', error);
+    throw error;
+  }
+};
+
 export const staffService = {
   async register(userData) {
     const response = await api.post('/staff/register', userData);
@@ -26,6 +66,16 @@ export const staffService = {
 
   async getDashboardData() {
     const response = await api.get('/staff/dashboard');
+    return response.data;
+  },
+
+  async getProfile() {
+    const response = await api.get('/staff/profile');
+    return response.data;
+  },
+
+  async updateProfile(data) {
+    const response = await api.put('/staff/profile', data);
     return response.data;
   },
 

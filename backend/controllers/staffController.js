@@ -309,13 +309,26 @@ export const setupProfile = asyncHandler(async (req, res) => {
 // Get staff dashboard
 export const getDashboard = asyncHandler(async (req, res) => {
   const userId = req.user.id;
+  
+  console.log('=== STAFF DASHBOARD DEBUG ===');
+  console.log('User ID from token:', userId);
+  console.log('User object from token:', req.user);
 
   let staffInfo = await Staff.findOne({ user: userId });
+  console.log('Staff found by user ID:', staffInfo ? {
+    id: staffInfo._id,
+    name: staffInfo.name,
+    email: staffInfo.email,
+    approvalStatus: staffInfo.approvalStatus,
+    setupCompleted: staffInfo.setupCompleted
+  } : 'NOT FOUND');
   
   // If no staff profile exists, create one
   if (!staffInfo) {
     const user = await User.findById(userId);
+    console.log('Creating staff profile for user:', user ? user.email : 'USER NOT FOUND');
     if (!user) {
+      console.log('ERROR: User not found with ID:', userId);
       return errorResponse(res, 'User not found', 404);
     }
     
@@ -324,6 +337,7 @@ export const getDashboard = asyncHandler(async (req, res) => {
       email: user.email, 
       user: user._id 
     });
+    console.log('Created new staff profile');
   }
 
   // Check staff approval status
@@ -334,22 +348,31 @@ export const getDashboard = asyncHandler(async (req, res) => {
       ? `Your staff application has been rejected. Reason: ${staffInfo.rejectionReason || 'No reason provided'}`
       : 'Your staff application is not approved for dashboard access.';
     
+    console.log('APPROVAL STATUS ERROR:', staffInfo.approvalStatus, message);
     return errorResponse(res, message, 403);
   }
 
+  console.log('Staff approval check passed, fetching dashboard data...');
+
+  const today = new Date();
+  const todayStart = new Date(today.setHours(0, 0, 0, 0));
+  const todayEnd = new Date(today.setHours(23, 59, 59, 999));
+
   const [
     totalAppointments,
-    todayAppointments,
+    todayAppointmentsCount,
     upcomingAppointments,
     completedAppointments,
-    assignedSalon
+    assignedSalon,
+    todayAppointments,
+    upcomingClients
   ] = await Promise.all([
     Appointment.countDocuments({ staffId: staffInfo._id }),
     Appointment.countDocuments({ 
       staffId: staffInfo._id, 
       appointmentDate: {
-        $gte: new Date(new Date().setHours(0, 0, 0, 0)),
-        $lt: new Date(new Date().setHours(23, 59, 59, 999))
+        $gte: todayStart,
+        $lt: todayEnd
       }
     }),
     Appointment.countDocuments({ 
@@ -358,18 +381,70 @@ export const getDashboard = asyncHandler(async (req, res) => {
       appointmentDate: { $gte: new Date() }
     }),
     Appointment.countDocuments({ staffId: staffInfo._id, status: 'Completed' }),
-    staffInfo.assignedSalon ? Salon.findById(staffInfo.assignedSalon).select('salonName ownerName') : null
+    staffInfo.assignedSalon ? Salon.findById(staffInfo.assignedSalon).select('salonName ownerName') : null,
+    // Get today's appointments with details
+    Appointment.find({
+      staffId: staffInfo._id,
+      appointmentDate: {
+        $gte: todayStart,
+        $lt: todayEnd
+      },
+      status: { $in: ['Pending', 'Confirmed', 'In-Progress'] }
+    })
+    .populate('customerId', 'name')
+    .populate('services.serviceId', 'name')
+    .sort({ appointmentTime: 1 })
+    .limit(10),
+    // Get upcoming clients
+    Appointment.find({
+      staffId: staffInfo._id,
+      status: { $in: ['Pending', 'Confirmed'] },
+      appointmentDate: { $gte: new Date() }
+    })
+    .populate('customerId', 'name')
+    .sort({ appointmentDate: 1, appointmentTime: 1 })
+    .limit(5)
   ]);
 
+  console.log('Dashboard data fetched successfully');
+
+  // Format today's appointments for the frontend
+  const formattedTodayAppointments = todayAppointments.map(apt => ({
+    clientName: apt.customerId?.name || 'Unknown Client',
+    service: apt.services?.[0]?.serviceId?.name || 'General Service',
+    time: apt.appointmentTime || 'TBD'
+  }));
+
+  // Format upcoming clients
+  const formattedUpcomingClients = upcomingClients.map(apt => ({
+    name: apt.customerId?.name || 'Unknown Client',
+    preferences: apt.customerNotes || 'No specific preferences'
+  }));
+
+  // Mock performance data (you can enhance this based on actual appointment data)
+  const performance = {
+    services: {
+      'Hair Cut': completedAppointments > 0 ? Math.floor(completedAppointments * 0.4) : 0,
+      'Hair Color': completedAppointments > 0 ? Math.floor(completedAppointments * 0.3) : 0,
+      'Hair Style': completedAppointments > 0 ? Math.floor(completedAppointments * 0.2) : 0,
+      'Treatment': completedAppointments > 0 ? Math.floor(completedAppointments * 0.1) : 0
+    },
+    clientRating: 4.5 // You can calculate this from actual reviews later
+  };
+
+  console.log('Returning dashboard response');
   return successResponse(res, {
     staffInfo,
     assignedSalon,
     statistics: {
       totalAppointments,
-      todayAppointments,
+      todayAppointments: todayAppointmentsCount,
       upcomingAppointments,
       completedAppointments
-    }
+    },
+    todayAppointments: formattedTodayAppointments,
+    upcomingClients: formattedUpcomingClients,
+    performance
   }, 'Dashboard data retrieved successfully');
 });
 
@@ -401,29 +476,7 @@ export const getProfile = asyncHandler(async (req, res) => {
   return successResponse(res, staff, 'Profile retrieved successfully');
 });
 
-// Update staff profile
-export const updateProfile = asyncHandler(async (req, res) => {
-  const userId = req.user.id;
-  const updates = req.body;
 
-  // Remove sensitive fields
-  delete updates.password;
-  delete updates.email;
-  delete updates.assignedSalon;
-  delete updates.employmentStatus;
-
-  const staff = await Staff.findOneAndUpdate(
-    { user: userId },
-    { ...updates },
-    { new: true, runValidators: true }
-  );
-
-  if (!staff) {
-    return notFoundResponse(res, 'Staff profile');
-  }
-
-  return successResponse(res, staff, 'Profile updated successfully');
-});
 
 // Update availability
 export const updateAvailability = asyncHandler(async (req, res) => {
@@ -440,6 +493,8 @@ export const updateAvailability = asyncHandler(async (req, res) => {
 
   return successResponse(res, staff.availability, 'Availability updated successfully');
 });
+
+
 
 // Get staff appointments
 export const getAppointments = asyncHandler(async (req, res) => {
@@ -546,10 +601,117 @@ export const getTodaySchedule = asyncHandler(async (req, res) => {
   return successResponse(res, appointments, "Today's schedule retrieved successfully");
 });
 
+// Get staff by ID (for admins/salon owners)
+export const getStaffById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const staff = await Staff.findById(id)
+    .populate('assignedSalon', 'salonName ownerName contactNumber')
+    .populate('user', 'name email');
+
+  if (!staff) {
+    return notFoundResponse(res, 'Staff');
+  }
+
+  const responseData = {
+    ...staff.toObject(),
+    documents: convertDocumentsToUrls(staff.documents, req),
+    profilePicture: staff.profilePicture ? getFileUrl(staff.profilePicture, req) : null,
+  };
+
+  return successResponse(res, responseData, 'Staff retrieved successfully');
+});
+
+// Update staff by ID (for admins/salon owners)
+export const updateStaffById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const updateData = req.body;
+
+  const staff = await Staff.findById(id);
+  if (!staff) {
+    return notFoundResponse(res, 'Staff');
+  }
+
+  // Handle file uploads if any
+  if (req.files && req.files.profilePicture && req.files.profilePicture[0]) {
+    updateData.profilePicture = req.files.profilePicture[0].path;
+  }
+
+  // Parse JSON strings if needed (for FormData)
+  const parseIfString = (val) => {
+    if (!val) return val;
+    if (typeof val === 'string') {
+      try { return JSON.parse(val); } catch (e) { return val; }
+    }
+    return val;
+  };
+
+  if (updateData.skills) updateData.skills = parseIfString(updateData.skills);
+  if (updateData.experience) updateData.experience = parseIfString(updateData.experience);
+  if (updateData.availability) updateData.availability = parseIfString(updateData.availability);
+  if (updateData.address) updateData.address = parseIfString(updateData.address);
+
+  // Update staff
+  Object.assign(staff, updateData);
+  await staff.save();
+
+  const responseData = {
+    ...staff.toObject(),
+    documents: convertDocumentsToUrls(staff.documents, req),
+    profilePicture: staff.profilePicture ? getFileUrl(staff.profilePicture, req) : null,
+  };
+
+  return successResponse(res, responseData, 'Staff updated successfully');
+});
+
+// Update logged-in staff's profile
+export const updateProfile = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+  const updateData = req.body;
+
+  const staff = await Staff.findOne({ user: userId });
+  if (!staff) {
+    return notFoundResponse(res, 'Staff profile');
+  }
+
+  // Handle file uploads if any
+  if (req.files && req.files.profilePicture && req.files.profilePicture[0]) {
+    updateData.profilePicture = req.files.profilePicture[0].path;
+  }
+
+  // Parse JSON strings if needed (for FormData)
+  const parseIfString = (val) => {
+    if (!val) return val;
+    if (typeof val === 'string') {
+      try { return JSON.parse(val); } catch (e) { return val; }
+    }
+    return val;
+  };
+
+  if (updateData.skills) updateData.skills = parseIfString(updateData.skills);
+  if (updateData.experience) updateData.experience = parseIfString(updateData.experience);
+  if (updateData.availability) updateData.availability = parseIfString(updateData.availability);
+  if (updateData.address) updateData.address = parseIfString(updateData.address);
+
+  // Update staff
+  Object.assign(staff, updateData);
+  await staff.save();
+
+  const responseData = {
+    ...staff.toObject(),
+    documents: convertDocumentsToUrls(staff.documents, req),
+    profilePicture: staff.profilePicture ? getFileUrl(staff.profilePicture, req) : null,
+  };
+
+  return successResponse(res, responseData, 'Profile updated successfully');
+});
+
 // Get upcoming appointments for staff
 export const getUpcomingAppointments = asyncHandler(async (req, res) => {
   const userId = req.user.id;
+  const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
+  const skip = (page - 1) * limit;
 
   // First find the staff record to get the staff ID
   const staff = await Staff.findOne({ user: userId });
@@ -557,18 +719,31 @@ export const getUpcomingAppointments = asyncHandler(async (req, res) => {
     return notFoundResponse(res, 'Staff profile');
   }
 
-  const appointments = await Appointment.find({
+  const filter = {
     staffId: staff._id,
-    appointmentDate: { $gte: new Date() },
-    status: { $in: ['Pending', 'Confirmed', 'In-Progress'] }
-  })
-  .populate('customerId', 'name email')
-  .populate('salonId', 'salonName')
-  .populate('services.serviceId', 'name price duration')
-  .sort({ appointmentDate: 1, appointmentTime: 1 })
-  .limit(limit);
+    status: { $in: ['Pending', 'Confirmed'] },
+    appointmentDate: { $gte: new Date() }
+  };
 
-  return successResponse(res, appointments, 'Upcoming appointments retrieved successfully');
+  const [appointments, totalAppointments] = await Promise.all([
+    Appointment.find(filter)
+      .populate('customerId', 'name email')
+      .populate('salonId', 'salonName')
+      .populate('services.serviceId', 'name price duration')
+      .skip(skip)
+      .limit(limit)
+      .sort({ appointmentDate: 1, appointmentTime: 1 }),
+    Appointment.countDocuments(filter)
+  ]);
+
+  const totalPages = Math.ceil(totalAppointments / limit);
+
+  return paginatedResponse(res, appointments, {
+    page,
+    limit,
+    totalPages,
+    totalItems: totalAppointments
+  });
 });
 
 // Get completed appointments for staff
@@ -628,5 +803,9 @@ export default {
   updateAvailability,
   getAppointments,
   updateAppointmentStatus,
-  getTodaySchedule
+  getTodaySchedule,
+  getUpcomingAppointments,
+  getCompletedAppointments,
+  getStaffById,
+  updateStaffById
 };
