@@ -32,6 +32,11 @@ export const salonService = {
     return response.data;
   },
 
+  async getRevenueByService() {
+    const response = await api.get('/salon/dashboard/revenue-by-service');
+    return response.data?.data || [];
+  },
+
   async getAppointments({ page = 1, limit = 5, status, date } = {}) {
     const params = new URLSearchParams();
     params.set('page', page);

@@ -1,286 +1,259 @@
-import React from 'react'
-import { Link } from 'react-router-dom'
-import { useAuth } from '../../contexts/AuthContext'
-import { 
-  Sparkles, 
-  Calendar, 
-  Users, 
-  Star, 
-  ArrowRight,
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  Search,
+  MapPin,
+  Star,
+  Scissors,
+  Paintbrush,
+  Sparkles,
+  Heart,
   CheckCircle,
   Shield,
-  Clock,
-  Heart
-} from 'lucide-react'
+  Users,
+} from 'lucide-react';
 
 const Home = () => {
-  const { user } = useAuth()
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  const features = [
+  const heroImages = [
+    'https://cdn.pixabay.com/photo/2020/05/24/02/00/barber-shop-5212059_1280.jpg',
+    'https://images.unsplash.com/photo-1580618672591-2c8d41d9b0b3?ixlib=rb-4.0.3&auto=format&fit=crop&w=2069&q=80',
+    'https://cdn.pixabay.com/photo/2022/01/24/20/01/salon-6964527_1280.jpg',
+    'https://images.unsplash.com/photo-1560066984-138dadb4c5f7?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80',
+  ];
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentImageIndex((prevIndex) =>
+        prevIndex === heroImages.length - 1 ? 0 : prevIndex + 1
+      );
+    }, 5000);
+
+    return () => clearInterval(timer);
+  }, [heroImages.length]);
+
+  const featuredSalons = [
     {
-      icon: Calendar,
+      name: 'Modern Cuts',
+      location: 'New York, NY',
+      rating: 4.8,
+      image: 'https://images.unsplash.com/photo-1521590832167-7ce6b839fe7f?q=80&w=2187&auto=format&fit=crop',
+    },
+    {
+      name: 'The Style Room',
+      location: 'Los Angeles, CA',
+      rating: 4.9,
+      image: 'https://images.unsplash.com/photo-1632345031435-8727f6897d53?q=80&w=2070&auto=format&fit=crop',
+    },
+    {
+      name: 'Beauty Bliss',
+      location: 'Chicago, IL',
+      rating: 4.7,
+      image: 'https://images.unsplash.com/photo-1596788048228-dc0f06d2c5c7?q=80&w=2235&auto=format&fit=crop',
+    },
+    {
+        name: 'Glamour Lounge',
+        location: 'Houston, TX',
+        rating: 4.8,
+        image: 'https://images.unsplash.com/photo-1580615642422-ba2797b67a9b?q=80&w=2070&auto=format&fit=crop',
+    },
+    {
+        name: 'Elegance Studio',
+        location: 'Phoenix, AZ',
+        rating: 4.9,
+        image: 'https://images.unsplash.com/photo-1556760544-4421763def42?q=80&w=2070&auto=format&fit=crop',
+    },
+  ];
+
+  const topServices = [
+    { name: 'Haircuts', icon: Scissors },
+    { name: 'Coloring', icon: Paintbrush },
+    { name: 'Manicures', icon: Sparkles },
+    { name: 'Pedicures', icon: Heart },
+  ];
+
+  const whyChooseUs = [
+    {
+      icon: CheckCircle,
       title: 'Easy Booking',
-      description: 'Book appointments with your favorite salons in just a few clicks'
-    },
-    {
-      icon: Users,
-      title: 'Expert Staff',
-      description: 'Connect with skilled professionals for all your beauty needs'
-    },
-    {
-      icon: Star,
-      title: 'Quality Service',
-      description: 'Rated 4.9/5 by thousands of satisfied customers'
+      description: 'Book appointments in just a few taps.',
     },
     {
       icon: Shield,
-      title: 'Secure & Safe',
-      description: 'Your data and payments are protected with enterprise-grade security'
-    }
-  ]
-
-  const benefits = [
-    'Real-time appointment booking',
-    'Verified salon professionals',
-    'Flexible cancellation policy',
-    'Secure payment processing',
-    'Customer reviews and ratings',
-    '24/7 customer support'
-  ]
+      title: 'Verified Salons',
+      description: 'We partner with only the best, trusted salons.',
+    },
+    {
+      icon: Users,
+      title: 'Expert Stylists',
+      description: 'Access a community of top-rated beauty professionals.',
+    },
+  ];
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Navigation */}
-      <nav className="bg-white shadow-sm">
+    <div className="bg-gray-50 min-h-screen">
+      {/* Header */}
+      <header className="bg-white/80 backdrop-blur-lg sticky top-0 z-30 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <div className="bg-gradient-to-r from-primary-600 to-secondary-600 p-2 rounded-lg">
-                <Sparkles className="h-6 w-6 text-white" />
-              </div>
-              <span className="ml-2 text-xl font-bold gradient-text">Auracare</span>
-            </div>
-
+          <div className="flex justify-between items-center h-20">
             <div className="flex items-center space-x-4">
-              {user ? (
-                <Link 
-                  to="/register" 
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-                >
-                  Get Started
-                </Link>
-              ) : (
-                <>
-                  <Link 
-                    to="/login" 
-                    className="inline-flex items-center px-4 py-2 border border-blue-600 text-sm font-medium rounded-md text-blue-600 bg-white hover:bg-gray-50"
-                  >
-                    Sign In
-                  </Link>
-                  <Link 
-                    to="/register" 
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-                  >
-                    Get Started
-                  </Link>
-                </>
-              )}
+                <Sparkles className="h-8 w-8 text-pink-500" />
+                <span className="text-2xl font-bold text-gray-800">AuraCares</span>
             </div>
-          </div>
-        </div>
-      </nav>
-
-      {/* Hero Section */}
-      <section className="relative bg-gradient-to-br from-primary-50 via-white to-secondary-50 py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
-              Your Beauty,{' '}
-              <span className="gradient-text">Our Priority</span>
-            </h1>
-            <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
-              Connect with the best beauty professionals in your area. Book appointments, 
-              manage your salon business, or find your next career opportunity - all in one place.
-            </p>
-
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              {!user && (
-                <>
-                  <Link to="/register" className="btn btn-primary btn-lg">
-                    Get Started Free
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </Link>
-                  <Link to="/about" className="btn btn-outline btn-lg">
-                    Learn More
-                  </Link>
-                </>
-              )}
-              {user && (
-                <Link to="/dashboard" className="btn btn-primary btn-lg">
-                  Go to Dashboard
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Why Choose Auracare?
-            </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              We're revolutionizing the beauty industry with our comprehensive management platform
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {features.map((feature, index) => (
-              <div key={index} className="text-center">
-                <div className="bg-primary-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <feature.icon className="h-8 w-8 text-primary-600" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  {feature.title}
-                </h3>
-                <p className="text-gray-600">
-                  {feature.description}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Benefits Section */}
-      <section className="py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div>
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">
-                Everything you need to succeed in the beauty industry
-              </h2>
-              <p className="text-lg text-gray-600 mb-8">
-                Whether you're a customer looking for beauty services, a salon owner managing 
-                your business, or a professional seeking opportunities, Auracare has you covered.
-              </p>
-
-              <div className="space-y-4">
-                {benefits.map((benefit, index) => (
-                  <div key={index} className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-success-600 mr-3 flex-shrink-0" />
-                    <span className="text-gray-700">{benefit}</span>
-                  </div>
-                ))}
+            <div className="flex-1 max-w-md mx-4">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search for salons, services..."
+                  className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-full bg-gray-100 focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all"
+                />
               </div>
             </div>
-
-            <div className="bg-white rounded-2xl shadow-xl p-8">
-              <div className="text-center">
-                <div className="bg-gradient-to-r from-primary-600 to-secondary-600 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Heart className="h-10 w-10 text-white" />
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-4">
-                  Join Thousands of Happy Users
-                </h3>
-                <p className="text-gray-600 mb-6">
-                  Over 10,000+ appointments booked, 500+ salons registered, and 1,000+ professionals connected.
-                </p>
-                <div className="grid grid-cols-3 gap-4 text-center">
-                  <div>
-                    <div className="text-2xl font-bold text-primary-600">10K+</div>
-                    <div className="text-sm text-gray-500">Appointments</div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-primary-600">500+</div>
-                    <div className="text-sm text-gray-500">Salons</div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-primary-600">1K+</div>
-                    <div className="text-sm text-gray-500">Professionals</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-20 gradient-bg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-            Ready to transform your beauty experience?
-          </h2>
-          <p className="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
-            Join thousands of satisfied customers, salon owners, and beauty professionals 
-            who trust Auracare for their beauty needs.
-          </p>
-
-          {!user && (
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/register" className="btn bg-white text-primary-600 hover:bg-gray-100 btn-lg">
-                Start Free Today
+            <div className="flex items-center space-x-4">
+              {/* Always show Sign In and Sign Up buttons */}
+              <Link to="/login" className="text-gray-600 hover:text-pink-500 font-medium transition-colors">
+                Sign In
               </Link>
-              <Link to="/contact" className="btn border-white text-white hover:bg-white/10 btn-lg">
-                Contact Sales
+              <Link
+                to="/register"
+                className="px-6 py-3 rounded-full bg-pink-500 text-white font-semibold hover:bg-pink-600 transition-all shadow-md hover:shadow-lg"
+              >
+                Sign Up
               </Link>
             </div>
-          )}
+          </div>
         </div>
-      </section>
+      </header>
+
+      <main>
+        {/* Hero Section */}
+        <section className="relative h-[60vh] flex items-center justify-center text-white overflow-hidden">
+          {heroImages.map((src, index) => (
+            <img
+              key={src}
+              src={src}
+              alt="Salon background"
+              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out ${index === currentImageIndex ? 'opacity-100' : 'opacity-0'}`}
+            />
+          ))}
+          <div className="absolute inset-0 bg-black/50 z-10"></div>
+          <div className="relative z-20 text-center p-4">
+            <h1 className="text-4xl md:text-6xl font-bold mb-4 tracking-tight">Find & Book Your Next Salon Appointment</h1>
+            <p className="text-lg md:text-xl max-w-3xl mx-auto mb-8 text-gray-200">
+              Discover the best salons and stylists in your area.
+            </p>
+            <Link
+              to="/register"
+              className="px-10 py-4 rounded-full bg-pink-500 text-white font-bold text-lg hover:bg-pink-600 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+            >
+              Book Now
+            </Link>
+          </div>
+        </section>
+
+        {/* Featured Salons Section */}
+        <section className="py-16 sm:py-20">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 className="text-3xl font-bold text-gray-800 mb-8">Featured Salons</h2>
+            <div className="flex space-x-8 pb-4 -mx-4 px-4 overflow-x-auto">
+              {featuredSalons.map((salon, index) => (
+                <div key={index} className="flex-shrink-0 w-80">
+                  <div className="bg-white rounded-2xl shadow-lg overflow-hidden transform hover:-translate-y-2 transition-transform duration-300">
+                    <img src={salon.image} alt={salon.name} className="h-48 w-full object-cover" />
+                    <div className="p-5">
+                      <h3 className="text-xl font-semibold text-gray-900">{salon.name}</h3>
+                      <div className="flex items-center text-gray-600 mt-2">
+                        <MapPin className="h-5 w-5 mr-2 text-gray-400" />
+                        <span>{salon.location}</span>
+                      </div>
+                      <div className="flex items-center mt-3">
+                        <Star className="h-5 w-5 text-yellow-400 fill-current" />
+                        <span className="text-gray-800 font-bold ml-2">{salon.rating}</span>
+                        <span className="text-gray-500 ml-2">(50+ reviews)</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Top Services Section */}
+        <section className="py-16 sm:py-20 bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">Our Top Services</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+              {topServices.map((service, index) => (
+                <div key={index} className="flex flex-col items-center p-6 bg-gray-50 rounded-2xl hover:bg-pink-100/50 hover:shadow-lg transition-all transform hover:-translate-y-1">
+                  <div className="bg-pink-500/10 p-4 rounded-full mb-4">
+                    <service.icon className="h-8 w-8 text-pink-500" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-800">{service.name}</h3>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Why Choose Us Section */}
+        <section className="py-16 sm:py-20">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="text-center">
+                    <h2 className="text-3xl font-bold text-gray-800 mb-4">Why Choose AuraCares?</h2>
+                    <p className="text-lg text-gray-600 max-w-2xl mx-auto">We provide a seamless and delightful experience for all your beauty needs.</p>
+                </div>
+                <div className="mt-12 grid md:grid-cols-3 gap-x-8 gap-y-10">
+                    {whyChooseUs.map((feature) => (
+                        <div key={feature.title} className="text-center">
+                            <div className="flex items-center justify-center h-16 w-16 rounded-full bg-pink-100/50 mx-auto mb-4">
+                                <feature.icon className="h-8 w-8 text-pink-500" />
+                            </div>
+                            <h3 className="text-xl font-semibold text-gray-900">{feature.title}</h3>
+                            <p className="mt-2 text-gray-600">{feature.description}</p>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </section>
+      </main>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <footer className="bg-gray-800 text-white">
+        <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div className="col-span-1 md:col-span-2">
-              <div className="flex items-center mb-4">
-                <div className="bg-gradient-to-r from-primary-600 to-secondary-600 p-2 rounded-lg">
-                  <Sparkles className="h-6 w-6 text-white" />
+                <div className="flex items-center space-x-4 mb-4">
+                    <Sparkles className="h-8 w-8 text-pink-500" />
+                    <span className="text-2xl font-bold">AuraCares</span>
                 </div>
-                <span className="ml-2 text-xl font-bold">Auracare</span>
-              </div>
-              <p className="text-gray-400 mb-4">
-                The complete beauty parlor management system that connects customers, 
-                salon owners, and beauty professionals in one seamless platform.
-              </p>
+                <p className="text-gray-400">The best way to find and book beauty appointments.</p>
             </div>
-
             <div>
               <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
-              <div className="space-y-2">
-                <Link to="/about" className="block text-gray-400 hover:text-white">About Us</Link>
-                <Link to="/contact" className="block text-gray-400 hover:text-white">Contact</Link>
-                <Link to="/login" className="block text-gray-400 hover:text-white">Sign In</Link>
-                <Link to="/register" className="block text-gray-400 hover:text-white">Sign Up</Link>
-              </div>
+              <ul className="space-y-2">
+                <li><Link to="/about" className="text-gray-400 hover:text-white">About Us</Link></li>
+                <li><Link to="/contact" className="text-gray-400 hover:text-white">Contact</Link></li>
+                <li><Link to="/login" className="text-gray-400 hover:text-white">Sign In</Link></li>
+              </ul>
             </div>
-
             <div>
-              <h3 className="text-lg font-semibold mb-4">Support</h3>
-              <div className="space-y-2">
-                <a href="#" className="block text-gray-400 hover:text-white">Help Center</a>
-                <a href="#" className="block text-gray-400 hover:text-white">Privacy Policy</a>
-                <a href="#" className="block text-gray-400 hover:text-white">Terms of Service</a>
-                <a href="#" className="block text-gray-400 hover:text-white">Support</a>
-              </div>
+              <h3 className="text-lg font-semibold mb-4">Legal</h3>
+              <ul className="space-y-2">
+                <li><a href="#" className="text-gray-400 hover:text-white">Privacy Policy</a></li>
+                <li><a href="#" className="text-gray-400 hover:text-white">Terms of Service</a></li>
+              </ul>
             </div>
           </div>
-
-          <div className="border-t border-gray-800 mt-8 pt-8 text-center">
-            <p className="text-gray-400">
-              © 2025 Auracare Beauty Parlor Management System. All rights reserved.
-            </p>
+          <div className="mt-8 border-t border-gray-700 pt-8 text-center">
+            <p className="text-gray-400">&copy; 2025 AuraCares. All rights reserved.</p>
           </div>
         </div>
       </footer>
     </div>
-  )
-}
+  );
+};
 
-export default Home
+export default Home;

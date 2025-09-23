@@ -8,19 +8,34 @@ const connectDB = async () => {
 
   try {
     if (!mongoUri) {
-      // Start in-memory MongoDB for local/dev use when no URI provided
       console.warn('MONGODB_URI not set. Starting in-memory MongoDB for development...');
       memoryServerInstance = await MongoMemoryServer.create();
       mongoUri = memoryServerInstance.getUri();
     }
 
+    // Try primary connection (Atlas or provided URI)
     await mongoose.connect(mongoUri, {
-      dbName: process.env.DB_NAME || 'auracare'
+      dbName: process.env.DB_NAME || 'auracare',
+      serverSelectionTimeoutMS: 8000
     });
     console.log('✅ MongoDB connected');
   } catch (err) {
     console.error('❌ MongoDB connection error:', err.message);
-    process.exit(1);
+    // Fallback to in-memory MongoDB if Atlas/remote is unreachable
+    try {
+      console.warn('⚠️ Falling back to in-memory MongoDB...');
+      if (!memoryServerInstance) {
+        memoryServerInstance = await MongoMemoryServer.create();
+      }
+      const memoryUri = memoryServerInstance.getUri();
+      await mongoose.connect(memoryUri, {
+        dbName: process.env.DB_NAME || 'auracare'
+      });
+      console.log('✅ In-memory MongoDB started and connected');
+    } catch (memoryErr) {
+      console.error('❌ Failed to start in-memory MongoDB:', memoryErr.message);
+      process.exit(1);
+    }
   }
 };
 

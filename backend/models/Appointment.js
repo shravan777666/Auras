@@ -42,8 +42,34 @@ const AppointmentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-AppointmentSchema.methods.updateStatus = function (newStatus) {
+AppointmentSchema.methods.updateStatus = async function (newStatus) {
+  const oldStatus = this.status;
   this.status = newStatus;
+
+  // Create revenue records when appointment is completed
+  if (newStatus === 'Completed' && oldStatus !== 'Completed') {
+    const Revenue = (await import('./Revenue.js')).default;
+    const Salon = (await import('./Salon.js')).default;
+
+    // Get salon to find owner
+    const salon = await Salon.findById(this.salonId);
+
+    if (salon) {
+      // Create revenue record for each service
+      for (const service of this.services) {
+        await Revenue.create({
+          service: service.serviceName,
+          amount: service.price,
+          appointmentId: this._id,
+          salonId: this.salonId,
+          ownerId: salon.ownerId,
+          customerId: this.customerId,
+          date: new Date()
+        });
+      }
+    }
+  }
+
   return this.save();
 };
 

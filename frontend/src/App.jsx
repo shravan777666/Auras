@@ -28,6 +28,7 @@ const ManageStaff = React.lazy(() => import('./pages/salon/ManageStaff'))
 const ManageServices = React.lazy(() => import('./pages/salon/ManageServices'))
 const SalonAppointments = React.lazy(() => import('./pages/salon/SalonAppointments'))
 const StaffAvailability = React.lazy(() => import('./pages/salon/StaffAvailability'))
+const SalonRevenueDashboard = React.lazy(() => import('./pages/salon/RevenueDashboard'))
 
 // Staff Pages
 const StaffDashboard = React.lazy(() => import('./pages/staff/StaffDashboard'))
@@ -256,6 +257,16 @@ function App() {
               <ProtectedRoute allowedRoles={['salon']}>
                 <SetupRequiredRoute setupPath="/salon/setup">
                   <StaffAvailability />
+                </SetupRequiredRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/salon/revenue"
+            element={
+              <ProtectedRoute allowedRoles={['salon']}>
+                <SetupRequiredRoute setupPath="/salon/setup">
+                  <SalonRevenueDashboard />
                 </SetupRequiredRoute>
               </ProtectedRoute>
             }

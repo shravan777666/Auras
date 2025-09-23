@@ -14,7 +14,8 @@ import {
   updateAppointmentStatus,
   getSalonStaff,
   getStaffAvailability,
-  addService
+  addService,
+  getRevenueByService
 } from '../controllers/salonController.js';
 import { getSalonServices } from '../controllers/serviceController.js';
 import { requireSalonOwner, requireSalonSetup } from '../middleware/roleAuth.js';
@@ -25,6 +26,9 @@ const router = express.Router();
 
 // Public routes
 router.post('/register', register);
+
+// Revenue by service (requires auth + setup)
+router.get('/dashboard/revenue-by-service', requireSalonOwner, requireSalonSetup, getRevenueByService);
 
 // All routes below require salon owner authentication
 router.use(requireSalonOwner);

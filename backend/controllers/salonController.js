@@ -2,6 +2,7 @@ import Salon from '../models/Salon.js';
 import Staff from '../models/Staff.js';
 import Service from '../models/Service.js';
 import Appointment from '../models/Appointment.js';
+import Revenue from '../models/Revenue.js';
 import jwt from 'jsonwebtoken';
 import { sendAppointmentConfirmation } from '../utils/email.js';
 import { 
@@ -881,6 +882,84 @@ export const updateAppointmentStatus = asyncHandler(async (req, res) => {
   return successResponse(res, appointment, 'Appointment status updated successfully');
 });
 
+// Get revenue by service for salon owner
+export const getRevenueByService = asyncHandler(async (req, res) => {
+  // Resolve authenticated salon owner -> salon profile
+  const userId = req.user?.id;
+  const User = (await import('../models/User.js')).default;
+  const user = await User.findById(userId);
+  if (!user || user.type !== 'salon') {
+    return errorResponse(res, 'Access denied: Only salon owners can view revenue', 403);
+  }
+
+  const salon = await Salon.findOne({ email: user.email });
+  if (!salon) {
+    return notFoundResponse(res, 'Salon profile');
+  }
+
+  const salonId = salon._id;
+
+  // Limit to current month
+  const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const endOfMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1);
+
+  // First try to get data from Revenue collection
+  let revenueData = await Revenue.aggregate([
+    { $match: { salonId: salonId, date: { $gte: startOfMonth, $lt: endOfMonth } } },
+    { $group: { _id: '$service', total: { $sum: '$amount' }, count: { $sum: 1 } } },
+    { $sort: { total: -1 } }
+  ]);
+
+  // Fallback for legacy records where salonId may be stored as string
+  if (revenueData.length === 0) {
+    revenueData = await Revenue.aggregate([
+      { $match: { salonId: salonId.toString(), date: { $gte: startOfMonth, $lt: endOfMonth } } },
+      { $group: { _id: '$service', total: { $sum: '$amount' }, count: { $sum: 1 } } },
+      { $sort: { total: -1 } }
+    ]);
+  }
+
+  // If no Revenue records exist, calculate from completed appointments
+  if (revenueData.length === 0) {
+    console.log('No Revenue records found, calculating from completed appointments...');
+    
+    const appointmentRevenue = await Appointment.aggregate([
+      {
+        $match: {
+          salonId: salonId,
+          status: 'Completed',
+          createdAt: { $gte: startOfMonth, $lt: endOfMonth }
+        }
+      },
+      { $unwind: '$services' },
+      {
+        $group: {
+          _id: '$services.serviceName',
+          total: { $sum: '$services.price' },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { total: -1 } }
+    ]);
+
+    revenueData = appointmentRevenue;
+  }
+
+  if (revenueData.length === 0) {
+    return successResponse(res, [], 'No revenue data available for this salon');
+  }
+
+  const totalRevenue = revenueData.reduce((sum, item) => sum + item.total, 0);
+  const response = revenueData.map(item => ({
+    service: item._id || 'Unknown Service',
+    total_revenue: item.total,
+    transaction_count: item.count,
+    percentage: totalRevenue > 0 ? Math.round((item.total / totalRevenue) * 100) : 0
+  }));
+
+  return successResponse(res, response, 'Revenue data retrieved successfully');
+});
+
 export default {
   register,
   updateDetails,
@@ -895,5 +974,6 @@ export default {
   getAppointments,
   updateAppointmentStatus,
   getSalonStaff,
-  addService
+  addService,
+  getRevenueByService
 };
