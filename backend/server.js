@@ -125,7 +125,16 @@ const limiter = rateLimit({
     message: 'Too many requests from this IP, please try again later.'
   },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  skip: (req) => {
+    // Allow unauthenticated flows to avoid lockouts
+    const p = req.path || '';
+    if (req.method === 'OPTIONS') return true;
+    if (p.startsWith('/auth/login')) return true;
+    if (p.startsWith('/auth/register')) return true;
+    if (p.startsWith('/auth/refresh-token')) return true;
+    return false;
+  }
 });
 
 app.use('/api/', limiter);

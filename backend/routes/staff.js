@@ -13,7 +13,9 @@ import {
   getCompletedAppointments,
   createStaff,
   getStaffById,
-  updateStaffById
+  updateStaffById,
+  getAppointmentsByStaffId,
+  getStaffReport
 } from '../controllers/staffController.js';
 import { requireStaff, requireStaffSetup, requireSalonOwner } from '../middleware/roleAuth.js';
 import { validateStaffSetup, validatePagination, validateObjectId } from '../middleware/validation.js';
@@ -46,6 +48,7 @@ router.post('/setup', upload.fields([
 
 // Routes that require completed setup
 router.get('/dashboard', requireStaffSetup, getDashboard);
+router.get('/report', requireStaffSetup, getStaffReport);
 router.get('/profile', getProfile);
 router.put('/profile', updateProfile);
 router.patch('/availability', requireStaffSetup, updateAvailability);
@@ -60,6 +63,9 @@ router.patch('/appointments/:appointmentId/status',
   validateObjectId('appointmentId'), 
   updateAppointmentStatus
 );
+
+// Get appointments for a staff member by staff ID (for admins/salon owners)
+router.get('/:id/appointments', validateObjectId('id'), getAppointmentsByStaffId);
 
 // NOTE: Parameter routes must come last to avoid shadowing specific paths like /dashboard
 // Get a staff member by ID (for admins/salon owners)

@@ -307,7 +307,10 @@ export const updateAppointment = asyncHandler(async (req, res) => {
       if (updates.status) allowedUpdates.status = updates.status;
       if (updates.salonNotes) allowedUpdates.salonNotes = updates.salonNotes;
       if (updates.staffNotes) allowedUpdates.staffNotes = updates.staffNotes;
-      if (updates.staffId) allowedUpdates.staffId = updates.staffId;
+      if (updates.staffId !== undefined) {
+        allowedUpdates.staffId = updates.staffId;
+        console.log('👥 Updating staff assignment:', { appointmentId, oldStaffId: appointment.staffId, newStaffId: updates.staffId });
+      }
       break;
 
     case 'admin':
@@ -315,8 +318,10 @@ export const updateAppointment = asyncHandler(async (req, res) => {
       break;
   }
 
+  console.log('🔄 Applying updates to appointment:', allowedUpdates);
   Object.assign(appointment, allowedUpdates);
   await appointment.save();
+  console.log('✅ Appointment updated successfully:', { id: appointment._id, staffId: appointment.staffId });
 
   return successResponse(res, appointment, 'Appointment updated successfully');
 });

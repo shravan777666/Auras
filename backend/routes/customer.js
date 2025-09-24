@@ -11,6 +11,7 @@ import {
   rateAppointment
 } from '../controllers/customerController.js';
 import { requireCustomer } from '../middleware/roleAuth.js';
+import { upload } from '../middleware/upload.js';
 import { validatePagination, validateObjectId } from '../middleware/validation.js';
 
 const router = express.Router();
@@ -21,7 +22,7 @@ router.use(requireCustomer);
 // Dashboard and Profile
 router.get('/dashboard', getDashboard);
 router.get('/profile', getProfile);
-router.patch('/profile', updateProfile);
+router.patch('/profile', upload.single('profilePicture'), updateProfile);
 
 // Browse Salons and Services
 router.get('/salons', validatePagination, browseSalons);

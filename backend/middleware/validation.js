@@ -11,7 +11,9 @@ const handleValidation = (req, res, next) => {
 
 export const validatePagination = [
   query('page').optional().isInt({ min: 1 }).toInt(),
-  query('limit').optional().isInt({ min: 1, max: 100 }).toInt(),
+  query('limit').optional().isInt({ min: 1, max: 1000 }).toInt(),
+  query('startDate').optional().isISO8601().withMessage('startDate must be a valid date'),
+  query('endDate').optional().isISO8601().withMessage('endDate must be a valid date'),
   handleValidation
 ];
 

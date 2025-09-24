@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { salonService } from '../../services/salon';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
-import { 
-  Calendar, 
-  Clock, 
+import { toast } from 'react-hot-toast';
+import { appointmentService } from '../../services/appointment';
+import {
+  Calendar,
+  Clock,
   User,
   ArrowLeft,
   CheckCircle,
@@ -14,7 +16,8 @@ import {
   Mail,
   MapPin,
   Filter,
-  Search
+  Search,
+  Users
 } from 'lucide-react';
 
 const SalonAppointments = () => {
@@ -26,10 +29,24 @@ const SalonAppointments = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [totalAppointments, setTotalAppointments] = useState(0);
   const [updatingStatus, setUpdatingStatus] = useState(null);
+  const [staffList, setStaffList] = useState([]);
+  const [assigningStaff, setAssigningStaff] = useState(null);
 
   useEffect(() => {
     fetchAppointments();
+    fetchStaff();
   }, [filter, currentPage]);
+
+  const fetchStaff = async () => {
+    try {
+      const response = await salonService.getSalonStaff();
+      if (response?.success) {
+        setStaffList(response.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching staff:', error);
+    }
+  };
 
   const fetchAppointments = async () => {
     try {
@@ -39,7 +56,7 @@ const SalonAppointments = () => {
         limit: 10,
         ...(filter !== 'all' && { status: filter })
       };
-      
+
       const res = await salonService.getAppointments(params);
       if (res?.success) {
         console.log('🔧 Received appointments:', res.data?.map(apt => ({
@@ -57,6 +74,8 @@ const SalonAppointments = () => {
       setLoading(false);
     }
   };
+
+  
 
   const getStatusIcon = (status) => {
     switch (status?.toLowerCase()) {
@@ -124,14 +143,34 @@ const SalonAppointments = () => {
       const response = await salonService.updateAppointmentStatus(appointmentId, newStatus);
       if (response?.success) {
         console.log('Appointment status updated successfully');
+        toast.success('Appointment status updated successfully');
         // Refresh the appointments list
         fetchAppointments();
       }
     } catch (error) {
       console.error('Error updating appointment status:', error);
-      alert('Failed to update appointment status. Please try again.');
+      toast.error('Failed to update appointment status. Please try again.');
     } finally {
       setUpdatingStatus(null);
+    }
+  };
+
+  const handleStaffAssignment = async (appointmentId, staffId) => {
+    try {
+      console.log('🔧 Assigning staff to appointment:', { appointmentId, staffId });
+      setAssigningStaff(appointmentId);
+      const response = await appointmentService.updateAppointment(appointmentId, { staffId });
+      if (response?.success) {
+        console.log('Staff assigned successfully');
+        toast.success('Staff assigned successfully');
+        // Refresh the appointments list
+        fetchAppointments();
+      }
+    } catch (error) {
+      console.error('Error assigning staff:', error);
+      toast.error('Failed to assign staff. Please try again.');
+    } finally {
+      setAssigningStaff(null);
     }
   };
 
@@ -290,6 +329,26 @@ const SalonAppointments = () => {
                           Total: ₹{appointment.finalAmount || appointment.totalAmount || 0}
                         </div>
                         <div className="flex space-x-2">
+                          <div className="relative">
+                            <select
+                              value={appointment.staffId?._id || ''}
+                              onChange={(e) => handleStaffAssignment(appointment._id, e.target.value)}
+                              disabled={assigningStaff === appointment._id}
+                              className="px-3 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <option value="">Assign Staff</option>
+                              {staffList.map((staff) => (
+                                <option key={staff._id} value={staff._id}>
+                                  {staff.name}
+                                </option>
+                              ))}
+                            </select>
+                            {assigningStaff === appointment._id && (
+                              <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 rounded-md">
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600"></div>
+                              </div>
+                            )}
+                          </div>
                           <button className="px-3 py-1 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50">
                             View Details
                           </button>

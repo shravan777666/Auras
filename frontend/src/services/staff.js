@@ -20,6 +20,16 @@ export const updateStaffById = async (id, data) => {
   }
 };
 
+export const getAppointmentsByStaffId = async (id, params = {}) => {
+  try {
+    const response = await api.get(`/staff/${id}/appointments`, { params });
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching appointments for staff ${id}:`, error);
+    throw error;
+  }
+};
+
 export const getProfile = async () => {
   try {
     const response = await api.get('/staff/profile');
@@ -91,6 +101,11 @@ export const staffService = {
 
   async getCompletedAppointments(params = {}) {
     const response = await api.get('/staff/completed-appointments', { params });
+    return response.data;
+  },
+  
+  async getStaffReport() {
+    const response = await api.get('/staff/report');
     return response.data;
   },
 };

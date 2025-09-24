@@ -37,12 +37,15 @@ const StaffWaitingApproval = React.lazy(() => import('./pages/staff/StaffWaiting
 const CompletedAppointments = React.lazy(() => import('./pages/staff/CompletedAppointments'))
 const StaffEditProfile = React.lazy(() => import('./pages/staff/StaffEditProfile'))
 const StaffSchedule = React.lazy(() => import('./pages/staff/StaffSchedule'))
+const StaffServices = React.lazy(() => import('./pages/staff/StaffServices'))
+const StaffReport = React.lazy(() => import('./pages/staff/Report'))
 
 // Customer Pages
 const CustomerDashboard = React.lazy(() => import('./pages/customer/CustomerDashboard'))
 const BookAppointment = React.lazy(() => import('./pages/customer/BookAppointment'))
 const SalonDetails = React.lazy(() => import('./pages/customer/SalonDetails'))
 const MyBookings = React.lazy(() => import('./pages/customer/MyBookings'))
+const EditCustomerProfile = React.lazy(() => import('./pages/customer/EditCustomerProfile'))
 
 // Common Pages
 const About = React.lazy(() => import('./pages/common/About'))
@@ -331,6 +334,26 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/staff/services"
+            element={
+              <ProtectedRoute allowedRoles={['staff']}>
+                <SetupRequiredRoute setupPath="/staff/setup">
+                  <StaffServices />
+                </SetupRequiredRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/staff/report"
+            element={
+              <ProtectedRoute allowedRoles={['staff']}>
+                <SetupRequiredRoute setupPath="/staff/setup">
+                  <StaffReport />
+                </SetupRequiredRoute>
+              </ProtectedRoute>
+            }
+          />
 
           {/* Customer Routes */}
           <Route
@@ -370,6 +393,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['customer']}>
                 <MyBookings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/customer/edit-profile"
+            element={
+              <ProtectedRoute allowedRoles={['customer']}>
+                <EditCustomerProfile />
               </ProtectedRoute>
             }
           />

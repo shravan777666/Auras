@@ -503,25 +503,43 @@ export const getAppointments = asyncHandler(async (req, res) => {
   const limit = parseInt(req.query.limit) || 10;
   const skip = (page - 1) * limit;
 
+  console.log('👤 Staff appointments request for userId:', userId);
+
   // First find the staff record to get the staff ID
   const staff = await Staff.findOne({ user: userId });
   if (!staff) {
+    console.log('❌ Staff profile not found for userId:', userId);
     return notFoundResponse(res, 'Staff profile');
   }
 
+  console.log('✅ Found staff profile:', { staffId: staff._id, name: staff.name, email: staff.email });
+
   const filter = { staffId: staff._id };
+  console.log('🔍 Appointment filter:', filter);
 
   if (req.query.status) {
     filter.status = req.query.status;
   }
 
+  // Support both single date and date range queries
   if (req.query.date) {
+    // Single date filter (backward compatibility)
     const date = new Date(req.query.date);
     filter.appointmentDate = {
       $gte: new Date(date.setHours(0, 0, 0, 0)),
       $lt: new Date(date.setHours(23, 59, 59, 999))
     };
+  } else if (req.query.startDate && req.query.endDate) {
+    // Date range filter (for calendar views)
+    const start = new Date(req.query.startDate);
+    const end = new Date(req.query.endDate);
+    filter.appointmentDate = {
+      $gte: new Date(start.setHours(0, 0, 0, 0)),
+      $lte: new Date(end.setHours(23, 59, 59, 999))
+    };
   }
+
+  console.log('📅 Final filter with date range:', filter);
 
   const [appointments, totalAppointments] = await Promise.all([
     Appointment.find(filter)
@@ -533,6 +551,15 @@ export const getAppointments = asyncHandler(async (req, res) => {
       .sort({ appointmentDate: 1, appointmentTime: 1 }),
     Appointment.countDocuments(filter)
   ]);
+
+  console.log('📊 Found appointments:', appointments.length, 'total:', totalAppointments);
+  console.log('📅 Appointment details:', appointments.map(apt => ({
+    id: apt._id,
+    customer: apt.customerId?.name,
+    date: apt.appointmentDate,
+    time: apt.appointmentTime,
+    status: apt.status
+  })));
 
   const totalPages = Math.ceil(totalAppointments / limit);
 
@@ -620,6 +647,54 @@ export const getStaffById = asyncHandler(async (req, res) => {
   };
 
   return successResponse(res, responseData, 'Staff retrieved successfully');
+});
+
+// Get appointments for a staff member by staff ID (for salon owners)
+export const getAppointmentsByStaffId = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { startDate, endDate, page = 1, limit = 20 } = req.query;
+
+  const filter = { staffId: id };
+  if (startDate && endDate) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    filter.appointmentDate = {
+      $gte: new Date(start.setHours(0, 0, 0, 0)),
+      $lte: new Date(end.setHours(23, 59, 59, 999))
+    };
+  }
+
+  const numericLimit = Math.min(parseInt(limit) || 20, 100);
+  const numericPage = Math.max(parseInt(page) || 1, 1);
+  const skip = (numericPage - 1) * numericLimit;
+
+  const [appointments, totalAppointments] = await Promise.all([
+    Appointment.find(filter)
+      .populate('customerId', 'name email')
+      .populate('services.serviceId', 'name duration')
+      .sort({ appointmentDate: 1, appointmentTime: 1 })
+      .skip(skip)
+      .limit(numericLimit),
+    Appointment.countDocuments(filter)
+  ]);
+
+  // Map to a lightweight structure suitable for calendar grids
+  const mapped = appointments.map((apt) => ({
+    id: apt._id,
+    date: apt.appointmentDate,
+    time: apt.appointmentTime,
+    status: apt.status,
+    customer: apt.customerId?.name || 'Client',
+    service: apt.services?.[0]?.serviceId?.name || apt.services?.[0]?.serviceName || 'Service',
+    duration: apt.services?.[0]?.duration || apt.estimatedDuration || 0,
+  }));
+
+  return paginatedResponse(res, mapped, {
+    page: numericPage,
+    limit: numericLimit,
+    totalPages: Math.ceil(totalAppointments / numericLimit),
+    totalItems: totalAppointments
+  });
 });
 
 // Update staff by ID (for admins/salon owners)
@@ -793,6 +868,33 @@ export const getCompletedAppointments = asyncHandler(async (req, res) => {
   });
 });
 
+export const getStaffReport = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+
+  const staff = await Staff.findOne({ user: userId });
+  if (!staff) {
+    return notFoundResponse(res, 'Staff profile');
+  }
+
+  const completedAppointments = await Appointment.find({
+    staffId: staff._id,
+    status: 'Completed'
+  });
+
+  const totalRevenue = completedAppointments.reduce((acc, appointment) => acc + appointment.totalAmount, 0);
+  const totalAppointments = completedAppointments.length;
+
+  const customerIds = completedAppointments.map(appointment => appointment.customerId);
+  const uniqueCustomerIds = [...new Set(customerIds)];
+  const newCustomers = uniqueCustomerIds.length;
+
+  return successResponse(res, {
+    totalRevenue,
+    totalAppointments,
+    newCustomers
+  }, 'Staff report retrieved successfully');
+});
+
 export default {
   register,
   createStaff,
@@ -807,5 +909,6 @@ export default {
   getUpcomingAppointments,
   getCompletedAppointments,
   getStaffById,
-  updateStaffById
+  updateStaffById,
+  getStaffReport
 };

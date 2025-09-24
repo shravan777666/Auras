@@ -85,21 +85,35 @@ export const getProfile = asyncHandler(async (req, res) => {
   return successResponse(res, customer, 'Profile retrieved successfully');
 });
 
-// Update customer profile
 export const updateProfile = asyncHandler(async (req, res) => {
   const customerId = req.user.id;
   const updates = req.body;
 
-  // Remove sensitive fields
-  delete updates.password;
-  delete updates.email;
+  // Handle address object if it comes as a stringified JSON
+  if (updates.address && typeof updates.address === 'string') {
+    try {
+      updates.address = JSON.parse(updates.address);
+    } catch (error) {
+      return errorResponse(res, 'Invalid address format. Expected a JSON object.', 400);
+    }
+  }
+
+  // If a new profile picture is uploaded, add its path to the updates
+  if (req.file) {
+    // Normalize path to use forward slashes for consistency
+    updates.profilePicture = req.file.path.replace(/\\/g, '/');
+  }
+
+  // Remove sensitive or immutable fields from the update payload
+  delete updates.password; // Password should be updated via a separate, dedicated endpoint
+  delete updates.email; // Disallow email changes for now to avoid account ownership issues
   delete updates.totalBookings;
   delete updates.loyaltyPoints;
 
   const customer = await Customer.findByIdAndUpdate(
     customerId,
-    { ...updates },
-    { new: true, runValidators: true }
+    { $set: updates }, // Use $set to prevent replacing the whole document
+    { new: true, runValidators: true, context: 'query' }
   );
 
   if (!customer) {

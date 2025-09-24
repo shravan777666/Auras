@@ -32,6 +32,18 @@ export const customerService = {
     const response = await api.get(`/customer/bookings${queryParams ? `?${queryParams}` : ''}`);
     return response.data;
   },
+  async getProfile() {
+    const response = await api.get('/customer/profile');
+    return response.data;
+  },
+  async updateProfile(updateData) {
+    // When sending FormData, the browser automatically sets the Content-Type
+    // to 'multipart/form-data' with the correct boundary.
+    // The api instance should be configured to handle this.
+    const response = await api.patch('/customer/profile', updateData);
+    return response.data;
+  },
+
   async submitReview(appointmentId, reviewData) {
     // Normalize payload to match backend expectations
     const rawRating = reviewData?.rating;

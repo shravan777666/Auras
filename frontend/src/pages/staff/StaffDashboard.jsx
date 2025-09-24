@@ -166,14 +166,14 @@ const StaffDashboard = () => {
                 </button>
               </li>
               <li className="mb-4">
-                <a href="#" className="flex items-center gap-3 p-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
+                <button onClick={() => navigate('/staff/services')} className="w-full text-left flex items-center gap-3 p-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
                   <Scissors size={20} /> Services
-                </a>
+                </button>
               </li>
               <li className="mb-4">
-                <a href="#" className="flex items-center gap-3 p-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
+                <button onClick={() => navigate('/staff/report')} className="w-full text-left flex items-center gap-3 p-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
                   <BarChart size={20} /> Reports
-                </a>
+                </button>
               </li>
               <li className="mb-4">
                 <a href="#" className="flex items-center gap-3 p-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
