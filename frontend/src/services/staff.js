@@ -42,7 +42,10 @@ export const getProfile = async () => {
 
 export const updateProfile = async (data) => {
   try {
-    const response = await api.put('/staff/profile', data);
+    const isFormData = typeof FormData !== 'undefined' && data instanceof FormData;
+    const response = await api.put('/staff/profile', data, {
+      headers: isFormData ? { 'Content-Type': 'multipart/form-data' } : undefined,
+    });
     return response.data.data;
   } catch (error) {
     console.error('Error updating staff profile:', error);
@@ -85,7 +88,10 @@ export const staffService = {
   },
 
   async updateProfile(data) {
-    const response = await api.put('/staff/profile', data);
+    const isFormData = typeof FormData !== 'undefined' && data instanceof FormData;
+    const response = await api.put('/staff/profile', data, {
+      headers: isFormData ? { 'Content-Type': 'multipart/form-data' } : undefined,
+    });
     return response.data;
   },
 

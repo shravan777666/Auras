@@ -147,7 +147,7 @@ const StaffDashboard = () => {
           <div className="text-center mb-8">
             <div className="flex flex-col items-center">
               <img
-                src={staffInfo.profileImage || `https://ui-avatars.com/api/?name=${staffInfo.name}&background=random&color=fff&rounded=true`}
+                src={staffInfo.profilePicture || `https://ui-avatars.com/api/?name=${staffInfo.name}&background=random&color=fff&rounded=true`}
                 alt={staffInfo.name}
                 className="w-24 h-24 rounded-full object-cover shadow-sm mb-2"
               />
@@ -191,8 +191,26 @@ const StaffDashboard = () => {
       <main className="flex-1 p-8 overflow-y-auto">
         {/* Header */}
         <header className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Welcome, {staffInfo.name}!</h1>
-          <p className="text-gray-600">Ready for a productive day?</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Welcome, {staffInfo.name}!</h1>
+              <p className="text-gray-600">Ready for a productive day?</p>
+            </div>
+            <div className="flex items-center space-x-4">
+              <img
+                src={staffInfo.profilePicture || `https://ui-avatars.com/api/?name=${staffInfo.name}&background=random&color=fff&rounded=true`}
+                alt={staffInfo.name}
+                className="w-16 h-16 rounded-full object-cover shadow-sm"
+              />
+              <button
+                onClick={handleEditProfile}
+                className="flex items-center text-sm text-blue-600 hover:text-blue-800 transition-colors"
+              >
+                <Edit2 size={16} className="mr-1" />
+                Edit Profile
+              </button>
+            </div>
+          </div>
         </header>
 
         {/* Statistics Grid */}

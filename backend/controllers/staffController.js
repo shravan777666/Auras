@@ -502,9 +502,15 @@ export const getDashboard = asyncHandler(async (req, res) => {
   // Real performance data based on actual appointment data
   const performance = await getStaffPerformanceData(staffInfo._id, completedAppointments);
 
+  // Convert profile picture path to URL if it exists
+  const staffInfoWithPhoto = {
+    ...staffInfo.toObject(),
+    profilePicture: staffInfo.profilePicture ? getFileUrl(staffInfo.profilePicture, req) : null,
+  };
+
   console.log('Returning dashboard response');
   return successResponse(res, {
-    staffInfo,
+    staffInfo: staffInfoWithPhoto,
     assignedSalon,
     statistics: {
       totalAppointments,
@@ -543,7 +549,14 @@ export const getProfile = asyncHandler(async (req, res) => {
       .populate('assignedSalon', 'salonName ownerName contactNumber');
   }
 
-  return successResponse(res, staff, 'Profile retrieved successfully');
+  // Convert profile picture path to URL if it exists
+  const responseData = {
+    ...staff.toObject(),
+    profilePicture: staff.profilePicture ? getFileUrl(staff.profilePicture, req) : null,
+    documents: convertDocumentsToUrls(staff.documents, req)
+  };
+
+  return successResponse(res, responseData, 'Profile retrieved successfully');
 });
 
 

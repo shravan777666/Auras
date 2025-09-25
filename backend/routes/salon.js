@@ -17,7 +17,10 @@ import {
   addService,
   getServices,
   getServiceCategories,
-  getRevenueByService
+  getRevenueByService,
+  addExpense,
+  getExpenses,
+  getExpenseSummary
 } from '../controllers/salonController.js';
 import { requireSalonOwner, requireSalonSetup } from '../middleware/roleAuth.js';
 import { getSalonLocations } from '../controllers/salonController.js';
@@ -33,6 +36,11 @@ router.get('/locations', getSalonLocations);
 // Revenue by service (requires auth + setup)
 router.get('/dashboard/revenue-by-service', requireSalonOwner, requireSalonSetup, getRevenueByService);
 router.get('/dashboard/service-categories', requireSalonOwner, requireSalonSetup, getServiceCategories);
+
+// Expense tracking routes
+router.post('/expenses', requireSalonOwner, requireSalonSetup, addExpense);
+router.get('/expenses', requireSalonOwner, requireSalonSetup, validatePagination, getExpenses);
+router.get('/expenses/summary', requireSalonOwner, requireSalonSetup, getExpenseSummary);
 
 // All routes below require salon owner authentication
 router.use(requireSalonOwner);

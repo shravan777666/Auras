@@ -50,7 +50,9 @@ router.post('/setup', upload.fields([
 router.get('/dashboard', requireStaffSetup, getDashboard);
 router.get('/report', requireStaffSetup, getStaffReport);
 router.get('/profile', getProfile);
-router.put('/profile', updateProfile);
+router.put('/profile', upload.fields([
+  { name: 'profilePicture', maxCount: 1 }
+]), updateProfile);
 router.patch('/availability', requireStaffSetup, updateAvailability);
 
 // Appointment Management

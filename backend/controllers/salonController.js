@@ -3,6 +3,7 @@ import Staff from '../models/Staff.js';
 import Service from '../models/Service.js';
 import Appointment from '../models/Appointment.js';
 import Revenue from '../models/Revenue.js';
+import Expense from '../models/Expense.js';
 import jwt from 'jsonwebtoken';
 import { sendAppointmentConfirmation } from '../utils/email.js';
 import { 
@@ -1073,6 +1074,130 @@ export const getRevenueByService = asyncHandler(async (req, res) => {
   return successResponse(res, response, 'Revenue data retrieved successfully');
 });
 
+// Add expense for salon
+export const addExpense = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+  
+  // Get user record to find salon
+  const User = (await import('../models/User.js')).default;
+  const user = await User.findById(userId);
+  if (!user || user.type !== 'salon') {
+    return errorResponse(res, 'Access denied: Only salon owners can add expenses', 403);
+  }
+
+  const salon = await Salon.findOne({ email: user.email });
+  if (!salon) {
+    return notFoundResponse(res, 'Salon profile');
+  }
+
+  const { category, amount, description, date } = req.body;
+
+  const expense = await Expense.create({
+    salonId: salon._id,
+    category,
+    amount,
+    description,
+    date: date ? new Date(date) : new Date()
+  });
+
+  return successResponse(res, expense, 'Expense added successfully');
+});
+
+// Get salon expenses
+export const getExpenses = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const skip = (page - 1) * limit;
+  
+  // Get user record to find salon
+  const User = (await import('../models/User.js')).default;
+  const user = await User.findById(userId);
+  if (!user || user.type !== 'salon') {
+    return errorResponse(res, 'Access denied: Only salon owners can view expenses', 403);
+  }
+
+  const salon = await Salon.findOne({ email: user.email });
+  if (!salon) {
+    return notFoundResponse(res, 'Salon profile');
+  }
+
+  const filter = { salonId: salon._id };
+  
+  // Apply category filter if provided
+  if (req.query.category) {
+    filter.category = req.query.category;
+  }
+  
+  // Apply date range filter if provided
+  if (req.query.startDate && req.query.endDate) {
+    filter.date = {
+      $gte: new Date(req.query.startDate),
+      $lte: new Date(req.query.endDate)
+    };
+  }
+
+  const [expenses, totalExpenses] = await Promise.all([
+    Expense.find(filter)
+      .skip(skip)
+      .limit(limit)
+      .sort({ date: -1 }),
+    Expense.countDocuments(filter)
+  ]);
+
+  const totalPages = Math.ceil(totalExpenses / limit);
+
+  return paginatedResponse(res, expenses, {
+    page,
+    limit,
+    totalPages,
+    totalItems: totalExpenses
+  });
+});
+
+// Get expense summary by category
+export const getExpenseSummary = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+  
+  // Get user record to find salon
+  const User = (await import('../models/User.js')).default;
+  const user = await User.findById(userId);
+  if (!user || user.type !== 'salon') {
+    return errorResponse(res, 'Access denied: Only salon owners can view expense summary', 403);
+  }
+
+  const salon = await Salon.findOne({ email: user.email });
+  if (!salon) {
+    return notFoundResponse(res, 'Salon profile');
+  }
+
+  const salonId = salon._id;
+
+  // Get expense summary by category
+  const expenseSummary = await Expense.aggregate([
+    { $match: { salonId: salonId } },
+    {
+      $group: {
+        _id: '$category',
+        total: { $sum: '$amount' },
+        count: { $sum: 1 }
+      }
+    },
+    { $sort: { total: -1 } }
+  ]);
+
+  const totalExpenses = expenseSummary.reduce((sum, item) => sum + item.total, 0);
+  
+  const response = expenseSummary.map(item => ({
+    category: item._id,
+    total_amount: item.total,
+    transaction_count: item.count,
+    percentage: totalExpenses > 0 ? Math.round((item.total / totalExpenses) * 100) : 0
+  }));
+
+  return successResponse(res, response, 'Expense summary retrieved successfully');
+});
+
 // Public: Get salon locations (name, address, lat, lng)
 export const getSalonLocations = asyncHandler(async (req, res) => {
   // Return all salons as requested (no approval filter)
@@ -1127,5 +1252,7 @@ export default {
   getServices,
   getServiceCategories,
   getRevenueByService,
-  getSalonLocations
+  addExpense,
+  getExpenses,
+  getExpenseSummary
 };

@@ -37,6 +37,27 @@ export const salonService = {
     return response.data?.data || [];
   },
 
+  async getExpenseSummary() {
+    const response = await api.get('/salon/expenses/summary');
+    return response.data?.data || [];
+  },
+
+  async getExpenses({ page = 1, limit = 10, category, startDate, endDate } = {}) {
+    const params = new URLSearchParams();
+    params.set('page', page);
+    params.set('limit', limit);
+    if (category) params.set('category', category);
+    if (startDate) params.set('startDate', startDate);
+    if (endDate) params.set('endDate', endDate);
+    const response = await api.get(`/salon/expenses?${params.toString()}`);
+    return response.data;
+  },
+
+  async addExpense(expenseData) {
+    const response = await api.post('/salon/expenses', expenseData);
+    return response.data;
+  },
+
   async getServiceCategories() {
     const response = await api.get('/salon/dashboard/service-categories');
     return response.data?.data || [];

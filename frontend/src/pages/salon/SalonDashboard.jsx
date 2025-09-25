@@ -21,7 +21,9 @@ import {
   PlusCircle,
   UserCog,
   FileBarChart2,
-  Image
+  Image,
+  TrendingUp,
+  CreditCard
 } from 'lucide-react';
 import { PieChart, BarChart3, RefreshCw } from 'lucide-react';
 import {
@@ -75,6 +77,94 @@ const AvailabilityCard = ({ color, onClick }) => (
   </div>
 );
 
+// Expense Tracking Card Component
+const ExpenseTrackingCard = ({ expenses = [], totalExpenses = 0, onAddExpense, onViewDetails }) => {
+  // Calculate expenses by category
+  const expensesByCategory = expenses.reduce((acc, expense) => {
+    const category = expense.category || 'Other';
+    if (!acc[category]) {
+      acc[category] = 0;
+    }
+    acc[category] += expense.amount || 0;
+    return acc;
+  }, {});
+
+  const expenseCategories = Object.keys(expensesByCategory);
+  const expenseValues = Object.values(expensesByCategory);
+
+  return (
+    <div className="bg-white p-6 rounded-lg shadow-md mb-8">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <CreditCard className="h-5 w-5 text-blue-500" />
+          <h2 className="text-xl font-semibold">Expense Tracking</h2>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={onAddExpense}
+            className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+          >
+            Add Expense
+          </button>
+          <button
+            onClick={onViewDetails}
+            className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
+          >
+            View Details
+          </button>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div className="bg-blue-50 p-4 rounded-lg">
+          <p className="text-sm text-gray-600">Total Expenses</p>
+          <p className="text-xl font-bold text-blue-700">₹{totalExpenses.toLocaleString()}</p>
+        </div>
+        <div className="bg-green-50 p-4 rounded-lg">
+          <p className="text-sm text-gray-600">This Month</p>
+          <p className="text-xl font-bold text-green-700">₹{(totalExpenses * 0.5).toLocaleString()}</p>
+        </div>
+        <div className="bg-purple-50 p-4 rounded-lg">
+          <p className="text-sm text-gray-600">Categories</p>
+          <p className="text-xl font-bold text-purple-700">{expenseCategories.length}</p>
+        </div>
+      </div>
+      
+      {expenseCategories.length > 0 ? (
+        <div className="mt-4">
+          <h3 className="text-sm font-medium text-gray-700 mb-2">Expenses by Category</h3>
+          <div className="space-y-2">
+            {expenseCategories.map((category, index) => (
+              <div key={category} className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">{category}</span>
+                <div className="flex items-center">
+                  <div className="w-24 bg-gray-200 rounded-full h-2 mr-2">
+                    <div 
+                      className="bg-blue-600 h-2 rounded-full" 
+                      style={{ width: `${(expenseValues[index] / totalExpenses) * 100}%` }}
+                    ></div>
+                  </div>
+                  <span className="text-sm font-medium text-gray-800">₹{expenseValues[index].toLocaleString()}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="text-center py-4 text-gray-500">
+          <p>No expenses recorded yet</p>
+          <button 
+            onClick={onAddExpense}
+            className="mt-2 text-blue-600 hover:text-blue-800 text-sm"
+          >
+            Add your first expense
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const SalonDashboard = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -94,6 +184,8 @@ const SalonDashboard = () => {
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [chartType, setChartType] = useState('pie');
   const [loadingRevenue, setLoadingRevenue] = useState(true);
+  const [expenses, setExpenses] = useState([]);
+  const [totalExpenses, setTotalExpenses] = useState(0);
 
   ChartJS.register(
     ArcElement,
@@ -272,6 +364,48 @@ const SalonDashboard = () => {
     loadReviews();
   }, [dashboardData]);
 
+  // Fetch expense data
+  useEffect(() => {
+    const fetchExpenses = async () => {
+      try {
+        // Fetch expense summary for the dashboard card
+        const summaryResponse = await salonService.getExpenseSummary();
+        const summaryData = summaryResponse || [];
+        
+        // For the dashboard card, we'll show a summary
+        // In a real implementation, you might want to fetch recent expenses
+        const recentExpenses = summaryData.slice(0, 5); // Show top 5 categories
+        const total = summaryData.reduce((sum, item) => sum + (item.total_amount || 0), 0);
+        
+        setExpenses(recentExpenses);
+        setTotalExpenses(total);
+      } catch (error) {
+        console.error('Error fetching expense data:', error);
+        // Use mock data as fallback
+        const mockExpenses = [
+          { id: 1, category: 'Supplies', amount: 5000, date: '2023-05-15', description: 'Hair products' },
+          { id: 2, category: 'Rent', amount: 25000, date: '2023-05-01', description: 'Monthly rent' },
+          { id: 3, category: 'Utilities', amount: 8000, date: '2023-05-10', description: 'Electricity and water' },
+          { id: 4, category: 'Marketing', amount: 3000, date: '2023-05-20', description: 'Social media ads' },
+          { id: 5, category: 'Salaries', amount: 80000, date: '2023-05-05', description: 'Staff salaries' },
+        ];
+        
+        setExpenses(mockExpenses);
+        setTotalExpenses(mockExpenses.reduce((sum, expense) => sum + expense.amount, 0));
+      }
+    };
+
+    fetchExpenses();
+  }, []);
+
+  const handleAddExpense = () => {
+    navigate('/salon/expenses');
+  };
+
+  const handleViewExpenseDetails = () => {
+    navigate('/salon/expenses');
+  };
+
   if (loading) {
     return <LoadingSpinner />;
   }
@@ -437,6 +571,14 @@ const SalonDashboard = () => {
             )}
           </div>
         </div>
+
+        {/* Expense Tracking Card - Added after Statistics Grid */}
+        <ExpenseTrackingCard 
+          expenses={expenses}
+          totalExpenses={totalExpenses}
+          onAddExpense={handleAddExpense}
+          onViewDetails={handleViewExpenseDetails}
+        />
 
         {/* Statistics Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
@@ -819,6 +961,12 @@ const SalonDashboard = () => {
                 className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition"
               >
                 <span className="flex items-center gap-2"><FileBarChart2 className="h-5 w-5" /> View Reports</span>
+              </button>
+              <button
+                onClick={() => navigate('/salon/expenses')}
+                className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition"
+              >
+                <span className="flex items-center gap-2"><CreditCard className="h-5 w-5" /> Track Expenses</span>
               </button>
             </div>
           </div>

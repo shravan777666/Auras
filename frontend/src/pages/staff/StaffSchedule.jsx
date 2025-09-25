@@ -15,173 +15,331 @@ const StaffSchedule = () => {
   const pollingRef = useRef(null);
   const viewRangeRef = useRef({ start: null, end: null });
 
-  const fetchRangeAsEvents = async (rangeStart, rangeEnd) => {
-    try {
-      if (!rangeStart || !rangeEnd) {
-        console.log('❌ Invalid date range:', { rangeStart, rangeEnd });
-        return;
-      }
+  // const fetchRangeAsEvents = async (rangeStart, rangeEnd) => {
+  //   try {
+  //     if (!rangeStart || !rangeEnd) {
+  //       console.log('❌ Invalid date range:', { rangeStart, rangeEnd });
+  //       return;
+  //     }
       
-      const start = new Date(rangeStart);
-      const end = new Date(rangeEnd);
+  //     const start = new Date(rangeStart);
+  //     const end = new Date(rangeEnd);
 
-      // Format dates for API request
-      const startDate = start.toISOString().split('T')[0]; // YYYY-MM-DD
-      const endDate = end.toISOString().split('T')[0]; // YYYY-MM-DD
+  //     // Format dates for API request
+  //     const startDate = start.toISOString().split('T')[0]; // YYYY-MM-DD
+  //     const endDate = end.toISOString().split('T')[0]; // YYYY-MM-DD
 
-      console.log('🔍 Fetching appointments for date range:', { 
-        startDate, 
-        endDate,
-        rangeStart: rangeStart.toISOString(),
-        rangeEnd: rangeEnd.toISOString()
-      });
+  //     console.log('🔍 Fetching appointments for date range:', { 
+  //       startDate, 
+  //       endDate,
+  //       rangeStart: rangeStart.toISOString(),
+  //       rangeEnd: rangeEnd.toISOString()
+  //     });
 
-      // Check if user is authenticated
-      const token = localStorage.getItem('auracare_token');
-      if (!token) {
-        console.error('❌ No authentication token found');
-        return;
-      }
+  //     // Check if user is authenticated
+  //     const token = localStorage.getItem('auracare_token');
+  //     if (!token) {
+  //       console.error('❌ No authentication token found');
+  //       return;
+  //     }
 
-      // Fetch all appointments for the date range
-      const response = await staffService.getAppointments({
-        startDate,
-        endDate,
-        limit: 1000
-      });
+  //     // Fetch all appointments for the date range
+  //     const response = await staffService.getAppointments({
+  //       startDate,
+  //       endDate,
+  //       limit: 1000
+  //     });
 
-      console.log('📡 API Response:', {
-        status: response?.status,
-        success: response?.success,
-        dataLength: response?.data?.data?.length,
-        totalItems: response?.data?.totalItems,
-        fullResponse: response
-      });
+  //     console.log('📡 API Response:', {
+  //       status: response?.status,
+  //       success: response?.success,
+  //       dataLength: response?.data?.data?.length,
+  //       totalItems: response?.data?.totalItems,
+  //       fullResponse: response
+  //     });
 
-      const items = response?.data?.data || [];
-      console.log('📅 Raw appointments from API:', items);
+  //     const items = response?.data?.data || [];
+  //     console.log('📅 Raw appointments from API:', items);
 
-      // If no appointments found, log additional debugging info
-      if (items.length === 0) {
-        console.log('🔍 No appointments found. Debugging info:');
-        console.log('- API URL:', '/staff/appointments');
-        console.log('- Request params:', { startDate, endDate, limit: 1000 });
-        console.log('- Response structure:', response);
-        console.log('- User token present:', !!token);
-      }
+  //     // If no appointments found, log additional debugging info
+  //     if (items.length === 0) {
+  //       console.log('🔍 No appointments found. Debugging info:');
+  //       console.log('- API URL:', '/staff/appointments');
+  //       console.log('- Request params:', { startDate, endDate, limit: 1000 });
+  //       console.log('- Response structure:', response);
+  //       console.log('- User token present:', !!token);
+  //     }
 
-      // SIMPLIFIED DATE PARSING - This is the fix!
-      const mapped = items
-        .map((apt) => {
-          try {
-            console.log('Processing appointment:', apt._id, {
-              appointmentDate: apt.appointmentDate,
-              appointmentTime: apt.appointmentTime,
-              customer: apt.customerId?.name
-            });
+  //     // SIMPLIFIED DATE PARSING - This is the fix!
+  //     const mapped = items
+  //       .map((apt) => {
+  //         try {
+  //           console.log('Processing appointment:', apt._id, {
+  //             appointmentDate: apt.appointmentDate,
+  //             appointmentTime: apt.appointmentTime,
+  //             customer: apt.customerId?.name
+  //           });
 
-            // Check if we have the required date field
-            if (!apt.appointmentDate) {
-              console.warn('⚠️ Appointment missing date:', apt._id);
-              return null;
-            }
+  //           // Check if we have the required date field
+  //           if (!apt.appointmentDate) {
+  //             console.warn('⚠️ Appointment missing date:', apt._id);
+  //             return null;
+  //           }
 
-            // Parse the date directly from the API response
-            let startDate = new Date(apt.appointmentDate);
+  //           // Parse the date directly from the API response
+  //           let startDate = new Date(apt.appointmentDate);
             
-            // If the date is invalid, try alternative parsing
-            if (isNaN(startDate.getTime())) {
-              console.warn('⚠️ Invalid date format, trying alternative parsing:', apt.appointmentDate);
-              // Try parsing as ISO string or other formats
-              startDate = new Date(apt.appointmentDate.replace(' ', 'T'));
-            }
+  //           // If the date is invalid, try alternative parsing
+  //           if (isNaN(startDate.getTime())) {
+  //             console.warn('⚠️ Invalid date format, trying alternative parsing:', apt.appointmentDate);
+  //             // Try parsing as ISO string or other formats
+  //             startDate = new Date(apt.appointmentDate.replace(' ', 'T'));
+  //           }
 
-            // If still invalid, skip this appointment
-            if (isNaN(startDate.getTime())) {
-              console.warn('❌ Could not parse date for appointment:', apt._id, apt.appointmentDate);
-              return null;
-            }
+  //           // If still invalid, skip this appointment
+  //           if (isNaN(startDate.getTime())) {
+  //             console.warn('❌ Could not parse date for appointment:', apt._id, apt.appointmentDate);
+  //             return null;
+  //           }
 
-            // Handle time if available
-            if (apt.appointmentTime) {
-              const timeParts = apt.appointmentTime.split(':');
-              if (timeParts.length >= 2) {
-                const hours = parseInt(timeParts[0], 10);
-                const minutes = parseInt(timeParts[1], 10) || 0;
+  //           // Handle time if available
+  //           if (apt.appointmentTime) {
+  //             const timeParts = apt.appointmentTime.split(':');
+  //             if (timeParts.length >= 2) {
+  //               const hours = parseInt(timeParts[0], 10);
+  //               const minutes = parseInt(timeParts[1], 10) || 0;
                 
-                if (!isNaN(hours)) {
-                  startDate.setHours(hours, minutes, 0, 0);
-                }
-              }
-            } else {
-              // Default to 9 AM if no time specified
-              startDate.setHours(9, 0, 0, 0);
-            }
+  //               if (!isNaN(hours)) {
+  //                 startDate.setHours(hours, minutes, 0, 0);
+  //               }
+  //             }
+  //           } else {
+  //             // Default to 9 AM if no time specified
+  //             startDate.setHours(9, 0, 0, 0);
+  //           }
 
-            // Calculate end time based on duration
-            let endDate = new Date(startDate);
-            const durationMin = apt.estimatedDuration || apt.services?.[0]?.duration || 60; // Default 60 minutes
-            endDate.setMinutes(endDate.getMinutes() + parseInt(durationMin));
+  //           // Calculate end time based on duration
+  //           let endDate = new Date(startDate);
+  //           const durationMin = apt.estimatedDuration || apt.services?.[0]?.duration || 60; // Default 60 minutes
+  //           endDate.setMinutes(endDate.getMinutes() + parseInt(durationMin));
 
-            const customerName = apt.customerId?.name || "Client";
-            const serviceName = apt.services?.[0]?.serviceId?.name || "Service";
-            const title = `${customerName} - ${serviceName}`;
+  //           const customerName = apt.customerId?.name || "Client";
+  //           const serviceName = apt.services?.[0]?.serviceId?.name || "Service";
+  //           const title = `${customerName} - ${serviceName}`;
 
-            const event = {
-              id: String(apt._id || Math.random()),
-              title,
-              start: startDate,
-              end: endDate,
-              extendedProps: {
-                customerName,
-                serviceName,
-                customerEmail: apt.customerId?.email || "",
-                customerPhone: apt.customerId?.phone || "",
-                services: apt.services || [],
-                notes: apt.customerNotes || "",
-                specialRequests: apt.specialRequests || "",
-                status: apt.status || "Pending",
-                totalAmount: apt.totalAmount || 0,
-                raw: apt,
-              },
-            };
+  //           const event = {
+  //             id: String(apt._id || Math.random()),
+  //             title,
+  //             start: startDate,
+  //             end: endDate,
+  //             extendedProps: {
+  //               customerName,
+  //               serviceName,
+  //               customerEmail: apt.customerId?.email || "",
+  //               customerPhone: apt.customerId?.phone || "",
+  //               services: apt.services || [],
+  //               notes: apt.customerNotes || "",
+  //               specialRequests: apt.specialRequests || "",
+  //               status: apt.status || "Pending",
+  //               totalAmount: apt.totalAmount || 0,
+  //               raw: apt,
+  //             },
+  //           };
 
-            console.log('✅ Created event:', {
-              id: event.id,
-              title: event.title,
-              start: event.start.toString(),
-              end: event.end.toString()
-            });
+  //           console.log('✅ Created event:', {
+  //             id: event.id,
+  //             title: event.title,
+  //             start: event.start.toString(),
+  //             end: event.end.toString()
+  //           });
 
-            return event;
-          } catch (error) {
-            console.error('❌ Error processing appointment:', apt._id, error);
+  //           return event;
+  //         } catch (error) {
+  //           console.error('❌ Error processing appointment:', apt._id, error);
+  //           return null;
+  //         }
+  //       })
+  //       .filter(Boolean);
+
+  //     console.log('📅 Final mapped events for calendar:', mapped.length, mapped);
+
+  //     setEvents(mapped);
+  //   } catch (e) {
+  //     console.error("❌ Failed to fetch appointments:", e);
+  //     console.error("Error details:", {
+  //       message: e.message,
+  //       response: e.response?.data,
+  //       status: e.response?.status
+  //     });
+      
+  //     // Show user-friendly error message
+  //     if (e.response?.status === 403) {
+  //       console.error('Access denied - staff may not be approved');
+  //     } else if (e.response?.status === 404) {
+  //       console.error('Staff profile not found');
+  //     } else if (e.response?.status === 401) {
+  //       console.error('Authentication failed');
+  //     }
+  //   }
+  // };
+
+  const fetchRangeAsEvents = async (rangeStart, rangeEnd) => {
+  try {
+    if (!rangeStart || !rangeEnd) {
+      console.log('❌ Invalid date range:', { rangeStart, rangeEnd });
+      return;
+    }
+    
+    const start = new Date(rangeStart);
+    const end = new Date(rangeEnd);
+
+    // Format dates for API request
+    const startDate = start.toISOString().split('T')[0]; // YYYY-MM-DD
+    const endDate = end.toISOString().split('T')[0]; // YYYY-MM-DD
+
+    console.log('🔍 Fetching appointments for date range:', { 
+      startDate, 
+      endDate,
+      rangeStart: rangeStart.toISOString(),
+      rangeEnd: rangeEnd.toISOString()
+    });
+
+    // Check if user is authenticated
+    const token = localStorage.getItem('auracare_token');
+    if (!token) {
+      console.error('❌ No authentication token found');
+      return;
+    }
+
+    // Fetch all appointments for the date range
+    const response = await staffService.getAppointments({
+      startDate,
+      endDate,
+      limit: 1000
+    });
+
+    console.log('📡 FULL API Response:', response);
+
+    // ✅ FIXED: Use the correct response structure based on UpcomingAppointmentsCard
+    let items = [];
+    
+    if (response?.success) {
+      // Correct structure: appointments are in response.data
+      items = response.data || [];
+      console.log('✅ Found appointments in response.data');
+    } else {
+      // Fallback: try different structures
+      items = response?.data?.data || response?.data || [];
+      console.log('⚠️ Using fallback structure');
+    }
+
+    console.log('📅 Raw appointments from API:', items);
+    console.log('📅 Number of appointments found:', items.length);
+
+    // If no appointments found, log additional debugging info
+    if (items.length === 0) {
+      console.log('🔍 No appointments found. Debugging info:');
+      console.log('- API URL:', '/staff/appointments');
+      console.log('- Request params:', { startDate, endDate, limit: 1000 });
+      console.log('- Full response:', response);
+      console.log('- Response success:', response?.success);
+      console.log('- User token present:', !!token);
+    }
+
+    // Process appointments
+    const mapped = items
+      .map((apt, index) => {
+        try {
+          console.log(`Processing appointment ${index + 1}:`, {
+            id: apt._id,
+            appointmentDate: apt.appointmentDate,
+            appointmentTime: apt.appointmentTime,
+            customer: apt.customerId?.name,
+            status: apt.status
+          });
+
+          // Check if we have the required date field
+          if (!apt.appointmentDate) {
+            console.warn('⚠️ Appointment missing date:', apt._id);
             return null;
           }
-        })
-        .filter(Boolean);
 
-      console.log('📅 Final mapped events for calendar:', mapped.length, mapped);
+          // Parse the date directly from the API response
+          let startDate = new Date(apt.appointmentDate);
+          
+          // If the date is invalid, try alternative parsing
+          if (isNaN(startDate.getTime())) {
+            console.warn('⚠️ Invalid date format, trying alternative parsing:', apt.appointmentDate);
+            startDate = new Date(apt.appointmentDate.replace(' ', 'T'));
+          }
 
-      setEvents(mapped);
-    } catch (e) {
-      console.error("❌ Failed to fetch appointments:", e);
-      console.error("Error details:", {
-        message: e.message,
-        response: e.response?.data,
-        status: e.response?.status
-      });
-      
-      // Show user-friendly error message
-      if (e.response?.status === 403) {
-        console.error('Access denied - staff may not be approved');
-      } else if (e.response?.status === 404) {
-        console.error('Staff profile not found');
-      } else if (e.response?.status === 401) {
-        console.error('Authentication failed');
-      }
-    }
-  };
+          // If still invalid, skip this appointment
+          if (isNaN(startDate.getTime())) {
+            console.warn('❌ Could not parse date for appointment:', apt._id, apt.appointmentDate);
+            return null;
+          }
+
+          // Handle time if available
+          if (apt.appointmentTime) {
+            const timeParts = apt.appointmentTime.split(':');
+            if (timeParts.length >= 2) {
+              const hours = parseInt(timeParts[0], 10);
+              const minutes = parseInt(timeParts[1], 10) || 0;
+              
+              if (!isNaN(hours)) {
+                startDate.setHours(hours, minutes, 0, 0);
+              }
+            }
+          } else {
+            // Default to 9 AM if no time specified
+            startDate.setHours(9, 0, 0, 0);
+          }
+
+          // Calculate end time based on duration
+          let endDate = new Date(startDate);
+          const durationMin = apt.estimatedDuration || apt.services?.[0]?.duration || 60;
+          endDate.setMinutes(endDate.getMinutes() + parseInt(durationMin));
+
+          const customerName = apt.customerId?.name || "Client";
+          const serviceName = apt.services?.[0]?.serviceId?.name || "Service";
+          const title = `${customerName} - ${serviceName}`;
+
+          const event = {
+            id: String(apt._id || Math.random()),
+            title,
+            start: startDate,
+            end: endDate,
+            extendedProps: {
+              customerName,
+              serviceName,
+              customerEmail: apt.customerId?.email || "",
+              customerPhone: apt.customerId?.phone || "",
+              services: apt.services || [],
+              notes: apt.customerNotes || "",
+              specialRequests: apt.specialRequests || "",
+              status: apt.status || "Pending",
+              totalAmount: apt.totalAmount || 0,
+              raw: apt,
+            },
+          };
+
+          console.log('✅ Created event:', event.title, event.start);
+
+          return event;
+        } catch (error) {
+          console.error('❌ Error processing appointment:', apt._id, error);
+          return null;
+        }
+      })
+      .filter(Boolean);
+
+    console.log('📅 Final mapped events for calendar:', mapped.length);
+
+    setEvents(mapped);
+  } catch (e) {
+    console.error("❌ Failed to fetch appointments:", e);
+  }
+};
 
   const calendarOptions = useMemo(
     () => ({
@@ -214,74 +372,154 @@ const StaffSchedule = () => {
   );
 
   useEffect(() => {
-    const initializeCalendar = async () => {
-      try {
-        // Fetch upcoming appointments to find the earliest one
-        const response = await staffService.getUpcomingAppointments({
-          limit: 1000, // A large limit to get all upcoming appointments
-        });
+  //   const initializeCalendar = async () => {
+  //     try {
+  //       // Fetch upcoming appointments to find the earliest one
+  //       const response = await staffService.getUpcomingAppointments({
+  //         limit: 1000, // A large limit to get all upcoming appointments
+  //       });
         
-        const appointments = response?.data?.data || [];
-        let initialDate = new Date(); // Default to the current date
+  //       const appointments = response?.data?.data || [];
+  //       let initialDate = new Date(); // Default to the current date
 
-        if (appointments.length > 0) {
-          // Sort appointments to find the earliest one
-          appointments.sort((a, b) => new Date(a.appointmentDate) - new Date(b.appointmentDate));
-          const earliestAppointment = appointments[0];
-          const earliestDate = new Date(earliestAppointment.appointmentDate);
+  //       if (appointments.length > 0) {
+  //         // Sort appointments to find the earliest one
+  //         appointments.sort((a, b) => new Date(a.appointmentDate) - new Date(b.appointmentDate));
+  //         const earliestAppointment = appointments[0];
+  //         const earliestDate = new Date(earliestAppointment.appointmentDate);
 
-          // Set the initial date for the calendar to the month of the earliest appointment
-          initialDate = earliestDate;
-        }
+  //         // Set the initial date for the calendar to the month of the earliest appointment
+  //         initialDate = earliestDate;
+  //       }
 
-        // Use the FullCalendar API to go to the target date
-        if (calendarRef.current) {
-          const calendarApi = calendarRef.current.getApi();
-          calendarApi.gotoDate(initialDate);
-        }
+  //       // Use the FullCalendar API to go to the target date
+  //       if (calendarRef.current) {
+  //         const calendarApi = calendarRef.current.getApi();
+  //         calendarApi.gotoDate(initialDate);
+  //       }
         
-        // Manually trigger the first fetch for the correct date range
-        const start = new Date(initialDate.getFullYear(), initialDate.getMonth(), 1);
-        const end = new Date(initialDate.getFullYear(), initialDate.getMonth() + 1, 0);
-        fetchRangeAsEvents(start, end);
-        viewRangeRef.current = { start, end };
+  //       // Manually trigger the first fetch for the correct date range
+  //       const start = new Date(initialDate.getFullYear(), initialDate.getMonth(), 1);
+  //       const end = new Date(initialDate.getFullYear(), initialDate.getMonth() + 1, 0);
+  //       fetchRangeAsEvents(start, end);
+  //       viewRangeRef.current = { start, end };
 
-      } catch (error) {
-        console.error("❌ Error initializing calendar, falling back to current month:", error);
-        // Fallback to current month if fetching appointments fails
-        const now = new Date();
-        const start = new Date(now.getFullYear(), now.getMonth(), 1);
-        const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        fetchRangeAsEvents(start, end);
-        viewRangeRef.current = { start, end };
+  //     } catch (error) {
+  //       console.error("❌ Error initializing calendar, falling back to current month:", error);
+  //       // Fallback to current month if fetching appointments fails
+  //       const now = new Date();
+  //       const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  //       const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  //       fetchRangeAsEvents(start, end);
+  //       viewRangeRef.current = { start, end };
+  //     }
+  //   };
+
+  //   initializeCalendar();
+
+  //   // Set up polling for near-real-time updates
+  //   const pollInterval = setInterval(() => {
+  //     const { start, end } = viewRangeRef.current || {};
+  //     if (start && end) {
+  //       fetchRangeAsEvents(start, end);
+  //     }
+  //   }, 10000); // 10s polling
+
+  //   // Refresh when window regains focus
+  //   const onFocus = () => {
+  //     const { start, end } = viewRangeRef.current || {};
+  //     if (start && end) {
+  //       fetchRangeAsEvents(start, end);
+  //     }
+  //   };
+  //   window.addEventListener('focus', onFocus);
+
+  //   // Cleanup on unmount
+  //   return () => {
+  //     clearInterval(pollInterval);
+  //     window.removeEventListener('focus', onFocus);
+  //   };
+  // }, []); // Empty dependency array ensures this runs only once on mount
+
+
+
+  useEffect(() => {
+  const initializeCalendar = async () => {
+    try {
+      // Fetch upcoming appointments to find the earliest one
+      const response = await staffService.getUpcomingAppointments({
+        limit: 1000,
+      });
+      
+      let appointments = [];
+      
+      // ✅ FIXED: Use correct response structure
+      if (response?.success) {
+        appointments = response.data || [];
+      } else {
+        appointments = response?.data?.data || [];
       }
-    };
+      
+      let initialDate = new Date(); // Default to the current date
 
-    initializeCalendar();
+      if (appointments.length > 0) {
+        // Sort appointments to find the earliest one
+        appointments.sort((a, b) => new Date(a.appointmentDate) - new Date(b.appointmentDate));
+        const earliestAppointment = appointments[0];
+        const earliestDate = new Date(earliestAppointment.appointmentDate);
 
-    // Set up polling for near-real-time updates
-    const pollInterval = setInterval(() => {
-      const { start, end } = viewRangeRef.current || {};
-      if (start && end) {
-        fetchRangeAsEvents(start, end);
+        // Set the initial date for the calendar to the month of the earliest appointment
+        initialDate = earliestDate;
       }
-    }, 10000); // 10s polling
 
-    // Refresh when window regains focus
-    const onFocus = () => {
-      const { start, end } = viewRangeRef.current || {};
-      if (start && end) {
-        fetchRangeAsEvents(start, end);
+      // Use the FullCalendar API to go to the target date
+      if (calendarRef.current) {
+        const calendarApi = calendarRef.current.getApi();
+        calendarApi.gotoDate(initialDate);
       }
-    };
-    window.addEventListener('focus', onFocus);
+      
+      // Manually trigger the first fetch for the correct date range
+      const start = new Date(initialDate.getFullYear(), initialDate.getMonth(), 1);
+      const end = new Date(initialDate.getFullYear(), initialDate.getMonth() + 1, 0);
+      fetchRangeAsEvents(start, end);
+      viewRangeRef.current = { start, end };
 
-    // Cleanup on unmount
-    return () => {
-      clearInterval(pollInterval);
-      window.removeEventListener('focus', onFocus);
-    };
-  }, []); // Empty dependency array ensures this runs only once on mount
+    } catch (error) {
+      console.error("❌ Error initializing calendar, falling back to current month:", error);
+      // Fallback to current month if fetching appointments fails
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      fetchRangeAsEvents(start, end);
+      viewRangeRef.current = { start, end };
+    }
+  };
+
+  initializeCalendar();
+
+  // Set up polling for near-real-time updates
+  const pollInterval = setInterval(() => {
+    const { start, end } = viewRangeRef.current || {};
+    if (start && end) {
+      fetchRangeAsEvents(start, end);
+    }
+  }, 10000); // 10s polling
+
+  // Refresh when window regains focus
+  const onFocus = () => {
+    const { start, end } = viewRangeRef.current || {};
+    if (start && end) {
+      fetchRangeAsEvents(start, end);
+    }
+  };
+  window.addEventListener('focus', onFocus);
+
+  // Cleanup on unmount
+  return () => {
+    clearInterval(pollInterval);
+    window.removeEventListener('focus', onFocus);
+  };
+}, []); // Empty dependency array ensures this runs only once on mount
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">

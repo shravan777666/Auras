@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getProfile, updateProfile } from '../../services/staff.js';
 import { toast } from 'react-hot-toast';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import { Camera, User } from 'lucide-react';
 
 const StaffEditProfile = () => {
   const navigate = useNavigate();
@@ -10,6 +11,8 @@ const StaffEditProfile = () => {
   const [formData, setFormData] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [profilePicture, setProfilePicture] = useState(null);
+  const [profilePicturePreview, setProfilePicturePreview] = useState(null);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -29,6 +32,10 @@ const StaffEditProfile = () => {
           experience: data.experience || {},
           skills: Array.isArray(data.skills) ? data.skills : [],
         });
+        // Set the existing profile picture preview
+        if (data.profilePicture) {
+          setProfilePicturePreview(data.profilePicture);
+        }
       } catch (err) {
         console.error('Error fetching profile:', err);
         toast.error(err.response?.data?.message || 'Failed to load profile');
@@ -65,21 +72,61 @@ const StaffEditProfile = () => {
     setFormData(prev => ({ ...prev, skills }));
   };
 
+  const handleProfilePictureChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast.error('Please select a valid image file');
+        return;
+      }
+      
+      // Validate file size (5MB max)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Image size should be less than 5MB');
+        return;
+      }
+      
+      setProfilePicture(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setProfilePicturePreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
 
     try {
       // Prepare data for submission
-      const submitData = {
-        ...formData,
-        skills: formData.skills,
-        experience: {
-          ...formData.experience,
-          years: parseInt(formData.experience.years) || 0
-        },
-        address: formData.address
-      };
+      const submitData = new FormData();
+      
+      // Add text fields
+      submitData.append('name', formData.name);
+      submitData.append('contactNumber', formData.contactNumber || '');
+      submitData.append('phone', formData.phone || '');
+      submitData.append('gender', formData.gender || '');
+      submitData.append('dateOfBirth', formData.dateOfBirth || '');
+      submitData.append('position', formData.position || '');
+      submitData.append('specialization', formData.specialization || '');
+      
+      // Add complex objects as JSON strings
+      submitData.append('skills', JSON.stringify(formData.skills));
+      submitData.append('experience', JSON.stringify({
+        ...formData.experience,
+        years: parseInt(formData.experience.years) || 0
+      }));
+      submitData.append('address', JSON.stringify(formData.address));
+      
+      // Add profile picture if selected
+      if (profilePicture) {
+        submitData.append('profilePicture', profilePicture);
+      }
 
       await updateProfile(submitData);
       toast.success('Profile updated successfully!');
@@ -110,6 +157,36 @@ const StaffEditProfile = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="p-6 space-y-6">
+            {/* Profile Picture Section */}
+            <div className="flex flex-col items-center space-y-4">
+              <div className="relative">
+                <div className="w-32 h-32 rounded-full border-4 border-gray-200 overflow-hidden bg-gray-100 flex items-center justify-center">
+                  {profilePicturePreview ? (
+                    <img
+                      src={profilePicturePreview}
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <User className="w-16 h-16 text-gray-400" />
+                  )}
+                </div>
+                <label className="absolute bottom-0 right-0 bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-full cursor-pointer transition-colors">
+                  <Camera className="w-4 h-4" />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleProfilePictureChange}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-gray-600">Click the camera icon to update your profile photo</p>
+                <p className="text-xs text-gray-500">JPG, PNG files up to 5MB</p>
+              </div>
+            </div>
+
             {/* Basic Information */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
