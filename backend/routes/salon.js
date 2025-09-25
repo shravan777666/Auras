@@ -15,9 +15,10 @@ import {
   getSalonStaff,
   getStaffAvailability,
   addService,
+  getServices,
+  getServiceCategories,
   getRevenueByService
 } from '../controllers/salonController.js';
-import { getSalonServices } from '../controllers/serviceController.js';
 import { requireSalonOwner, requireSalonSetup } from '../middleware/roleAuth.js';
 import { getSalonLocations } from '../controllers/salonController.js';
 import { validateSalonSetup, validatePagination, validateObjectId } from '../middleware/validation.js';
@@ -31,6 +32,7 @@ router.get('/locations', getSalonLocations);
 
 // Revenue by service (requires auth + setup)
 router.get('/dashboard/revenue-by-service', requireSalonOwner, requireSalonSetup, getRevenueByService);
+router.get('/dashboard/service-categories', requireSalonOwner, requireSalonSetup, getServiceCategories);
 
 // All routes below require salon owner authentication
 router.use(requireSalonOwner);
@@ -55,7 +57,7 @@ router.post('/staff/hire', requireSalonSetup, hireStaff);
 router.delete('/staff/:staffId', requireSalonSetup, validateObjectId('staffId'), removeStaff);
 
 // Service Management
-router.get('/services', requireSalonSetup, validatePagination, getSalonServices);
+router.get('/services', requireSalonSetup, validatePagination, getServices);
 router.post('/services', requireSalonSetup, addService);
 
 // Appointment Management

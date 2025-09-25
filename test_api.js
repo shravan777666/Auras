@@ -1,172 +1,43 @@
-// Quick test script to verify the fixes
-const BASE_URL = 'http://localhost:5000/api';
+import fetch from 'node-fetch';
 
-async function createAdminUser() {
+const testStaffAppointmentsAPI = async () => {
   try {
-    console.log('🧪 Creating admin user...');
+    console.log('🧪 Testing Staff Appointments API...');
     
-    const response = await fetch(`${BASE_URL}/auth/register`, {
-      method: 'POST',
+    // Test token (you may need to generate a fresh one)
+    const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ZDJjMTFiOTI2OTRhOThhYzZkYzA3MSIsInR5cGUiOiJzdGFmZiIsInNldHVwQ29tcGxldGVkIjp0cnVlLCJpYXQiOjE3MzUwMjQ0NjAsImV4cCI6MTczNTA2NzY2MH0.placeholder';
+    
+    const response = await fetch('http://localhost:5006/api/staff/appointments?startDate=2025-09-25&endDate=2025-09-27', {
+      method: 'GET',
       headers: {
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        name: 'System Administrator',
-        email: 'admin@gmail.com',
-        password: 'Admin@123',
-        userType: 'admin'
-      })
-    });
-    
-    const data = await response.json();
-    
-    if (response.ok) {
-      console.log('✅ Admin user created successfully');
-      return true;
-    } else {
-      console.log('ℹ️ Admin user creation info:', data.message);
-      return true; // Might already exist, which is ok
-    }
-  } catch (error) {
-    console.error('❌ Admin user creation failed:', error.message);
-    return false;
-  }
-}
-
-async function testSalonRegistration() {
-  try {
-    console.log('🧪 Testing salon registration...');
-    
-    const response = await fetch(`${BASE_URL}/salon/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        name: 'Test Salon Owner',
-        email: 'testsalon' + Date.now() + '@example.com',
-        password: 'password123',
-        confirmPassword: 'password123'
-      })
-    });
-    
-    const data = await response.json();
-    
-    if (response.ok) {
-      console.log('✅ Salon registration successful:', data);
-      return data.token;
-    } else {
-      console.error('❌ Salon registration failed:', data);
-      return null;
-    }
-  } catch (error) {
-    console.error('❌ Salon registration failed:', error.message);
-    return null;
-  }
-}
-
-async function testAdminLogin() {
-  try {
-    console.log('🧪 Testing admin login...');
-    
-    const response = await fetch(`${BASE_URL}/auth/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        email: 'admin@gmail.com',
-        password: 'Admin@123',
-        userType: 'admin'
-      })
-    });
-    
-    const data = await response.json();
-    
-    if (response.ok) {
-      console.log('✅ Admin login successful');
-      return data.token;
-    } else {
-      console.error('❌ Admin login failed:', data);
-      return null;
-    }
-  } catch (error) {
-    console.error('❌ Admin login failed:', error.message);
-    return null;
-  }
-}
-
-async function testGetPendingSalons(adminToken) {
-  try {
-    console.log('🧪 Testing get pending salons...');
-    
-    const response = await fetch(`${BASE_URL}/admin/salons/pending`, {
-      headers: {
-        Authorization: `Bearer ${adminToken}`
       }
     });
     
     const data = await response.json();
     
-    if (response.ok) {
-      console.log('✅ Get pending salons successful:', data);
-      return data;
+    console.log('📡 API Response Status:', response.status);
+    console.log('📡 API Response Data:', JSON.stringify(data, null, 2));
+    
+    if (data.success && data.data) {
+      console.log('✅ API is working! Found appointments:', data.data.length);
+      data.data.forEach(apt => {
+        console.log('  - Appointment:', {
+          id: apt._id,
+          customer: apt.customerId?.name,
+          date: apt.appointmentDate,
+          time: apt.appointmentTime,
+          status: apt.status
+        });
+      });
     } else {
-      console.error('❌ Get pending salons failed:', data);
-      return null;
+      console.log('❌ API returned error:', data.message);
     }
+    
   } catch (error) {
-    console.error('❌ Get pending salons failed:', error.message);
-    return null;
+    console.error('❌ API test failed:', error.message);
   }
-}
+};
 
-async function testGetAllSalons(adminToken) {
-  try {
-    console.log('🧪 Testing get all salons...');
-    
-    const response = await fetch(`${BASE_URL}/admin/salons?page=1&limit=10`, {
-      headers: {
-        Authorization: `Bearer ${adminToken}`
-      }
-    });
-    
-    const data = await response.json();
-    
-    if (response.ok) {
-      console.log('✅ Get all salons successful:', data);
-      return data;
-    } else {
-      console.error('❌ Get all salons failed:', data);
-      return null;
-    }
-  } catch (error) {
-    console.error('❌ Get all salons failed:', error.message);
-    return null;
-  }
-}
-
-async function runTests() {
-  console.log('🚀 Starting API tests...\n');
-  
-  // Test 0: Create admin user
-  await createAdminUser();
-  
-  // Test 1: Register a salon
-  await testSalonRegistration();
-  
-  // Test 2: Admin login
-  const adminToken = await testAdminLogin();
-  
-  if (adminToken) {
-    // Test 3: Get pending salons
-    await testGetPendingSalons(adminToken);
-    
-    // Test 4: Get all salons
-    await testGetAllSalons(adminToken);
-  }
-  
-  console.log('\n✨ Tests completed!');
-}
-
-runTests().catch(console.error);
+testStaffAppointmentsAPI();

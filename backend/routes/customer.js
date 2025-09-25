@@ -22,6 +22,7 @@ router.use(requireCustomer);
 // Dashboard and Profile
 router.get('/dashboard', getDashboard);
 router.get('/profile', getProfile);
+// Accept profile uploads under consistent field name 'profilePicture'
 router.patch('/profile', upload.single('profilePicture'), updateProfile);
 
 // Browse Salons and Services

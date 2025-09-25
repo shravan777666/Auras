@@ -11,9 +11,14 @@ import {
   User,
   Sparkles,
   Plus,
-  ArrowRight
+  ArrowRight,
+  Mail,
+  Phone
 } from 'lucide-react'
 import SalonMap from '../../components/customer/SalonMap'
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5005'
+const IMAGE_BASE = (API_URL || '').replace(/\/+$/, '').replace(/\/api\/?$/, '')
 
 const CustomerDashboard = () => {
   const { user, logout } = useAuth()
@@ -25,7 +30,8 @@ const CustomerDashboard = () => {
       completedBookings: 0
     },
     recentBookings: [],
-    favoriteServices: []
+    favoriteServices: [],
+    customerInfo: null
   })
   const [salons, setSalons] = useState([])
   const [salonsLoading, setSalonsLoading] = useState(false)
@@ -66,7 +72,7 @@ const CustomerDashboard = () => {
       const res = await customerService.getDashboard()
       console.log('Dashboard API response:', res)
       if (res?.success && res.data) {
-        const { statistics = {}, recentBookings = [], favoriteServices = [] } = res.data
+        const { statistics = {}, recentBookings = [], favoriteServices = [], customerInfo = null } = res.data
         console.log('Dashboard statistics:', statistics)
         setDashboardData({
           statistics: {
@@ -75,14 +81,16 @@ const CustomerDashboard = () => {
             completedBookings: Number(statistics.completedBookings) || 0
           },
           recentBookings: Array.isArray(recentBookings) ? recentBookings : [],
-          favoriteServices: Array.isArray(favoriteServices) ? favoriteServices : []
+          favoriteServices: Array.isArray(favoriteServices) ? favoriteServices : [],
+          customerInfo: customerInfo || null
         })
       } else {
         console.log('No dashboard data received, using defaults')
         setDashboardData({
           statistics: { totalBookings: 0, upcomingBookings: 0, completedBookings: 0 },
           recentBookings: [],
-          favoriteServices: []
+          favoriteServices: [],
+          customerInfo: null
         })
       }
     } catch (error) {
@@ -90,7 +98,8 @@ const CustomerDashboard = () => {
       setDashboardData({
         statistics: { totalBookings: 0, upcomingBookings: 0, completedBookings: 0 },
         recentBookings: [],
-        favoriteServices: []
+        favoriteServices: [],
+        customerInfo: null
       })
     } finally {
       setLoading(false)
@@ -150,8 +159,19 @@ const CustomerDashboard = () => {
 
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
-                <User className="h-5 w-5 text-gray-400" />
-                <span className="text-sm text-gray-700">{user?.name}</span>
+                {dashboardData.customerInfo?.profilePic || dashboardData.customerInfo?.profilePicture ? (
+                  <img
+                    src={`${IMAGE_BASE}/${String(dashboardData.customerInfo.profilePic || dashboardData.customerInfo.profilePicture).replace(/^\/+/, '')}`}
+                    alt={dashboardData.customerInfo?.name || 'Profile'}
+                    className="h-8 w-8 rounded-full object-cover border"
+                    onError={(e)=>{ e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(dashboardData.customerInfo?.name || user?.name || 'User')}&background=random&size=64` }}
+                  />
+                ) : (
+                  <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center">
+                    <User className="h-4 w-4 text-gray-400" />
+                  </div>
+                )}
+                <span className="text-sm text-gray-700">{dashboardData.customerInfo?.name || user?.name}</span>
               </div>
               <Link
                 to="/customer/edit-profile"
@@ -173,12 +193,55 @@ const CustomerDashboard = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Section */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">
-            Welcome back, {user?.name}! ✨
-          </h1>
-          <p className="text-gray-600 mt-2">
-            Ready to book your next beauty appointment?
-          </p>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 bg-white border border-gray-200 rounded-2xl p-5">
+            <div className="flex items-center">
+              {dashboardData.customerInfo?.profilePic || dashboardData.customerInfo?.profilePicture ? (
+                <img
+                  src={`${IMAGE_BASE}/${String(dashboardData.customerInfo.profilePic || dashboardData.customerInfo.profilePicture).replace(/^\/+/, '')}`}
+                  alt={dashboardData.customerInfo?.name || 'Profile'}
+                  className="h-16 w-16 rounded-full object-cover border"
+                  onError={(e)=>{ e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(dashboardData.customerInfo?.name || user?.name || 'User')}&background=random&size=128` }}
+                />
+              ) : (
+                <img
+                  src={`https://ui-avatars.com/api/?name=${encodeURIComponent(dashboardData.customerInfo?.name || user?.name || 'User')}&background=random&size=128`}
+                  alt="Profile placeholder"
+                  className="h-16 w-16 rounded-full object-cover border"
+                />
+              )}
+              <div className="ml-4">
+                <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Welcome back, {dashboardData.customerInfo?.name || user?.name}! ✨</h1>
+                <p className="text-gray-600 mt-1">Ready to book your next beauty appointment?</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full md:w-auto">
+              {dashboardData.customerInfo?.email && (
+                <div className="flex items-center text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2">
+                  <Mail className="h-4 w-4 text-gray-500 mr-2" />
+                  <span className="truncate">{dashboardData.customerInfo.email}</span>
+                </div>
+              )}
+              {(dashboardData.customerInfo?.contactNumber || dashboardData.customerInfo?.phone) && (
+                <div className="flex items-center text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2">
+                  <Phone className="h-4 w-4 text-gray-500 mr-2" />
+                  <span>{dashboardData.customerInfo.contactNumber || dashboardData.customerInfo.phone}</span>
+                </div>
+              )}
+              {dashboardData.customerInfo?.address && (
+                <div className="flex items-center text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2 sm:col-span-2">
+                  <MapPin className="h-4 w-4 text-gray-500 mr-2" />
+                  <span className="truncate">
+                    {[
+                      dashboardData.customerInfo.address.street,
+                      dashboardData.customerInfo.address.city,
+                      dashboardData.customerInfo.address.state,
+                      dashboardData.customerInfo.address.country
+                    ].filter(Boolean).join(', ')}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Quick Actions */}

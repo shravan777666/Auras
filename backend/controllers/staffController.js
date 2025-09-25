@@ -11,6 +11,84 @@ import {
   asyncHandler 
 } from '../utils/responses.js';
 
+// Helper function to calculate real performance data for staff
+const getStaffPerformanceData = async (staffId, completedAppointments) => {
+  try {
+    // Get completed appointments for this staff with service details
+    const serviceStats = await Appointment.aggregate([
+      {
+        $match: {
+          staffId: staffId,
+          status: 'Completed',
+          createdAt: {
+            $gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) // Current month
+          }
+        }
+      },
+      { $unwind: '$services' },
+      {
+        $group: {
+          _id: '$services.serviceName',
+          count: { $sum: 1 },
+          totalRevenue: { $sum: '$services.price' }
+        }
+      },
+      { $sort: { count: -1 } }
+    ]);
+
+    // Transform aggregated data into services object
+    const services = {};
+    serviceStats.forEach(stat => {
+      const serviceName = stat._id || 'Unknown Service';
+      services[serviceName] = stat.count;
+    });
+
+    // Calculate average client rating from reviews
+    const Review = (await import('../models/Review.js')).default;
+    const ratingData = await Review.aggregate([
+      {
+        $lookup: {
+          from: 'appointments',
+          localField: 'appointmentId',
+          foreignField: '_id',
+          as: 'appointment'
+        }
+      },
+      {
+        $match: {
+          'appointment.staffId': staffId
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          averageRating: { $avg: '$rating' },
+          totalReviews: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const clientRating = ratingData.length > 0 ? Math.round(ratingData[0].averageRating * 10) / 10 : 0;
+
+    // If no services data available, provide a default structure
+    if (Object.keys(services).length === 0 && completedAppointments > 0) {
+      services['General Service'] = completedAppointments;
+    }
+
+    return {
+      services,
+      clientRating
+    };
+  } catch (error) {
+    console.error('Error calculating staff performance data:', error);
+    // Return default structure on error
+    return {
+      services: {},
+      clientRating: 0
+    };
+  }
+};
+
 // Helper to sign JWT. Accepts either a user object or an id.
 const signToken = (userOrId) => {
   const id = userOrId && userOrId._id ? userOrId._id.toString() : userOrId;
@@ -421,16 +499,8 @@ export const getDashboard = asyncHandler(async (req, res) => {
     preferences: apt.customerNotes || 'No specific preferences'
   }));
 
-  // Mock performance data (you can enhance this based on actual appointment data)
-  const performance = {
-    services: {
-      'Hair Cut': completedAppointments > 0 ? Math.floor(completedAppointments * 0.4) : 0,
-      'Hair Color': completedAppointments > 0 ? Math.floor(completedAppointments * 0.3) : 0,
-      'Hair Style': completedAppointments > 0 ? Math.floor(completedAppointments * 0.2) : 0,
-      'Treatment': completedAppointments > 0 ? Math.floor(completedAppointments * 0.1) : 0
-    },
-    clientRating: 4.5 // You can calculate this from actual reviews later
-  };
+  // Real performance data based on actual appointment data
+  const performance = await getStaffPerformanceData(staffInfo._id, completedAppointments);
 
   console.log('Returning dashboard response');
   return successResponse(res, {
@@ -504,6 +574,7 @@ export const getAppointments = asyncHandler(async (req, res) => {
   const skip = (page - 1) * limit;
 
   console.log('👤 Staff appointments request for userId:', userId);
+  console.log('📋 Query parameters:', req.query);
 
   // First find the staff record to get the staff ID
   const staff = await Staff.findOne({ user: userId });
@@ -512,13 +583,26 @@ export const getAppointments = asyncHandler(async (req, res) => {
     return notFoundResponse(res, 'Staff profile');
   }
 
-  console.log('✅ Found staff profile:', { staffId: staff._id, name: staff.name, email: staff.email });
+  console.log('✅ Found staff profile:', { 
+    staffId: staff._id, 
+    name: staff.name, 
+    email: staff.email,
+    assignedSalon: staff.assignedSalon,
+    approvalStatus: staff.approvalStatus
+  });
+
+  // Check if staff is approved
+  if (staff.approvalStatus !== 'approved') {
+    console.log('❌ Staff not approved:', staff.approvalStatus);
+    return errorResponse(res, 'Staff profile not approved for appointment access', 403);
+  }
 
   const filter = { staffId: staff._id };
-  console.log('🔍 Appointment filter:', filter);
+  console.log('🔍 Base appointment filter:', filter);
 
   if (req.query.status) {
     filter.status = req.query.status;
+    console.log('📊 Added status filter:', req.query.status);
   }
 
   // Support both single date and date range queries
@@ -529,6 +613,7 @@ export const getAppointments = asyncHandler(async (req, res) => {
       $gte: new Date(date.setHours(0, 0, 0, 0)),
       $lt: new Date(date.setHours(23, 59, 59, 999))
     };
+    console.log('📅 Single date filter:', { date: req.query.date, filter: filter.appointmentDate });
   } else if (req.query.startDate && req.query.endDate) {
     // Date range filter (for calendar views)
     const start = new Date(req.query.startDate);
@@ -537,9 +622,18 @@ export const getAppointments = asyncHandler(async (req, res) => {
       $gte: new Date(start.setHours(0, 0, 0, 0)),
       $lte: new Date(end.setHours(23, 59, 59, 999))
     };
+    console.log('📅 Date range filter:', { 
+      startDate: req.query.startDate, 
+      endDate: req.query.endDate, 
+      filter: filter.appointmentDate 
+    });
   }
 
-  console.log('📅 Final filter with date range:', filter);
+  console.log('📅 Final filter with date range:', JSON.stringify(filter, null, 2));
+
+  // Debug: Check if there are any appointments for this staff at all
+  const totalAppointmentsForStaff = await Appointment.countDocuments({ staffId: staff._id });
+  console.log('🔍 Total appointments for staff (any date):', totalAppointmentsForStaff);
 
   const [appointments, totalAppointments] = await Promise.all([
     Appointment.find(filter)
@@ -558,8 +652,31 @@ export const getAppointments = asyncHandler(async (req, res) => {
     customer: apt.customerId?.name,
     date: apt.appointmentDate,
     time: apt.appointmentTime,
-    status: apt.status
+    status: apt.status,
+    staffId: apt.staffId
   })));
+
+  // Debug: If no appointments found, check for potential issues
+  if (appointments.length === 0) {
+    console.log('🔍 Debugging: No appointments found. Checking potential issues...');
+    
+    // Check if there are appointments with different staff ID formats
+    const allAppointmentsForStaff = await Appointment.find({ 
+      $or: [
+        { staffId: staff._id },
+        { staffId: staff._id.toString() },
+        { 'staffId.$oid': staff._id.toString() }
+      ]
+    }).limit(5);
+    
+    console.log('🔍 Alternative staff ID queries found:', allAppointmentsForStaff.length);
+    
+    // Check if there are any appointments in the date range without staff filter
+    if (filter.appointmentDate) {
+      const appointmentsInDateRange = await Appointment.find(filter.appointmentDate).limit(5);
+      console.log('🔍 Appointments in date range (any staff):', appointmentsInDateRange.length);
+    }
+  }
 
   const totalPages = Math.ceil(totalAppointments / limit);
 

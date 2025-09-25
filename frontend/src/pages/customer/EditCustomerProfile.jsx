@@ -7,6 +7,7 @@ import { toast } from 'react-hot-toast';
 import { User, Mail, Phone, Calendar, MapPin, ArrowLeft, UploadCloud, X } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5005';
+const IMAGE_BASE = (API_URL || '').replace(/\/+$/, '').replace(/\/api\/?$/, '');
 
 const EditCustomerProfile = () => {
   const { user, updateUser } = useAuth();
@@ -45,8 +46,12 @@ const EditCustomerProfile = () => {
           dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth).toISOString().split('T')[0] : '',
           address: data.address || { street: '', city: '', state: '', postalCode: '', country: '' },
         });
-        if (data.profilePicture) {
-          setProfilePicturePreview(`${API_URL}/${data.profilePicture}`);
+        const pic = data.profilePic || data.profilePicture;
+        if (pic) {
+          const sanitized = String(pic).replace(/^\/+/, '');
+          setProfilePicturePreview(`${IMAGE_BASE}/${sanitized}`);
+        } else {
+          setProfilePicturePreview(null);
         }
       } else {
         toast.error(response.message || 'Could not fetch profile data.');
@@ -102,6 +107,7 @@ const EditCustomerProfile = () => {
     setSaving(true);
 
     const data = new FormData();
+    console.log('[EditCustomerProfile] Building FormData');
     data.append('name', formData.name);
     data.append('contactNumber', formData.contactNumber);
     if (formData.gender) {
@@ -113,19 +119,28 @@ const EditCustomerProfile = () => {
     data.append('address', JSON.stringify(formData.address));
 
     if (profilePicture) {
+      console.log('[EditCustomerProfile] Attaching file', { name: profilePicture.name, size: profilePicture.size, type: profilePicture.type });
       data.append('profilePicture', profilePicture);
     }
 
     try {
+      console.log('[EditCustomerProfile] Sending updateProfile request');
       const response = await customerService.updateProfile(data);
+      console.log('[EditCustomerProfile] Response', response);
       if (response.success) {
         toast.success('Profile updated successfully!');
+        const updatedPic = response.data?.profilePic || response.data?.profilePicture;
+        if (updatedPic) {
+          const sanitized = String(updatedPic).replace(/^\/+/, '');
+          setProfilePicturePreview(`${IMAGE_BASE}/${sanitized}`);
+        }
         updateUser(response.data); // Update user in auth context
         navigate('/customer/dashboard');
       } else {
         toast.error(response.message || 'Failed to update profile.');
       }
     } catch (error) {
+      console.error('[EditCustomerProfile] Error', error);
       const errorMessage = error.response?.data?.message || 'An error occurred. Please try again.';
       toast.error(errorMessage);
     } finally {
@@ -157,9 +172,10 @@ const EditCustomerProfile = () => {
           <div className="flex flex-col sm:flex-row items-center space-y-6 sm:space-y-0 sm:space-x-8">
             <div className="relative">
               <img
-                src={profilePicturePreview || `https://ui-avatars.com/api/?name=${formData.name}&background=random&size=128`}
+                src={profilePicturePreview || `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.name || 'User')}&background=random&size=128`}
                 alt="Profile"
                 className="h-32 w-32 rounded-full object-cover shadow-md border-4 border-white"
+                onError={(e)=>{ e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.name || 'User')}&background=random&size=128`; }}
               />
               {profilePicturePreview && (
                 <button

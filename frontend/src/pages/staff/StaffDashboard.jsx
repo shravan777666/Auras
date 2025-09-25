@@ -73,7 +73,9 @@ const StaffDashboard = () => {
     };
 
     fetchDashboardData();
+  }, [refreshTrigger]);
 
+  useEffect(() => {
     // Set up auto-refresh
     const refreshInterval = setInterval(() => {
       setRefreshTrigger(prev => prev + 1);

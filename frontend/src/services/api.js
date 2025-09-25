@@ -2,7 +2,7 @@ import axios from 'axios'
 import toast from 'react-hot-toast'
 
 // Base API configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5006/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5005/api';
 console.log('🔧 API Configuration:', {
   VITE_API_URL: import.meta.env.VITE_API_URL,
   API_BASE_URL: API_BASE_URL,
@@ -24,6 +24,13 @@ api.interceptors.request.use(
     const token = localStorage.getItem('auracare_token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
+    }
+    // If sending FormData, let the browser set Content-Type with boundary
+    const isFormData = typeof FormData !== 'undefined' && config.data instanceof FormData
+    if (isFormData) {
+      // Axios may lowercase header keys internally; ensure both cases
+      delete config.headers['Content-Type']
+      delete config.headers['content-type']
     }
     
     // Debug logging for admin dashboard requests

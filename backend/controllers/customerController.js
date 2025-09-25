@@ -1,4 +1,6 @@
 import Customer from '../models/Customer.js';
+import fs from 'fs';
+import path from 'path';
 import Salon from '../models/Salon.js';
 import Service from '../models/Service.js';
 import Appointment from '../models/Appointment.js';
@@ -88,6 +90,11 @@ export const getProfile = asyncHandler(async (req, res) => {
 export const updateProfile = asyncHandler(async (req, res) => {
   const customerId = req.user.id;
   const updates = req.body;
+  console.log('[customerController.updateProfile] Start', {
+    customerId,
+    hasFile: !!req.file,
+    baseUrl: req.baseUrl,
+  });
 
   // Handle address object if it comes as a stringified JSON
   if (updates.address && typeof updates.address === 'string') {
@@ -98,10 +105,43 @@ export const updateProfile = asyncHandler(async (req, res) => {
     }
   }
 
-  // If a new profile picture is uploaded, add its path to the updates
+  // Never accept profile picture fields from the body; they must come from multer
+  if (Object.prototype.hasOwnProperty.call(updates, 'profilePicture')) delete updates.profilePicture;
+  if (Object.prototype.hasOwnProperty.call(updates, 'profilePic')) delete updates.profilePic;
+
+  // If a new profile picture is uploaded, set updates.profilePic to /uploads/customers/<filename>
   if (req.file) {
-    // Normalize path to use forward slashes for consistency
-    updates.profilePicture = req.file.path.replace(/\\/g, '/');
+    try {
+      // Build the expected served path
+      const filename = req.file.filename || '';
+      const servedPath = `/uploads/customers/${filename}`;
+      updates.profilePic = servedPath.replace(/\\/g, '/');
+      console.log('[customerController.updateProfile] Received file', {
+        field: req.file.fieldname,
+        destination: req.file.destination,
+        filename: req.file.filename,
+        servedPath: updates.profilePic,
+      });
+
+      // Attempt to remove previous profile picture if it exists
+      const existing = await Customer.findById(customerId).select('profilePic').lean();
+      const oldPath = existing?.profilePic;
+      if (oldPath && typeof oldPath === 'string' && oldPath !== updates.profilePic) {
+        const normalizedOld = oldPath.replace(/^\/+/, '');
+        const absoluteOld = path.join(path.dirname(new URL(import.meta.url).pathname), '..', normalizedOld)
+          .replace(/%20/g, ' ');
+        // Use fs.unlink in a safe, non-blocking manner
+        fs.unlink(absoluteOld, (err) => {
+          if (err) {
+            console.warn('[customerController.updateProfile] Could not delete old profile pic', { oldPath, absoluteOld, error: err?.message });
+          } else {
+            console.log('[customerController.updateProfile] Deleted old profile pic', { absoluteOld });
+          }
+        });
+      }
+    } catch (e) {
+      console.warn('[customerController.updateProfile] File handling error', { error: e?.message });
+    }
   }
 
   // Remove sensitive or immutable fields from the update payload
@@ -120,6 +160,10 @@ export const updateProfile = asyncHandler(async (req, res) => {
     return notFoundResponse(res, 'Customer profile');
   }
 
+  console.log('[customerController.updateProfile] Success', {
+    customerId,
+    profilePic: customer?.profilePic || null,
+  });
   return successResponse(res, customer, 'Profile updated successfully');
 });
 

@@ -92,6 +92,25 @@ AppointmentSchema.pre('save', function(next) {
     const endMinutes = totalMinutes % 60;
     this.estimatedEndTime = `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
   }
+  
+  // Log staff assignment for debugging
+  if (this.staffId) {
+    console.log('📝 Appointment saved with staff assignment:', {
+      appointmentId: this._id,
+      staffId: this.staffId,
+      customerId: this.customerId,
+      appointmentDate: this.appointmentDate,
+      appointmentTime: this.appointmentTime
+    });
+  } else {
+    console.log('⚠️ Appointment saved without staff assignment:', {
+      appointmentId: this._id,
+      customerId: this.customerId,
+      appointmentDate: this.appointmentDate,
+      appointmentTime: this.appointmentTime
+    });
+  }
+  
   next();
 });
 

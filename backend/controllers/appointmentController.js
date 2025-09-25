@@ -224,7 +224,13 @@ export const getAppointmentDetails = asyncHandler(async (req, res) => {
       filter.salonId = userId;
       break;
     case 'staff':
-      filter.staffId = userId;
+      // For staff users, we need to resolve the staff ID from the user ID
+      const Staff = (await import('../models/Staff.js')).default;
+      const staff = await Staff.findOne({ user: userId });
+      if (!staff) {
+        return errorResponse(res, 'Staff profile not found', 404);
+      }
+      filter.staffId = staff._id;
       break;
     // Admin can access all appointments
   }
@@ -277,7 +283,13 @@ export const updateAppointment = asyncHandler(async (req, res) => {
       });
       break;
     case 'staff':
-      filter.staffId = userId;
+      // For staff users, we need to resolve the staff ID from the user ID
+      const StaffForUpdate = (await import('../models/Staff.js')).default;
+      const staffForUpdate = await StaffForUpdate.findOne({ user: userId });
+      if (!staffForUpdate) {
+        return errorResponse(res, 'Staff profile not found', 404);
+      }
+      filter.staffId = staffForUpdate._id;
       break;
   }
 
@@ -402,7 +414,13 @@ export const getAppointmentsSummary = asyncHandler(async (req, res) => {
       matchFilter.salonId = userId;
       break;
     case 'staff':
-      matchFilter.staffId = userId;
+      // For staff users, we need to resolve the staff ID from the user ID
+      const StaffForSummary = (await import('../models/Staff.js')).default;
+      const staffForSummary = await StaffForSummary.findOne({ user: userId });
+      if (!staffForSummary) {
+        return errorResponse(res, 'Staff profile not found', 404);
+      }
+      matchFilter.staffId = staffForSummary._id;
       break;
   }
 

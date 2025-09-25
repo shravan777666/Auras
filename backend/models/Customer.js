@@ -14,7 +14,10 @@ const CustomerSchema = new mongoose.Schema(
     type: { type: String, default: 'customer' },
     contactNumber: { type: String, trim: true },
     isActive: { type: Boolean, default: true },
-    profilePicture: { type: String },
+
+    // Keep only one profile image field for clarity
+    profilePic: { type: String, default: null },
+
     gender: {
       type: String,
       enum: ['Male', 'Female', 'Other', 'Prefer not to say'],

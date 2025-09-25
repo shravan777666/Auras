@@ -173,6 +173,20 @@ import fs from 'fs';
 
 // __filename and __dirname are already defined at the top
 
+// Ensure uploads directories exist
+try {
+  const requiredDirs = [
+    path.join(__dirname, 'uploads'),
+    path.join(__dirname, 'uploads', 'customers'),
+    path.join(__dirname, 'uploads', 'staff'),
+    path.join(__dirname, 'uploads', 'images'),
+    path.join(__dirname, 'uploads', 'licenses')
+  ];
+  requiredDirs.forEach((dir) => {
+    try { fs.mkdirSync(dir, { recursive: true }); } catch (_) {}
+  });
+} catch (_) {}
+
 // Serve static files from uploads directory
 app.use('/uploads', (req, res, next) => {
   // Allow all origins for development/static assets

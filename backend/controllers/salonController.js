@@ -529,6 +529,54 @@ export const addService = asyncHandler(async (req, res) => {
   return successResponse(res, newService, 'Service added successfully');
 });
 
+// Get salon services (for salon owner)
+export const getServices = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+  const skip = (page - 1) * limit;
+
+  // Find the salon of the owner
+  const User = (await import('../models/User.js')).default;
+  const user = await User.findById(userId);
+  if (!user || user.type !== 'salon') {
+    return notFoundResponse(res, 'Salon user');
+  }
+
+  const salon = await Salon.findOne({ email: user.email });
+  if (!salon) {
+    return notFoundResponse(res, 'Salon');
+  }
+
+  const filter = { salonId: salon._id };
+
+  if (req.query.category) {
+    filter.category = req.query.category;
+  }
+
+  if (req.query.active !== undefined) {
+    filter.isActive = req.query.active === 'true';
+  }
+
+  const [services, totalServices] = await Promise.all([
+    Service.find(filter)
+      .populate('availableStaff', 'name skills')
+      .skip(skip)
+      .limit(limit)
+      .sort({ category: 1, name: 1 }),
+    Service.countDocuments(filter)
+  ]);
+
+  const totalPages = Math.ceil(totalServices / limit);
+
+  return paginatedResponse(res, services, {
+    page,
+    limit,
+    totalPages,
+    totalItems: totalServices
+  });
+});
+
 // Update salon profile
 export const updateProfile = asyncHandler(async (req, res) => {
   const userId = req.user.id;
@@ -882,7 +930,72 @@ export const updateAppointmentStatus = asyncHandler(async (req, res) => {
   return successResponse(res, appointment, 'Appointment status updated successfully');
 });
 
-// Get revenue by service for salon owner
+// Get service categories with revenue breakdown for salon owner
+export const getServiceCategories = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+  
+  // Find the salon of the owner
+  const User = (await import('../models/User.js')).default;
+  const user = await User.findById(userId);
+  if (!user || user.type !== 'salon') {
+    return notFoundResponse(res, 'Salon user');
+  }
+
+  const salon = await Salon.findOne({ email: user.email });
+  if (!salon) {
+    return notFoundResponse(res, 'Salon');
+  }
+
+  const salonId = salon._id;
+  
+  // Get service categories with count and revenue
+  const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const endOfMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1);
+
+  const categoryData = await Appointment.aggregate([
+    {
+      $match: {
+        salonId: salonId,
+        status: 'Completed',
+        createdAt: { $gte: startOfMonth, $lt: endOfMonth }
+      }
+    },
+    { $unwind: '$services' },
+    {
+      $lookup: {
+        from: 'services',
+        localField: 'services.serviceId',
+        foreignField: '_id',
+        as: 'serviceDetails'
+      }
+    },
+    { $unwind: { path: '$serviceDetails', preserveNullAndEmptyArrays: true } },
+    {
+      $group: {
+        _id: '$serviceDetails.category',
+        total_revenue: { $sum: '$services.price' },
+        service_count: { $sum: 1 },
+        services: { $addToSet: '$services.serviceName' }
+      }
+    },
+    { $sort: { total_revenue: -1 } }
+  ]);
+
+  if (categoryData.length === 0) {
+    return successResponse(res, [], 'No category data available for this salon');
+  }
+
+  const totalRevenue = categoryData.reduce((sum, cat) => sum + cat.total_revenue, 0);
+  const response = categoryData.map(cat => ({
+    category: cat._id || 'Uncategorized',
+    total_revenue: cat.total_revenue,
+    service_count: cat.service_count,
+    services: cat.services,
+    percentage: totalRevenue > 0 ? Math.round((cat.total_revenue / totalRevenue) * 100) : 0
+  }));
+
+  return successResponse(res, response, 'Service categories retrieved successfully');
+});
 export const getRevenueByService = asyncHandler(async (req, res) => {
   // Resolve authenticated salon owner -> salon profile
   const userId = req.user?.id;
@@ -1011,6 +1124,8 @@ export default {
   updateAppointmentStatus,
   getSalonStaff,
   addService,
+  getServices,
+  getServiceCategories,
   getRevenueByService,
   getSalonLocations
 };
