@@ -32,6 +32,7 @@ import serviceRoutes from './routes/service.js';
 import appointmentRoutes from './routes/appointment.js';
 import forgotPasswordRoutes from './routes/forgotPassword.js';
 import reviewRoutes from './routes/review.js';
+import recommendationRoutes from './routes/recommendation.js';
 
 // Create Express app
 const app = express();
@@ -68,6 +69,7 @@ const allowedOrigins = [
   'http://localhost:3003',
   'http://localhost:3004',
   'http://localhost:3005',
+  'http://localhost:3006',  // Add this line for the current frontend port
   'http://localhost:3007',
   'http://localhost:5173',
   'http://127.0.0.1:3000',
@@ -76,6 +78,7 @@ const allowedOrigins = [
   'http://127.0.0.1:3003',
   'http://127.0.0.1:3004',
   'http://127.0.0.1:3005',
+  'http://127.0.0.1:3006',  // Add this line for the current frontend port
   'http://127.0.0.1:3007',
   'http://127.0.0.1:5173'
 ].filter(Boolean);
@@ -249,6 +252,7 @@ app.use('/api/service', serviceRoutes);
 app.use('/api/appointment', appointmentRoutes);
 app.use('/api/forgot-password', forgotPasswordRoutes);
 app.use('/api/reviews', reviewRoutes);
+app.use('/api/recommendations', recommendationRoutes);
 
 // Handle undefined routes
 app.all('*', (req, res) => {
@@ -263,7 +267,9 @@ app.all('*', (req, res) => {
       customer: '/api/customer',
       service: '/api/service',
       appointment: '/api/appointment',
-      forgotPassword: '/api/forgot-password'
+      forgotPassword: '/api/forgot-password',
+      reviews: '/api/reviews',
+      recommendations: '/api/recommendations'
     }
   });
 });

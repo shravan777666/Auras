@@ -40,6 +40,7 @@ import { Pie, Bar } from 'react-chartjs-2';
 import LogoutButton from '../../components/auth/LogoutButton';
 import AddServiceModal from '../../components/salon/AddServiceModal';
 import AssignStaffModal from '../../components/salon/AssignStaffModal';
+import ClientRecommendations from '../../components/salon/ClientRecommendations';
 
 // A reusable card for displaying statistics
 const StatCard = ({ icon, title, value, color, onClick }) => (
@@ -472,104 +473,9 @@ const SalonDashboard = () => {
           </div>
         )}
 
-        {/* Salon Overview */}
-        <div className="mb-8 bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="bg-gradient-to-r from-pink-500 to-purple-600 px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <Store className="h-8 w-8 text-white" />
-                <div>
-                  <h2 className="text-xl font-bold text-white">{salonInfo.salonName}</h2>
-                  <p className="text-pink-100">Salon Details</p>
-                </div>
-              </div>
-              <button onClick={() => navigate('/salon/edit-profile')} className="bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-all">
-                <Edit className="h-4 w-4" />
-                <span>Edit Profile</span>
-              </button>
-            </div>
-          </div>
-          
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Contact Information */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Contact Information</h3>
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-3">
-                    <Phone className="h-5 w-5 text-gray-400" />
-                    <span className="text-gray-700">{salonInfo.contactNumber || 'Not provided'}</span>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <Mail className="h-5 w-5 text-gray-400" />
-                    <span className="text-gray-700">{salonInfo.email}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Address Information */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Address</h3>
-                <div className="flex items-start space-x-3">
-                  <MapPin className="h-5 w-5 text-gray-400 mt-1" />
-                  <div className="text-gray-700">
-                    {salonInfo.salonAddress ? (
-                      typeof salonInfo.salonAddress === 'string' ? (
-                        <p>{salonInfo.salonAddress}</p>
-                      ) : (
-                        <div>
-                          <p>{salonInfo.salonAddress.street}</p>
-                          <p>{salonInfo.salonAddress.city}, {salonInfo.salonAddress.state}</p>
-                          <p>{salonInfo.salonAddress.postalCode}</p>
-                        </div>
-                      )
-                    ) : (
-                      <p className="text-gray-500">Address not provided</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Business Hours */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Business Hours</h3>
-                <div className="flex items-start space-x-3">
-                  <Clock className="h-5 w-5 text-gray-400 mt-1" />
-                  <div className="text-gray-700">
-                    {salonInfo.businessHours ? (
-                      <div>
-                        <p>{salonInfo.businessHours.openTime} - {salonInfo.businessHours.closeTime}</p>
-                        <p className="text-sm text-gray-500 mt-1">{workingDays}</p>
-                      </div>
-                    ) : (
-                      <p className="text-gray-500">Business hours not set</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Description */}
-            {salonInfo.description && (
-              <div className="mt-6 pt-6 border-t border-gray-200">
-                <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">About</h3>
-                <p className="text-gray-700 leading-relaxed">{salonInfo.description}</p>
-              </div>
-            )}
-
-            {/* Salon Image if available */}
-            {salonInfo.salonImage && (
-              <div className="mt-6">
-                <div className="relative w-full h-56 sm:h-64 bg-gray-100 rounded-lg overflow-hidden">
-                  <img src={salonInfo.salonImage} alt="Salon" className="w-full h-full object-cover" />
-                  <div className="absolute bottom-2 left-2 bg-white/80 px-2 py-1 rounded text-gray-700 flex items-center gap-1">
-                    <Image className="h-4 w-4" />
-                    <span className="text-xs">Salon Image</span>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+        {/* Client Recommendations Section - Added after Welcome Banner */}
+        <div className="mb-8">
+          <ClientRecommendations />
         </div>
 
         {/* Expense Tracking Card - Added after Statistics Grid */}
