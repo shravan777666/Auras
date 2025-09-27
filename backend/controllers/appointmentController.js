@@ -12,6 +12,25 @@ import {
   asyncHandler 
 } from '../utils/responses.js';
 
+// Helper function to format date to YYYY-MM-DDTHH:mm
+const formatToISOString = (date) => {
+  return date.toISOString().slice(0, 16);
+};
+
+// Helper function to parse appointment date and time
+const parseAppointmentDateTime = (appointmentDate, appointmentTime) => {
+  if (appointmentDate.includes('T')) {
+    // Already in YYYY-MM-DDTHH:mm format
+    return new Date(appointmentDate);
+  } else {
+    // Legacy format: separate date and time
+    const [hours, minutes] = appointmentTime.split(':').map(Number);
+    const date = new Date(appointmentDate);
+    date.setHours(hours, minutes);
+    return date;
+  }
+};
+
 // Book new appointment
 export const bookAppointment = asyncHandler(async (req, res) => {
   try {
@@ -45,160 +64,168 @@ export const bookAppointment = asyncHandler(async (req, res) => {
       return errorResponse(res, 'At least one service must be selected', 400);
     }
 
-  // Verify salon exists and is active
-  const salon = await Salon.findOne({ _id: salonId, isActive: true });
-  if (!salon) {
-    return notFoundResponse(res, 'Salon');
-  }
+    // Format appointment date to YYYY-MM-DDTHH:mm
+    let formattedAppointmentDate;
+    if (appointmentDate.includes('T')) {
+      // Already in correct format
+      formattedAppointmentDate = appointmentDate.slice(0, 16); // Ensure it's exactly YYYY-MM-DDTHH:mm
+    } else {
+      // Combine date and time
+      formattedAppointmentDate = `${appointmentDate}T${appointmentTime}`;
+    }
 
-  // Verify services exist and belong to the salon
-  const serviceIds = services.map(s => s.serviceId);
-  const serviceRecords = await Service.find({
-    _id: { $in: serviceIds },
-    salonId,
-    isActive: true
-  });
+    // Verify salon exists and is active
+    const salon = await Salon.findOne({ _id: salonId, isActive: true });
+    if (!salon) {
+      return notFoundResponse(res, 'Salon');
+    }
 
-  if (serviceRecords.length !== services.length) {
-    return errorResponse(res, 'Some services not found or not available', 400);
-  }
-
-  // Calculate total duration and amount
-  let totalDuration = 0;
-  let totalAmount = 0;
-  const serviceDetails = [];
-
-  for (const service of services) {
-    const serviceRecord = serviceRecords.find(s => s._id.toString() === service.serviceId);
-    const durationMinutes = Number(serviceRecord.duration) || 0;
-    const unitPrice = (
-      serviceRecord.discountedPrice !== undefined && serviceRecord.discountedPrice !== null
-        ? Number(serviceRecord.discountedPrice)
-        : Number(serviceRecord.price)
-    ) || 0;
-
-    totalDuration += durationMinutes;
-    totalAmount += unitPrice;
-
-    serviceDetails.push({
-      serviceId: service.serviceId,
-      serviceName: serviceRecord.name,
-      price: unitPrice,
-      duration: durationMinutes
-    });
-  }
-
-  // Verify staff availability if specified
-  if (staffId) {
-    const staff = await Staff.findOne({
-      _id: staffId,
-      assignedSalon: salonId,
+    // Verify services exist and belong to the salon
+    const serviceIds = services.map(s => s.serviceId);
+    const serviceRecords = await Service.find({
+      _id: { $in: serviceIds },
+      salonId,
       isActive: true
     });
 
-    if (!staff) {
-      return errorResponse(res, 'Selected staff member not found or not available', 400);
+    if (serviceRecords.length !== services.length) {
+      return errorResponse(res, 'Some services not found or not available', 400);
     }
 
-    // Check if staff has required skills
-    const requiredSkills = serviceRecords.map(s => s.category);
-    const hasRequiredSkills = requiredSkills.some(skill => 
-      staff.skills.includes(skill) || staff.skills.includes('All')
-    );
+    // Calculate total duration and amount
+    let totalDuration = 0;
+    let totalAmount = 0;
+    const serviceDetails = [];
 
-    if (!hasRequiredSkills) {
-      return errorResponse(res, 'Selected staff member does not have required skills for these services', 400);
+    for (const service of services) {
+      const serviceRecord = serviceRecords.find(s => s._id.toString() === service.serviceId);
+      const durationMinutes = Number(serviceRecord.duration) || 0;
+      const unitPrice = (
+        serviceRecord.discountedPrice !== undefined && serviceRecord.discountedPrice !== null
+          ? Number(serviceRecord.discountedPrice)
+          : Number(serviceRecord.price)
+      ) || 0;
+
+      totalDuration += durationMinutes;
+      totalAmount += unitPrice;
+
+      serviceDetails.push({
+        serviceId: service.serviceId,
+        serviceName: serviceRecord.name,
+        price: unitPrice,
+        duration: durationMinutes
+      });
     }
-  }
 
-  // Check for time conflicts
-  const appointmentDateTime = new Date(appointmentDate);
-  const [hours, minutes] = appointmentTime.split(':').map(Number);
-  appointmentDateTime.setHours(hours, minutes);
+    // Verify staff availability if specified
+    if (staffId) {
+      const staff = await Staff.findOne({
+        _id: staffId,
+        assignedSalon: salonId,
+        isActive: true
+      });
 
-  const conflictFilter = {
-    $or: [
-      { salonId },
-      staffId ? { staffId } : {}
-    ].filter(f => Object.keys(f).length > 0),
-    appointmentDate: new Date(appointmentDate),
-    status: { $in: ['Pending', 'Confirmed', 'In-Progress'] }
-  };
+      if (!staff) {
+        return errorResponse(res, 'Selected staff member not found or not available', 400);
+      }
 
-  const conflictingAppointments = await Appointment.find(conflictFilter);
+      // Check if staff has required skills
+      const requiredSkills = serviceRecords.map(s => s.category);
+      const hasRequiredSkills = requiredSkills.some(skill => 
+        staff.skills.includes(skill) || staff.skills.includes('All')
+      );
 
-  for (const existing of conflictingAppointments) {
-    const existingStart = existing.appointmentTime;
-    const existingEnd = existing.estimatedEndTime;
-
-    if (appointmentTime >= existingStart && appointmentTime < existingEnd) {
-      return errorResponse(res, 'Time slot not available. Please choose a different time.', 409);
+      if (!hasRequiredSkills) {
+        return errorResponse(res, 'Selected staff member does not have required skills for these services', 400);
+      }
     }
-  }
 
-  // Create appointment
-  const appointment = new Appointment({
-    customerId,
-    salonId,
-    staffId,
-    services: serviceDetails,
-    appointmentDate: new Date(appointmentDate),
-    appointmentTime,
-    estimatedDuration: totalDuration,
-    totalAmount: Number(totalAmount) || 0,
-    finalAmount: Number(totalAmount) || 0,
-    customerNotes,
-    specialRequests,
-    status: 'Pending',
-    source: 'Website'
-  });
+    // Check for time conflicts
+    const appointmentDateTime = parseAppointmentDateTime(appointmentDate, appointmentTime);
 
-  await appointment.save();
-
-  // Update customer booking stats
-  const customerToUpdate = await Customer.findById(customerId);
-  if (customerToUpdate) {
-    customerToUpdate.totalBookings = (customerToUpdate.totalBookings || 0) + 1;
-    await customerToUpdate.save();
-  }
-
-  // Check if it's first visit to this salon
-  const previousBookings = await Appointment.countDocuments({
-    customerId,
-    salonId,
-    _id: { $ne: appointment._id }
-  });
-
-  if (previousBookings === 0) {
-    appointment.isFirstVisit = true;
-    await appointment.save();
-  }
-
-  // Send confirmation email (optional - don't fail if email fails)
-  try {
-    const appointmentDetails = {
-      salonName: salon.salonName,
-      date: appointmentDate,
-      time: appointmentTime,
-      services: serviceDetails.map(s => s.serviceName),
-      totalAmount
+    const conflictFilter = {
+      $or: [
+        { salonId },
+        staffId ? { staffId } : {}
+      ].filter(f => Object.keys(f).length > 0),
+      appointmentDate: formattedAppointmentDate,
+      status: { $in: ['Pending', 'Confirmed', 'In-Progress'] }
     };
 
-    await sendAppointmentConfirmation(
-      customerProfile.email,
-      customerProfile.name,
-      appointmentDetails
-    );
-  } catch (emailError) {
-    console.error('Failed to send confirmation email:', emailError);
-    // Don't fail the appointment booking if email fails
-  }
+    const conflictingAppointments = await Appointment.find(conflictFilter);
 
-  // Populate appointment for response
-  const populatedAppointment = await Appointment.findById(appointment._id)
-    .populate('salonId', 'salonName salonAddress contactNumber')
-    .populate('staffId', 'name skills')
-    .populate('services.serviceId', 'name category');
+    for (const existing of conflictingAppointments) {
+      const existingStart = existing.appointmentTime;
+      const existingEnd = existing.estimatedEndTime;
+
+      if (appointmentTime >= existingStart && appointmentTime < existingEnd) {
+        return errorResponse(res, 'Time slot not available. Please choose a different time.', 409);
+      }
+    }
+
+    // Create appointment
+    const appointment = new Appointment({
+      customerId,
+      salonId,
+      staffId,
+      services: serviceDetails,
+      appointmentDate: formattedAppointmentDate,
+      appointmentTime,
+      estimatedDuration: totalDuration,
+      totalAmount: Number(totalAmount) || 0,
+      finalAmount: Number(totalAmount) || 0,
+      customerNotes,
+      specialRequests,
+      status: 'Pending',
+      source: 'Website'
+    });
+
+    await appointment.save();
+
+    // Update customer booking stats
+    const customerToUpdate = await Customer.findById(customerId);
+    if (customerToUpdate) {
+      customerToUpdate.totalBookings = (customerToUpdate.totalBookings || 0) + 1;
+      await customerToUpdate.save();
+    }
+
+    // Check if it's first visit to this salon
+    const previousBookings = await Appointment.countDocuments({
+      customerId,
+      salonId,
+      _id: { $ne: appointment._id }
+    });
+
+    if (previousBookings === 0) {
+      appointment.isFirstVisit = true;
+      await appointment.save();
+    }
+
+    // Send confirmation email (optional - don't fail if email fails)
+    try {
+      const appointmentDetails = {
+        salonName: salon.salonName,
+        date: appointmentDate,
+        time: appointmentTime,
+        services: serviceDetails.map(s => s.serviceName),
+        totalAmount
+      };
+
+      await sendAppointmentConfirmation(
+        customerProfile.email,
+        customerProfile.name,
+        appointmentDetails
+      );
+    } catch (emailError) {
+      console.error('Failed to send confirmation email:', emailError);
+      // Don't fail the appointment booking if email fails
+    }
+
+    // Populate appointment for response
+    const populatedAppointment = await Appointment.findById(appointment._id)
+      .populate('salonId', 'salonName salonAddress contactNumber')
+      .populate('staffId', 'name skills')
+      .populate('services.serviceId', 'name category');
 
     return successResponse(res, populatedAppointment, 'Appointment booked successfully! Confirmation email sent.', 201);
   } catch (error) {
@@ -322,6 +349,12 @@ export const updateAppointment = asyncHandler(async (req, res) => {
       if (updates.staffId !== undefined) {
         allowedUpdates.staffId = updates.staffId;
         console.log('👥 Updating staff assignment:', { appointmentId, oldStaffId: appointment.staffId, newStaffId: updates.staffId });
+        
+        // Automatically update status when staff is assigned
+        if (updates.staffId && appointment.status === 'Pending') {
+          allowedUpdates.status = 'Approved';
+          console.log('📋 Auto-updating appointment status from Pending to Approved due to staff assignment');
+        }
       }
       break;
 
@@ -329,6 +362,61 @@ export const updateAppointment = asyncHandler(async (req, res) => {
       Object.assign(allowedUpdates, updates);
       break;
   }
+
+  // Format appointmentDate if it's being updated
+  if (updates.appointmentDate && updates.appointmentTime) {
+    if (updates.appointmentDate.includes('T')) {
+      allowedUpdates.appointmentDate = updates.appointmentDate.slice(0, 16);
+    } else {
+      allowedUpdates.appointmentDate = `${updates.appointmentDate}T${updates.appointmentTime}`;
+    }
+  }
+
+  // Ensure existing appointmentDate is in correct format before saving
+  // This is important when we're just updating other fields like staffId
+  const ensureCorrectDateFormat = (dateString) => {
+    if (!dateString) return dateString;
+    
+    // If it's already in the correct format, return as is
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(dateString)) {
+      return dateString;
+    }
+    
+    // Handle different date formats
+    try {
+      let date;
+      
+      // If it's a JavaScript Date object
+      if (dateString instanceof Date) {
+        date = dateString;
+      }
+      // If it's in YYYY-MM-DD format (just date)
+      else if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        // Combine with appointment time if available
+        const time = appointment.appointmentTime || '00:00';
+        return `${dateString}T${time}`;
+      }
+      // If it's in ISO format with seconds/milliseconds, truncate
+      else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(dateString)) {
+        return dateString.slice(0, 16);
+      }
+      // Try to parse as Date
+      else {
+        date = new Date(dateString);
+      }
+      
+      if (date && !isNaN(date.getTime())) {
+        return date.toISOString().slice(0, 16);
+      }
+    } catch (e) {
+      console.warn('Date format conversion failed:', e.message, 'for date:', dateString);
+    }
+    
+    return dateString;
+  };
+
+  // Ensure the existing appointmentDate is in correct format
+  appointment.appointmentDate = ensureCorrectDateFormat(appointment.appointmentDate);
 
   console.log('🔄 Applying updates to appointment:', allowedUpdates);
   Object.assign(appointment, allowedUpdates);
@@ -381,10 +469,13 @@ export const getAvailableSlots = asyncHandler(async (req, res) => {
     }
   }
 
+  // Format date for query
+  const formattedDate = formatToISOString(requestedDate).slice(0, 10); // Get YYYY-MM-DD part
+
   // Get existing appointments for the date
   const existingAppointments = await Appointment.find({
     salonId,
-    appointmentDate: new Date(date),
+    appointmentDate: new RegExp(`^${formattedDate}`), // Match appointments starting with this date
     status: { $in: ['Pending', 'Confirmed', 'In-Progress'] },
     ...(staffId && { staffId })
   });

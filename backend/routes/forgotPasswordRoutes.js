@@ -21,6 +21,15 @@ const handleValidationErrors = (req, res, next) => {
   next();
 };
 
+// Custom email validation to reject .in and .xyz domains
+const validateEmailDomain = (email) => {
+  const domain = email.split('@')[1];
+  if (domain && (domain.endsWith('.in') || domain.endsWith('.xyz'))) {
+    throw new Error('Email domains .in and .xyz are not allowed');
+  }
+  return true;
+};
+
 // Request password reset (send OTP)
 router.post('/request-reset', [
   body('email')
@@ -28,6 +37,7 @@ router.post('/request-reset', [
     .withMessage('Email is required')
     .isEmail()
     .withMessage('Please provide a valid email address')
+    .custom(validateEmailDomain)
     .normalizeEmail()
     .isLength({ max: 254 })
     .withMessage('Email is too long'),
@@ -46,6 +56,7 @@ router.post('/verify-otp', [
     .withMessage('Email is required')
     .isEmail()
     .withMessage('Please provide a valid email address')
+    .custom(validateEmailDomain)
     .normalizeEmail(),
   body('otp')
     .notEmpty()
@@ -69,6 +80,7 @@ router.post('/reset-password', [
     .withMessage('Email is required')
     .isEmail()
     .withMessage('Please provide a valid email address')
+    .custom(validateEmailDomain)
     .normalizeEmail(),
   body('otp')
     .notEmpty()

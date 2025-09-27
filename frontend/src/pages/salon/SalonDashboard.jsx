@@ -23,9 +23,11 @@ import {
   FileBarChart2,
   Image,
   TrendingUp,
-  CreditCard
+  CreditCard,
+  RefreshCw,
+  Zap
 } from 'lucide-react';
-import { PieChart, BarChart3, RefreshCw } from 'lucide-react';
+import { PieChart, BarChart3 } from 'lucide-react';
 import {
   Chart as ChartJS,
   ArcElement,
@@ -45,10 +47,12 @@ import ClientRecommendations from '../../components/salon/ClientRecommendations'
 // A reusable card for displaying statistics
 const StatCard = ({ icon, title, value, color, onClick }) => (
   <div
-    className={`bg-white p-6 rounded-lg shadow-md flex items-center gap-4 border-l-4 ${color} ${onClick ? 'cursor-pointer hover:shadow-lg transition-all' : ''}`}
+    className={`bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 flex items-center gap-4 border-l-4 ${color} ${onClick ? 'cursor-pointer hover:border-l-8' : ''}`}
     onClick={onClick}
   >
-    {icon}
+    <div className="p-3 rounded-lg bg-gray-100">
+      {icon}
+    </div>
     <div>
       <p className="text-sm font-medium text-gray-500">{title}</p>
       <p className="text-2xl font-bold text-gray-800">{value}</p>
@@ -59,13 +63,18 @@ const StatCard = ({ icon, title, value, color, onClick }) => (
 // Card for Staff Availability Calendar
 const AvailabilityCard = ({ color, onClick }) => (
   <div 
-    className={`bg-white p-6 rounded-lg shadow-md border-l-4 ${color} col-span-full cursor-pointer hover:shadow-lg transition-all`}
+    className={`bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 border-l-4 ${color} col-span-full cursor-pointer`}
     onClick={onClick}
   >
     <div className="flex items-center justify-between">
-      <div className="flex items-center gap-2">
-        <Calendar className="h-5 w-5 text-gray-600" />
-        <h3 className="text-lg font-semibold text-gray-900">Staff Availability Calendar</h3>
+      <div className="flex items-center gap-3">
+        <div className="p-3 rounded-lg bg-gray-100">
+          <Calendar className="h-6 w-6 text-gray-600" />
+        </div>
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900">Staff Availability Calendar</h3>
+          <p className="text-gray-600 mt-1">View and manage your staff's availability and appointments</p>
+        </div>
       </div>
       <div className="text-sm text-gray-500 flex items-center gap-1">
         <span>View Calendar</span>
@@ -74,7 +83,6 @@ const AvailabilityCard = ({ color, onClick }) => (
         </svg>
       </div>
     </div>
-    <p className="text-gray-600 mt-2">View and manage your staff's availability and appointments</p>
   </div>
 );
 
@@ -94,70 +102,79 @@ const ExpenseTrackingCard = ({ expenses = [], totalExpenses = 0, onAddExpense, o
   const expenseValues = Object.values(expensesByCategory);
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md mb-8">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <CreditCard className="h-5 w-5 text-blue-500" />
-          <h2 className="text-xl font-semibold">Expense Tracking</h2>
+    <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 mb-8">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="p-3 rounded-lg bg-blue-100">
+            <CreditCard className="h-6 w-6 text-blue-600" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">Expense Tracking</h2>
+            <p className="text-sm text-gray-500">Monitor your business expenses</p>
+          </div>
         </div>
         <div className="flex gap-2">
           <button
             onClick={onAddExpense}
-            className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2"
           >
+            <PlusCircle className="h-4 w-4" />
             Add Expense
           </button>
           <button
             onClick={onViewDetails}
-            className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
+            className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition flex items-center gap-2"
           >
+            <FileBarChart2 className="h-4 w-4" />
             View Details
           </button>
         </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-        <div className="bg-blue-50 p-4 rounded-lg">
-          <p className="text-sm text-gray-600">Total Expenses</p>
-          <p className="text-xl font-bold text-blue-700">₹{totalExpenses.toLocaleString()}</p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-5 rounded-xl border border-blue-200">
+          <p className="text-sm text-blue-700">Total Expenses</p>
+          <p className="text-2xl font-bold text-blue-900">₹{totalExpenses.toLocaleString()}</p>
         </div>
-        <div className="bg-green-50 p-4 rounded-lg">
-          <p className="text-sm text-gray-600">This Month</p>
-          <p className="text-xl font-bold text-green-700">₹{(totalExpenses * 0.5).toLocaleString()}</p>
+        <div className="bg-gradient-to-r from-green-50 to-green-100 p-5 rounded-xl border border-green-200">
+          <p className="text-sm text-green-700">This Month</p>
+          <p className="text-2xl font-bold text-green-900">₹{(totalExpenses * 0.5).toLocaleString()}</p>
         </div>
-        <div className="bg-purple-50 p-4 rounded-lg">
-          <p className="text-sm text-gray-600">Categories</p>
-          <p className="text-xl font-bold text-purple-700">{expenseCategories.length}</p>
+        <div className="bg-gradient-to-r from-purple-50 to-purple-100 p-5 rounded-xl border border-purple-200">
+          <p className="text-sm text-purple-700">Categories</p>
+          <p className="text-2xl font-bold text-purple-900">{expenseCategories.length}</p>
         </div>
       </div>
       
       {expenseCategories.length > 0 ? (
         <div className="mt-4">
-          <h3 className="text-sm font-medium text-gray-700 mb-2">Expenses by Category</h3>
-          <div className="space-y-2">
+          <h3 className="text-sm font-medium text-gray-700 mb-4">Expenses by Category</h3>
+          <div className="space-y-3">
             {expenseCategories.map((category, index) => (
               <div key={category} className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">{category}</span>
+                <span className="text-sm font-medium text-gray-700">{category}</span>
                 <div className="flex items-center">
-                  <div className="w-24 bg-gray-200 rounded-full h-2 mr-2">
+                  <div className="w-32 bg-gray-200 rounded-full h-2.5 mr-3">
                     <div 
-                      className="bg-blue-600 h-2 rounded-full" 
+                      className="bg-blue-600 h-2.5 rounded-full" 
                       style={{ width: `${(expenseValues[index] / totalExpenses) * 100}%` }}
                     ></div>
                   </div>
-                  <span className="text-sm font-medium text-gray-800">₹{expenseValues[index].toLocaleString()}</span>
+                  <span className="text-sm font-bold text-gray-900">₹{expenseValues[index].toLocaleString()}</span>
                 </div>
               </div>
             ))}
           </div>
         </div>
       ) : (
-        <div className="text-center py-4 text-gray-500">
-          <p>No expenses recorded yet</p>
+        <div className="text-center py-8 text-gray-500 rounded-lg border border-dashed border-gray-300">
+          <CreditCard className="h-12 w-12 mx-auto text-gray-400 mb-3" />
+          <p className="font-medium mb-2">No expenses recorded yet</p>
           <button 
             onClick={onAddExpense}
-            className="mt-2 text-blue-600 hover:text-blue-800 text-sm"
+            className="mt-2 text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center justify-center gap-1 mx-auto"
           >
+            <PlusCircle className="h-4 w-4" />
             Add your first expense
           </button>
         </div>
@@ -199,9 +216,9 @@ const SalonDashboard = () => {
   );
 
   const heroImages = [
-    'https://images.pexels.com/photos/853427/pexels-photo-853427.jpeg',
-    'https://unsplash.com/photos/a-woman-getting-her-hair-done-in-a-salon-lK8oXGycy88',
-    '	https://pixabay.com/photos/makeup-salon-care-skin-glamour-7055671/',
+    'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80',
+    'https://images.unsplash.com/photo-1595475887736-79d6420c4db6?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80',
+    'https://images.unsplash.com/photo-1600857062241-98c0a9ed8f5f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80',
   ];
 
   useEffect(() => {
@@ -226,11 +243,12 @@ const SalonDashboard = () => {
   const handleStaffAssigned = () => {
     // Refresh the pending appointments
     fetchPendingAppointments();
+    fetchDashboardData(); // This will update the statistics including pending appointments count
     // Close the modal
     setIsAssignStaffModalOpen(false);
     setSelectedAppointment(null);
     // Show success message
-    toast.success('Staff assigned successfully! Calendar will refresh automatically.');
+    toast.success('Staff assigned successfully! Appointment moved to Approved status.');
   };
 
   const fetchDashboardData = async () => {
@@ -322,19 +340,21 @@ const SalonDashboard = () => {
 
   useEffect(() => {
     fetchRevenueData();
-    // Optional auto-refresh every 60s without affecting other features
-    const interval = setInterval(fetchRevenueData, 60000);
+    // Optional auto-refresh every 5 minutes to reduce API calls
+    const interval = setInterval(fetchRevenueData, 300000);
     return () => clearInterval(interval);
   }, []);
 
   // Fetch pending appointments for upcoming section with auto-refresh
   useEffect(() => {
     fetchPendingAppointments();
+    fetchDashboardData(); // This will update the statistics including pending appointments count
     
-    // Set up auto-refresh every 30 seconds for live data
+    // Set up auto-refresh every 2 minutes for live data
     const refreshInterval = setInterval(() => {
       fetchPendingAppointments();
-    }, 30000);
+      fetchDashboardData(); // This will update the statistics including pending appointments count
+    }, 120000);
     
     return () => clearInterval(refreshInterval);
   }, []);
@@ -427,7 +447,7 @@ const SalonDashboard = () => {
   return (
     <div className="bg-gray-50 min-h-screen">
       {/* Hero Section */}
-      <section className="relative h-72 mb-8 rounded-lg overflow-hidden flex items-center justify-center text-white">
+      <section className="relative h-80 mb-8 rounded-2xl overflow-hidden flex items-center justify-center text-white shadow-lg">
         {heroImages.map((src, index) => (
           <img
             key={src}
@@ -436,22 +456,31 @@ const SalonDashboard = () => {
             className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out ${index === currentImageIndex ? 'opacity-100' : 'opacity-0'}`}
           />
         ))}
-        <div className="absolute inset-0 bg-black/60"></div>
-        <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <header className="flex justify-between items-center">
+        <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-black/30"></div>
+        <div className="relative z-10 w-full max-w-7xl mx-auto px-6 sm:px-8 lg:px-10">
+            <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                 <div>
-                    <h1 className="text-4xl font-bold text-white">Welcome, {salonInfo.salonName}!</h1>
-                    <p className="text-gray-200 mt-1">Here is your salon's performance at a glance.</p>
+                    <h1 className="text-4xl font-bold text-white mb-2">Welcome, {salonInfo.salonName}!</h1>
+                    <p className="text-gray-200 text-lg">Here is your salon's performance at a glance.</p>
                 </div>
-                <LogoutButton />
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={() => navigate('/salon/edit-profile')}
+                    className="flex items-center px-5 py-3 bg-white/10 backdrop-blur-sm text-white rounded-xl hover:bg-white/20 transition-all duration-300 font-medium border border-white/20"
+                  >
+                    <Edit className="h-5 w-5 mr-2" />
+                    Edit Profile
+                  </button>
+                  <LogoutButton />
+                </div>
             </header>
         </div>
       </section>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
         {/* Welcome Banner after Setup Completion */}
         {showWelcome && (
-          <div className="mb-6 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg shadow-lg p-6 text-white relative">
+          <div className="mb-8 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-lg p-6 text-white relative animate-fade-in">
             <button 
               onClick={() => setShowWelcome(false)}
               className="absolute top-4 right-4 text-white hover:text-gray-200"
@@ -460,11 +489,11 @@ const SalonDashboard = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-            <div className="flex items-center space-x-4">
-              <CheckCircle className="h-12 w-12 text-white" />
+            <div className="flex items-start space-x-4">
+              <CheckCircle className="h-12 w-12 text-white flex-shrink-0 mt-1" />
               <div>
-                <h3 className="text-2xl font-bold mb-2">🎉 Congratulations! Your salon is now live!</h3>
-                <p className="text-green-100">
+                <h3 className="text-2xl font-bold mb-3">🎉 Congratulations! Your salon is now live!</h3>
+                <p className="text-green-100 text-lg">
                   Your salon setup has been completed successfully. You can now start managing appointments, 
                   adding services, and growing your business. Welcome to Auracare!
                 </p>
@@ -478,6 +507,36 @@ const SalonDashboard = () => {
           <ClientRecommendations />
         </div>
 
+        {/* Statistics Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <StatCard 
+            icon={<DollarSign size={24} className="text-blue-600" />} 
+            title="Monthly Revenue" 
+            value={`₹${statistics.monthlyRevenue.toFixed(2)}`} 
+            color="border-blue-500"
+          />
+          <StatCard 
+            icon={<Briefcase size={24} className="text-green-600" />} 
+            title="Total Services" 
+            value={statistics.totalServices} 
+            color="border-green-500"
+            onClick={() => navigate('/salon/services')}
+          />
+          <StatCard 
+            icon={<Users size={24} className="text-purple-600" />} 
+            title="Total Staff" 
+            value={statistics.totalStaff} 
+            color="border-purple-500"
+            onClick={() => navigate('/salon/staff')}
+          />
+          <StatCard 
+            icon={<Calendar size={24} className="text-indigo-600" />} 
+            title="Pending Appointments" 
+            value={statistics.pendingAppointments} 
+            color="border-indigo-500"
+          />
+        </div>
+
         {/* Expense Tracking Card - Added after Statistics Grid */}
         <ExpenseTrackingCard 
           expenses={expenses}
@@ -486,87 +545,40 @@ const SalonDashboard = () => {
           onViewDetails={handleViewExpenseDetails}
         />
 
-        {/* Statistics Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          <StatCard 
-            icon={<BarChart2 size={32} className="text-blue-500" />} 
-            title="Monthly Revenue" 
-            value={`₹${statistics.monthlyRevenue.toFixed(2)}`} 
-            color="border-blue-500"
-          />
-          <StatCard 
-            icon={<Briefcase size={32} className="text-green-500" />} 
-            title="Total Services" 
-            value={statistics.totalServices} 
-            color="border-green-500"
-            onClick={() => navigate('/salon/services')}
-          />
-          <StatCard 
-            icon={<Users size={32} className="text-purple-500" />} 
-            title="Total Staff" 
-            value={statistics.totalStaff} 
-            color="border-purple-500"
-            onClick={() => navigate('/salon/staff')}
-          />
-          <StatCard 
-            icon={<Calendar size={32} className="text-indigo-500" />} 
-            title="Total Appointments" 
-            value={statistics.totalAppointments} 
-            color="border-indigo-500"
-          />
-          <StatCard 
-            icon={<Clock size={32} className="text-yellow-500" />} 
-            title="Pending Appointments" 
-            value={statistics.pendingAppointments} 
-            color="border-yellow-500"
-          />
-          <StatCard
-            icon={<Calendar size={32} className="text-red-500" />}
-            title="Staff Availability Calendar"
-            value={statistics.todayAppointments}
-            color="border-red-500"
-          />
-          <StatCard
-            icon={<BarChart2 size={32} className="text-green-500" />}
-            title="Revenue Dashboard"
-            value={`₹${statistics.monthlyRevenue.toFixed(2)}`}
-            color="border-green-500"
-            onClick={() => navigate('/salon/revenue')}
-          />
-          <AvailabilityCard
-            color="border-teal-500"
-            onClick={() => navigate('/salon/staff-availability')}
-          />
-        </div>
-
-
-
-        Revenue Breakdown (Services vs Revenue)
-        <div className="bg-white p-6 rounded-lg shadow-md mb-8">
-          <div className="flex items-center justify-between mb-4">
+        {/* Revenue Breakdown (Services vs Revenue) */}
+        <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
-              <h2 className="text-xl font-semibold">Revenue Breakdown</h2>
+              <h2 className="text-xl font-bold text-gray-900">Revenue Breakdown</h2>
               <p className="text-sm text-gray-500">By service (Total: ₹{totalRevenue.toLocaleString()})</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setChartType('pie')}
-                className={`px-3 py-2 text-sm rounded-lg flex items-center ${chartType === 'pie' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className={`px-4 py-2 text-sm rounded-lg flex items-center gap-2 transition ${
+                  chartType === 'pie' 
+                    ? 'bg-blue-600 text-white shadow-md' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
               >
-                <PieChart className="h-4 w-4 mr-2" /> Pie
+                <PieChart className="h-4 w-4" /> Pie
               </button>
               <button
                 onClick={() => setChartType('bar')}
-                className={`px-3 py-2 text-sm rounded-lg flex items-center ${chartType === 'bar' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className={`px-4 py-2 text-sm rounded-lg flex items-center gap-2 transition ${
+                  chartType === 'bar' 
+                    ? 'bg-blue-600 text-white shadow-md' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
               >
-                <BarChart3 className="h-4 w-4 mr-2" /> Bar
+                <BarChart3 className="h-4 w-4" /> Bar
               </button>
               <button
                 onClick={fetchRevenueData}
                 disabled={loadingRevenue}
-                className="px-3 py-2 text-sm rounded-lg flex items-center bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50"
+                className="px-4 py-2 text-sm rounded-lg flex items-center gap-2 bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 transition"
               >
-                <RefreshCw className={`h-4 w-4 mr-2 ${loadingRevenue ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-4 w-4 ${loadingRevenue ? 'animate-spin' : ''}`} />
                 {loadingRevenue ? 'Refreshing' : 'Refresh'}
               </button>
             </div>
@@ -575,30 +587,58 @@ const SalonDashboard = () => {
           <div className="h-96">
             {loadingRevenue ? (
               <div className="h-full flex items-center justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
               </div>
             ) : revenueData.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-gray-500">No revenue data yet</div>
+              <div className="h-full flex flex-col items-center justify-center text-gray-500">
+                <BarChart2 className="h-16 w-16 mb-4 text-gray-300" />
+                <p className="text-lg font-medium">No revenue data yet</p>
+                <p className="text-sm">Start providing services to see revenue breakdown</p>
+              </div>
             ) : (
               chartType === 'pie' ? (
                 <Pie data={{
                   labels: revenueData.map(i => i.service),
                   datasets: [{
                     data: revenueData.map(i => i.total_revenue),
-                    backgroundColor: ['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6','#06B6D4','#84CC16','#F97316','#EC4899','#6B7280'].slice(0, revenueData.length),
-                    borderWidth: 2,
+                    backgroundColor: [
+                      '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', 
+                      '#06B6D4', '#84CC16', '#F97316', '#EC4899', '#6B7280'
+                    ].slice(0, revenueData.length),
+                    borderWidth: 0,
+                    hoverOffset: 12
                   }]
                 }} options={{
                   responsive: true,
                   maintainAspectRatio: false,
                   plugins: {
-                    legend: { position: 'bottom' },
+                    legend: { 
+                      position: 'bottom',
+                      labels: {
+                        padding: 20,
+                        usePointStyle: true,
+                        pointStyle: 'circle'
+                      }
+                    },
                     tooltip: {
+                      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                      padding: 12,
+                      titleFont: {
+                        size: 14
+                      },
+                      bodyFont: {
+                        size: 13
+                      },
                       callbacks: {
                         label: (context) => {
                           const value = context.parsed;
                           const item = revenueData[context.dataIndex];
-                          return ` ₹${value.toLocaleString()} • ${item.transaction_count} tx • ${item.percentage || 0}%`;
+                          return [
+                            `${item.service}`,
+                            `Revenue: ₹${value.toLocaleString()}`,
+                            `Transactions: ${item.transaction_count}`,
+                            `Percentage: ${item.percentage || 0}%`
+                          ];
                         }
                       }
                     }
@@ -611,6 +651,8 @@ const SalonDashboard = () => {
                     label: 'Revenue',
                     data: revenueData.map(i => i.total_revenue),
                     backgroundColor: '#3B82F6',
+                    borderRadius: 6,
+                    borderSkipped: false,
                   }]
                 }} options={{
                   responsive: true,
@@ -618,11 +660,22 @@ const SalonDashboard = () => {
                   plugins: {
                     legend: { display: false },
                     tooltip: {
+                      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                      padding: 12,
+                      titleFont: {
+                        size: 14
+                      },
+                      bodyFont: {
+                        size: 13
+                      },
                       callbacks: {
                         label: (context) => {
                           const value = context.parsed.y;
                           const item = revenueData[context.dataIndex];
-                          return ` ₹${value.toLocaleString()} • ${item.transaction_count} tx`;
+                          return [
+                            `Revenue: ₹${value.toLocaleString()}`,
+                            `Transactions: ${item.transaction_count}`
+                          ];
                         }
                       }
                     }
@@ -630,8 +683,16 @@ const SalonDashboard = () => {
                   scales: {
                     y: {
                       beginAtZero: true,
+                      grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                      },
                       ticks: {
                         callback: (v) => `₹${v.toLocaleString()}`
+                      }
+                    },
+                    x: {
+                      grid: {
+                        display: false
                       }
                     }
                   }
@@ -642,48 +703,49 @@ const SalonDashboard = () => {
         </div>
 
         {/* Upcoming Appointments */}
-        <div className="bg-white p-6 rounded-lg shadow-md mb-8">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
-              <h2 className="text-xl font-semibold">Pending Appointments</h2>
+              <h2 className="text-xl font-bold text-gray-900">Pending Appointments</h2>
               {lastUpdated && (
                 <p className="text-xs text-gray-500 mt-1">
                   Last updated: {lastUpdated.toLocaleTimeString()}
                 </p>
               )}
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button
                 onClick={fetchPendingAppointments}
                 disabled={loadingAppointments}
-                className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition"
               >
+                <RefreshCw className={`h-4 w-4 ${loadingAppointments ? 'animate-spin' : ''}`} />
                 {loadingAppointments ? 'Refreshing...' : 'Refresh'}
               </button>
               <button
                 onClick={() => navigate('/salon/appointments')}
-                className="px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg"
+                className="px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center gap-2 transition"
               >
+                <Calendar className="h-4 w-4" />
                 View All
               </button>
             </div>
           </div>
           <div className="overflow-x-auto">
             {loadingAppointments && (
-              <div className="flex justify-center py-4">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
               </div>
             )}
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Service</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Appointment Date & Time</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assign Staff</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Service</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date & Time</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -721,17 +783,20 @@ const SalonDashboard = () => {
                   const specialRequests = appt.specialRequests || '';
                   
                   return (
-                    <tr key={appt._id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">
-                        <div className="text-sm">
-                          <div className="font-medium text-gray-900">{customerName}</div>
-                          <div className="text-gray-500 text-xs">ID: {bookingId.slice(-6)}</div>
+                    <tr key={appt._id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0 h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                            <UserCog className="h-5 w-5 text-indigo-600" />
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900">{customerName}</div>
+                            <div className="text-sm text-gray-500">{customerEmail}</div>
+                            <div className="text-xs text-gray-400">ID: {bookingId.slice(-6)}</div>
+                          </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm text-gray-900">{customerEmail}</div>
-                      </td>
-                      <td className="px-4 py-3">
+                      <td className="px-6 py-4">
                         <div className="text-sm">
                           {services.length > 0 ? (
                             <div>
@@ -742,7 +807,7 @@ const SalonDashboard = () => {
                                 ₹{services[0].price || services[0].serviceId?.price || 0}
                               </div>
                               {services.length > 1 && (
-                                <div className="text-xs text-gray-500">
+                                <div className="text-xs text-gray-500 mt-1">
                                   +{services.length - 1} more service{services.length > 2 ? 's' : ''}
                                 </div>
                               )}
@@ -752,37 +817,38 @@ const SalonDashboard = () => {
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-6 py-4">
                         <div className="text-sm">
                           <div className="font-medium text-gray-900">{appointmentDate}</div>
                           <div className="text-gray-500">{appointmentTime}</div>
                           {appt.estimatedDuration && (
-                            <div className="text-xs text-gray-400">{appt.estimatedDuration} mins</div>
+                            <div className="text-xs text-gray-400 mt-1">{appt.estimatedDuration} mins</div>
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                        <div>₹{totalAmount}</div>
+                      <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                        <div className="font-bold">₹{totalAmount}</div>
                         {(customerNotes || specialRequests) && (
-                          <div className="text-xs text-gray-500 mt-1">
-                            {customerNotes && <div>Note: {customerNotes.slice(0, 30)}{customerNotes.length > 30 ? '...' : ''}</div>}
-                            {specialRequests && <div>Special: {specialRequests.slice(0, 30)}{specialRequests.length > 30 ? '...' : ''}</div>}
+                          <div className="text-xs text-gray-500 mt-1 max-w-xs">
+                            {customerNotes && <div className="truncate">Note: {customerNotes}</div>}
+                            {specialRequests && <div className="truncate">Special: {specialRequests}</div>}
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-sm">
-                        <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-700">
+                      <td className="px-6 py-4 text-sm">
+                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                           {appt.status || 'Pending'}
                         </span>
                         <div className="text-xs text-gray-400 mt-1">
                           {new Date(appt.createdAt || appt.dateCreated).toLocaleDateString()}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-sm">
+                      <td className="px-6 py-4 text-sm">
                         <button
                           onClick={() => handleAssignStaff(appt)}
-                          className="px-3 py-1 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                          className="px-4 py-2 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-1"
                         >
+                          <UserCog className="h-3 w-3" />
                           Assign Staff
                         </button>
                       </td>
@@ -791,10 +857,13 @@ const SalonDashboard = () => {
                 })}
                 {(!upcoming || upcoming.length === 0) && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center">
-                      <div className="text-gray-500">
-                        <div className="text-sm font-medium">No pending appointments</div>
-                        <div className="text-xs mt-1">All appointments are up to date!</div>
+                    <td colSpan={6} className="px-6 py-12 text-center">
+                      <div className="flex flex-col items-center">
+                        <Calendar className="h-16 w-16 text-gray-300 mb-4" />
+                        <div className="text-gray-500">
+                          <div className="text-lg font-medium mb-1">No pending appointments</div>
+                          <div className="text-sm">All appointments are up to date!</div>
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -805,10 +874,18 @@ const SalonDashboard = () => {
           
           {/* Show count of pending appointments */}
           {upcoming && upcoming.length > 0 && (
-            <div className="mt-4 text-sm text-gray-600 flex items-center justify-between">
+            <div className="mt-6 text-sm text-gray-600 flex items-center justify-between">
               <span>Showing {Math.min(upcoming.length, 20)} pending appointment{upcoming.length !== 1 ? 's' : ''}</span>
               {upcoming.length >= 20 && (
-                <span className="text-indigo-600 font-medium">View all to see more</span>
+                <button 
+                  onClick={() => navigate('/salon/appointments')}
+                  className="text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1"
+                >
+                  View all
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
               )}
             </div>
           )}
@@ -816,63 +893,133 @@ const SalonDashboard = () => {
 
         {/* Recent Reviews and Quick Actions */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
-            <h2 className="text-xl font-semibold mb-4">Recent Reviews</h2>
+          <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-300">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-lg bg-yellow-100">
+                  <Star className="h-6 w-6 text-yellow-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Recent Reviews</h2>
+                  <p className="text-sm text-gray-500">Customer feedback on your services</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => navigate('/salon/reviews')}
+                className="text-sm text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1"
+              >
+                View all
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
             <div className="space-y-4">
               {reviews.length === 0 && (
-                <div className="text-sm text-gray-500">No reviews yet.</div>
+                <div className="text-center py-8 rounded-lg border border-dashed border-gray-300">
+                  <Star className="h-12 w-12 mx-auto text-gray-400 mb-3" />
+                  <p className="text-gray-500 font-medium">No reviews yet</p>
+                  <p className="text-sm text-gray-400 mt-1">Encourage customers to leave feedback</p>
+                </div>
               )}
               {reviews.map((r) => (
-                <div key={r.id} className="border border-gray-100 rounded-lg p-4 flex items-start gap-3">
-                  <div className="flex items-center gap-1 text-yellow-500">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Star key={i} size={16} className={i < r.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'} />
-                    ))}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium text-gray-800">{r.customer}</p>
-                      <p className="text-xs text-gray-400">{r.date ? new Date(r.date).toLocaleDateString() : ''}</p>
+                <div key={r.id} className="border border-gray-100 rounded-xl p-5 hover:shadow-sm transition-all">
+                  <div className="flex items-start gap-4">
+                    <div className="flex-shrink-0 h-12 w-12 rounded-full bg-indigo-100 flex items-center justify-center">
+                      <UserCog className="h-6 w-6 text-indigo-600" />
                     </div>
-                    {r.comment && <p className="text-sm text-gray-600 mt-1">{r.comment}</p>}
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-gray-800">{r.customer}</p>
+                        <p className="text-xs text-gray-400">{r.date ? new Date(r.date).toLocaleDateString() : ''}</p>
+                      </div>
+                      <div className="flex items-center gap-1 mt-1 mb-3">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star 
+                            key={i} 
+                            size={16} 
+                            className={i < r.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'} 
+                          />
+                        ))}
+                      </div>
+                      {r.comment && <p className="text-sm text-gray-600">{r.comment}</p>}
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-lg shadow-md h-max">
-            <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
+          <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 h-max">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-3 rounded-lg bg-indigo-100">
+                <Zap className="h-6 w-6 text-indigo-600" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Quick Actions</h2>
+                <p className="text-sm text-gray-500">Manage your salon efficiently</p>
+              </div>
+            </div>
             <div className="space-y-3">
               <button
                 onClick={() => setIsAddServiceModalOpen(true)}
-                className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-gradient-to-r from-pink-500 to-purple-600 text-white hover:from-pink-600 hover:to-purple-700 transition"
+                className="w-full flex items-center justify-between px-5 py-4 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white hover:from-pink-600 hover:to-purple-700 transition-all duration-300 shadow-sm hover:shadow-md"
               >
-                <span className="flex items-center gap-2"><PlusCircle className="h-5 w-5" /> Add New Service</span>
+                <span className="flex items-center gap-3">
+                  <PlusCircle className="h-5 w-5" /> 
+                  Add New Service
+                </span>
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </button>
               <button
                 onClick={() => navigate('/salon/staff')}
-                className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition"
+                className="w-full flex items-center justify-between px-5 py-4 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-all duration-300 shadow-sm hover:shadow-md"
               >
-                <span className="flex items-center gap-2"><UserCog className="h-5 w-5" /> Manage Staff</span>
+                <span className="flex items-center gap-3">
+                  <UserCog className="h-5 w-5" /> 
+                  Manage Staff
+                </span>
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </button>
               <button
                 onClick={() => navigate('/salon/staff/new')}
-                className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-green-600 text-white hover:bg-green-700 transition"
+                className="w-full flex items-center justify-between px-5 py-4 rounded-xl bg-green-600 text-white hover:bg-green-700 transition-all duration-300 shadow-sm hover:shadow-md"
               >
-                <span className="flex items-center gap-2"><PlusCircle className="h-5 w-5" /> Add New Staff</span>
+                <span className="flex items-center gap-3">
+                  <UserCog className="h-5 w-5" /> 
+                  Add New Staff
+                </span>
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </button>
               <button
                 onClick={() => navigate('/salon/reports')}
-                className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition"
+                className="w-full flex items-center justify-between px-5 py-4 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 transition-all duration-300 shadow-sm hover:shadow-md"
               >
-                <span className="flex items-center gap-2"><FileBarChart2 className="h-5 w-5" /> View Reports</span>
+                <span className="flex items-center gap-3">
+                  <FileBarChart2 className="h-5 w-5" /> 
+                  View Reports
+                </span>
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </button>
               <button
                 onClick={() => navigate('/salon/expenses')}
-                className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition"
+                className="w-full flex items-center justify-between px-5 py-4 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-all duration-300 shadow-sm hover:shadow-md"
               >
-                <span className="flex items-center gap-2"><CreditCard className="h-5 w-5" /> Track Expenses</span>
+                <span className="flex items-center gap-3">
+                  <CreditCard className="h-5 w-5" /> 
+                  Track Expenses
+                </span>
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </button>
             </div>
           </div>

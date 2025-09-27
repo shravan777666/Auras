@@ -79,8 +79,20 @@ export const salonService = {
   },
 
   async updateProfile(profileData) {
-    const response = await api.patch('/salon/profile', profileData);
-    return response.data;
+    // Check if we're sending FormData (for file uploads) or regular object
+    if (profileData instanceof FormData) {
+      // For file uploads, we need to let the browser set the Content-Type with boundary
+      const response = await api.patch('/salon/profile', profileData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    } else {
+      // For regular data, use JSON
+      const response = await api.patch('/salon/profile', profileData);
+      return response.data;
+    }
   },
 
   async getSalonStaff() {
@@ -97,7 +109,8 @@ export const salonService = {
   },
 
   async assignStaffToAppointment(appointmentId, data) {
-    const response = await api.patch(`/appointment/${appointmentId}`, data);
+    // Use the salon-specific endpoint for assigning staff
+    const response = await api.patch(`/salon/appointments/${appointmentId}`, data);
     return response.data;
   },
 

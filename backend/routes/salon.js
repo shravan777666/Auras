@@ -22,10 +22,11 @@ import {
   getExpenses,
   getExpenseSummary
 } from '../controllers/salonController.js';
+import * as appointmentController from '../controllers/appointmentController.js';
 import { requireSalonOwner, requireSalonSetup } from '../middleware/roleAuth.js';
 import { getSalonLocations } from '../controllers/salonController.js';
 import { validateSalonSetup, validatePagination, validateObjectId } from '../middleware/validation.js';
-import { salonSetupUploads, uploadErrorHandler } from '../middleware/upload.js';
+import { salonSetupUploads, uploadErrorHandler, upload } from '../middleware/upload.js';
 
 const router = express.Router();
 
@@ -54,8 +55,13 @@ router.post('/setup', salonSetupUploads, uploadErrorHandler, validateSalonSetup,
 // Routes that require completed setup
 router.get('/dashboard', requireSalonSetup, getDashboard);
 router.get('/dashboard/:salonId', requireSalonSetup, getDashboardById);
+
+// Profile routes with file upload support
 router.get('/profile', getProfile);
-router.patch('/profile', updateProfile);
+router.patch('/profile', upload.fields([
+  { name: 'salonLogo', maxCount: 1 },
+  { name: 'salonImage', maxCount: 1 }
+]), uploadErrorHandler, updateProfile);
 
 // Staff Management
 router.get('/staff', requireSalonSetup, getSalonStaff);
@@ -70,6 +76,11 @@ router.post('/services', requireSalonSetup, addService);
 
 // Appointment Management
 router.get('/appointments', requireSalonSetup, validatePagination, getAppointments);
+router.patch('/appointments/:appointmentId', 
+  requireSalonSetup, 
+  validateObjectId('appointmentId'), 
+  appointmentController.updateAppointment
+);
 router.patch('/appointments/:appointmentId/status', 
   (req, res, next) => {
     console.log('🔧 Route hit: PATCH /appointments/:appointmentId/status', {

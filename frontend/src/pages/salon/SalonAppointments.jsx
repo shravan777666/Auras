@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { salonService } from '../../services/salon';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { toast } from 'react-hot-toast';
-import { appointmentService } from '../../services/appointment';
 import {
   Calendar,
   Clock,
@@ -159,7 +158,7 @@ const SalonAppointments = () => {
     try {
       console.log('🔧 Assigning staff to appointment:', { appointmentId, staffId });
       setAssigningStaff(appointmentId);
-      const response = await appointmentService.updateAppointment(appointmentId, { staffId });
+      const response = await salonService.assignStaffToAppointment(appointmentId, { staffId });
       if (response?.success) {
         console.log('Staff assigned successfully');
         toast.success('Staff assigned successfully');

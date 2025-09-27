@@ -581,7 +581,7 @@ export const getServices = asyncHandler(async (req, res) => {
 // Update salon profile
 export const updateProfile = asyncHandler(async (req, res) => {
   const userId = req.user.id;
-  const updates = req.body;
+  let updates = req.body;
 
   // Get user record to find salon
   const User = (await import('../models/User.js')).default;
@@ -597,16 +597,51 @@ export const updateProfile = asyncHandler(async (req, res) => {
     return notFoundResponse(res, 'Salon');
   }
 
+  // Handle file uploads
+  if (req.files) {
+    // Initialize documents object if it doesn't exist
+    if (!salon.documents) {
+      salon.documents = {};
+    }
+
+    // Handle salon logo
+    if (req.files.salonLogo && req.files.salonLogo[0]) {
+      salon.documents.salonLogo = req.files.salonLogo[0].path;
+    }
+
+    // Handle salon images
+    if (req.files.salonImage && req.files.salonImage[0]) {
+      // For simplicity, we're treating salonImage as the first image in salonImages array
+      if (!salon.documents.salonImages) {
+        salon.documents.salonImages = [];
+      }
+      // Replace the first image or add as first image
+      salon.documents.salonImages[0] = req.files.salonImage[0].path;
+    }
+  }
+
+  // Handle address object if it comes as a stringified JSON
+  if (updates.salonAddress && typeof updates.salonAddress === 'string') {
+    try {
+      updates.salonAddress = JSON.parse(updates.salonAddress);
+    } catch (error) {
+      return errorResponse(res, 'Invalid address format. Expected a JSON object.', 400);
+    }
+  }
+
   // Remove sensitive fields that shouldn't be updated this way
   delete updates.password;
   delete updates.email;
   delete updates._id;
+  delete updates.salonLogo; // Remove file fields from updates as they're handled separately
+  delete updates.salonImage;
 
-  salon = await Salon.findByIdAndUpdate(
-    salon._id,
-    { ...updates },
-    { new: true, runValidators: true }
-  );
+  // Update salon with new data
+  Object.keys(updates).forEach(key => {
+    salon[key] = updates[key];
+  });
+
+  await salon.save();
 
   return successResponse(res, salon, 'Profile updated successfully');
 });
@@ -869,66 +904,71 @@ export const getStaffAvailability = asyncHandler(async (req, res) => {
 
 // Update appointment status
 export const updateAppointmentStatus = asyncHandler(async (req, res) => {
-  // req.user.id is the User._id. We need the corresponding Salon._id for filtering appointments.
-  const userId = req.user.id;
-  const { appointmentId } = req.params;
-  const { status, salonNotes } = req.body;
+  try {
+    // req.user.id is the User._id. We need the corresponding Salon._id for filtering appointments.
+    const userId = req.user.id;
+    const { appointmentId } = req.params;
+    const { status, salonNotes } = req.body;
 
-  // Resolve salon profile by authenticated salon owner's user record (email link)
-  const User = (await import('../models/User.js')).default;
-  const user = await User.findById(userId);
-  if (!user || user.type !== 'salon') {
-    return errorResponse(res, 'Access denied: Only salon owners can update appointment status', 403);
-  }
-  const salonProfile = await Salon.findOne({ email: user.email });
-  if (!salonProfile) {
-    return notFoundResponse(res, 'Salon profile');
-  }
-  const salonId = salonProfile._id;
-
-  console.log('🔧 Update appointment status request:', {
-    salonId,
-    appointmentId,
-    status,
-    salonNotes
-  });
-
-  const appointment = await Appointment.findOne({
-    _id: appointmentId,
-    salonId: salonId
-  }).populate('customerId').populate('salonId');
-
-  console.log('🔧 Found appointment:', appointment ? 'Yes' : 'No');
-
-  if (!appointment) {
-    return notFoundResponse(res, 'Appointment');
-  }
-
-  await appointment.updateStatus(status);
-
-  if (salonNotes) {
-    appointment.salonNotes = salonNotes;
-    await appointment.save();
-  }
-
-  if (status === 'Approved') {
-    const customer = appointment.customerId;
-    const salon = appointment.salonId;
-
-    if (customer && salon) {
-      const appointmentDetails = {
-        salonName: salon.salonName,
-        date: new Date(appointment.appointmentDate).toLocaleDateString(),
-        time: appointment.appointmentTime,
-        services: appointment.services.map(s => s.serviceName),
-        totalAmount: appointment.totalAmount
-      };
-
-      await sendAppointmentConfirmation(customer.email, customer.name, appointmentDetails);
+    // Resolve salon profile by authenticated salon owner's user record (email link)
+    const User = (await import('../models/User.js')).default;
+    const user = await User.findById(userId);
+    if (!user || user.type !== 'salon') {
+      return errorResponse(res, 'Access denied: Only salon owners can update appointment status', 403);
     }
-  }
+    const salonProfile = await Salon.findOne({ email: user.email });
+    if (!salonProfile) {
+      return notFoundResponse(res, 'Salon profile');
+    }
+    const salonId = salonProfile._id;
 
-  return successResponse(res, appointment, 'Appointment status updated successfully');
+    console.log('🔧 Update appointment status request:', {
+      salonId,
+      appointmentId,
+      status,
+      salonNotes
+    });
+
+    const appointment = await Appointment.findOne({
+      _id: appointmentId,
+      salonId: salonId
+    }).populate('customerId').populate('salonId');
+
+    console.log('🔧 Found appointment:', appointment ? 'Yes' : 'No');
+
+    if (!appointment) {
+      return notFoundResponse(res, 'Appointment');
+    }
+
+    await appointment.updateStatus(status);
+
+    if (salonNotes) {
+      appointment.salonNotes = salonNotes;
+      await appointment.save();
+    }
+
+    if (status === 'Approved') {
+      const customer = appointment.customerId;
+      const salon = appointment.salonId;
+
+      if (customer && salon) {
+        const appointmentDetails = {
+          salonName: salon.salonName,
+          date: new Date(appointment.appointmentDate).toLocaleDateString(),
+          time: appointment.appointmentTime,
+          services: appointment.services.map(s => s.serviceName),
+          totalAmount: appointment.totalAmount
+        };
+
+        await sendAppointmentConfirmation(customer.email, customer.name, appointmentDetails);
+      }
+    }
+
+    return successResponse(res, appointment, 'Appointment status updated successfully');
+  } catch (error) {
+    console.error('Error updating appointment status:', error);
+    return errorResponse(res, `Failed to update appointment status: ${error.message}`, 500);
+  }
 });
 
 // Get service categories with revenue breakdown for salon owner

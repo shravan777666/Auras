@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { X, User, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { salonService } from '../../services/salon';
 import LoadingSpinner from '../common/LoadingSpinner';
 import { toast } from 'react-hot-toast';
 
 const AssignStaffModal = ({ isOpen, onClose, appointment, onStaffAssigned, onRefresh }) => {
+  const navigate = useNavigate();
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(false);
   const [assigning, setAssigning] = useState(false);
@@ -95,12 +97,17 @@ const AssignStaffModal = ({ isOpen, onClose, appointment, onStaffAssigned, onRef
       });
 
       if (response?.success) {
-        toast.success('Staff assigned successfully');
+        toast.success('Staff assigned successfully! Appointment status updated to Approved. Redirecting to appointments page...');
         onStaffAssigned();
         if (onRefresh) {
           onRefresh();
         }
         onClose();
+        
+        // Navigate to appointments page after successful assignment
+        setTimeout(() => {
+          navigate('/salon/appointments');
+        }, 1500); // Slightly longer delay to show the success message
       } else {
         toast.error(response?.message || 'Failed to assign staff');
       }

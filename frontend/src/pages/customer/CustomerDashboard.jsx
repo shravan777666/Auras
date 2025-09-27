@@ -41,7 +41,7 @@ const CustomerDashboard = () => {
 
   useEffect(() => {
     fetchDashboardData()
-    fetchApprovedSalons()
+    fetchApprovedSalons() // This function needs to be defined
     fetchPendingAppointments()
   }, [])
 
@@ -106,6 +106,7 @@ const CustomerDashboard = () => {
     }
   }
 
+  // UNCOMMENTED AND FIXED: Fetch approved salons function
   const fetchApprovedSalons = async () => {
     try {
       setSalonsLoading(true)

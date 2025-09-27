@@ -9,6 +9,48 @@ const handleValidation = (req, res, next) => {
   next();
 };
 
+// Custom email validation to only allow .com domains
+const validateEmailDomain = (email) => {
+  const domain = email.split('@')[1];
+  if (!domain || !domain.endsWith('.com')) {
+    throw new Error('Only .com email addresses are allowed');
+  }
+  return true;
+};
+
+// Enhanced password validation
+const validateStrongPassword = (password) => {
+  const minLength = 12;
+  const hasUppercase = /[A-Z]/.test(password);
+  const hasLowercase = /[a-z]/.test(password);
+  const hasNumbers = /\d/.test(password);
+  const hasSpecialChar = /[@$!%*?&]/.test(password);
+  
+  if (password.length < minLength) {
+    throw new Error('Password must be at least 12 characters long');
+  }
+  if (!hasUppercase) {
+    throw new Error('Password must contain at least one uppercase letter');
+  }
+  if (!hasLowercase) {
+    throw new Error('Password must contain at least one lowercase letter');
+  }
+  if (!hasNumbers) {
+    throw new Error('Password must contain at least one number');
+  }
+  if (!hasSpecialChar) {
+    throw new Error('Password must contain at least one special character (@$!%*?&)');
+  }
+  
+  // Check for common weak passwords
+  const commonPasswords = ['password123', 'password', '123456789', 'qwerty123'];
+  if (commonPasswords.includes(password.toLowerCase())) {
+    throw new Error('This password is too common. Please choose a different one');
+  }
+  
+  return true;
+};
+
 export const validatePagination = [
   query('page').optional().isInt({ min: 1 }).toInt(),
   query('limit').optional().isInt({ min: 1, max: 1000 }).toInt(),
@@ -21,7 +63,6 @@ export const validateObjectId = (name) => [
   param(name).isMongoId().withMessage(`Invalid ${name} format`),
   handleValidation
 ];
-
 
 // Salon
 export const validateSalonSetup = [
@@ -154,32 +195,44 @@ export const validateListReviews = [
 // Auth
 export const validateUserRegistration = [
   body('name').isString().notEmpty(),
-  body('email').isEmail(),
-  body('password').isLength({ min: 6 }),
+  body('email')
+    .isEmail()
+    .custom(validateEmailDomain),
+  body('password')
+    .custom(validateStrongPassword),
   body('userType').isIn(['admin', 'salon', 'staff', 'customer']).withMessage('Invalid userType'),
   handleValidation
 ];
 
 export const validateUserLogin = [
-  body('email').isEmail(),
+  body('email')
+    .isEmail()
+    .custom(validateEmailDomain),
   body('password').isString(),
   body('userType').isIn(['admin', 'salon', 'staff', 'customer']).withMessage('Invalid userType'),
   handleValidation
 ];
 
 export const validatePasswordReset = [
-  body('email').isEmail(),
+  body('email')
+    .isEmail()
+    .custom(validateEmailDomain),
   handleValidation
 ];
 
 export const validateOTP = [
-  body('email').isEmail(),
+  body('email')
+    .isEmail()
+    .custom(validateEmailDomain),
   body('otp').isString().isLength({ min: 4, max: 8 }),
   handleValidation
 ];
 
 export const validateNewPassword = [
-  body('email').isEmail(),
-  body('newPassword').isLength({ min: 6 }),
+  body('email')
+    .isEmail()
+    .custom(validateEmailDomain),
+  body('newPassword')
+    .custom(validateStrongPassword),
   handleValidation
 ];

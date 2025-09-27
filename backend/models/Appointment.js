@@ -1,4 +1,6 @@
 import mongoose from 'mongoose';
+import Revenue from './Revenue.js';
+import Salon from './Salon.js';
 
 const AppointmentSchema = new mongoose.Schema(
   {
@@ -13,7 +15,16 @@ const AppointmentSchema = new mongoose.Schema(
         duration: { type: Number, required: true }
       }
     ],
-    appointmentDate: { type: Date, required: true },
+    appointmentDate: { 
+      type: String, 
+      required: true,
+      validate: {
+        validator: function(v) {
+          return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v);
+        },
+        message: 'appointmentDate must be in YYYY-MM-DDTHH:mm format'
+      }
+    },
     appointmentTime: { type: String, required: true },
     estimatedDuration: { type: Number, default: 0 },
     estimatedEndTime: { type: String },
@@ -39,34 +50,98 @@ const AppointmentSchema = new mongoose.Schema(
     },
     feedback: { type: String }
   },
-  { timestamps: true }
+  { 
+    timestamps: true,
+    toJSON: {
+      transform: function(doc, ret) {
+        // Format timestamps to YYYY-MM-DDTHH:mm format
+        if (ret.createdAt) {
+          ret.createdAt = new Date(ret.createdAt).toISOString().slice(0, 16);
+        }
+        if (ret.updatedAt) {
+          ret.updatedAt = new Date(ret.updatedAt).toISOString().slice(0, 16);
+        }
+        return ret;
+      }
+    }
+  }
 );
+
+// Helper function to format date to YYYY-MM-DDTHH:mm
+const formatToISOString = (date) => {
+  return date.toISOString().slice(0, 16);
+};
+
+// Helper function to ensure date is in correct format
+const ensureCorrectDateFormat = (dateString) => {
+  // If it's already in the correct format, return as is
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(dateString)) {
+    return dateString;
+  }
+  
+  // Handle different date formats
+  try {
+    let date;
+    
+    // If it's a JavaScript Date object
+    if (dateString instanceof Date) {
+      date = dateString;
+    }
+    // If it's in YYYY-MM-DD format (just date)
+    else if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      // Keep the date part and add default time
+      return `${dateString}T00:00`;
+    }
+    // If it's in ISO format with seconds/milliseconds, truncate
+    else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(dateString)) {
+      return dateString.slice(0, 16);
+    }
+    // Try to parse as Date
+    else {
+      date = new Date(dateString);
+    }
+    
+    if (date && !isNaN(date.getTime())) {
+      return formatToISOString(date);
+    }
+  } catch (e) {
+    console.warn('Date format conversion failed:', e.message, 'for date:', dateString);
+  }
+  
+  // If all else fails, return original (this might still fail validation)
+  return dateString;
+};
 
 AppointmentSchema.methods.updateStatus = async function (newStatus) {
   const oldStatus = this.status;
   this.status = newStatus;
 
+  // Ensure appointmentDate is in correct format before saving
+  this.appointmentDate = ensureCorrectDateFormat(this.appointmentDate);
+
   // Create revenue records when appointment is completed
   if (newStatus === 'Completed' && oldStatus !== 'Completed') {
-    const Revenue = (await import('./Revenue.js')).default;
-    const Salon = (await import('./Salon.js')).default;
+    try {
+      // Get salon to find owner
+      const salon = await Salon.findById(this.salonId);
 
-    // Get salon to find owner
-    const salon = await Salon.findById(this.salonId);
-
-    if (salon) {
-      // Create revenue record for each service
-      for (const service of this.services) {
-        await Revenue.create({
-          service: service.serviceName,
-          amount: service.price,
-          appointmentId: this._id,
-          salonId: this.salonId,
-          ownerId: salon.ownerId,
-          customerId: this.customerId,
-          date: new Date()
-        });
+      if (salon) {
+        // Create revenue record for each service
+        for (const service of this.services) {
+          await Revenue.create({
+            service: service.serviceName,
+            amount: service.price,
+            appointmentId: this._id,
+            salonId: this.salonId,
+            ownerId: salon.ownerId,
+            customerId: this.customerId,
+            date: formatToISOString(new Date())
+          });
+        }
       }
+    } catch (error) {
+      console.error('Error creating revenue records:', error);
+      // Don't fail the status update if revenue creation fails
     }
   }
 
@@ -74,10 +149,12 @@ AppointmentSchema.methods.updateStatus = async function (newStatus) {
 };
 
 AppointmentSchema.methods.canBeCancelled = function () {
-  const appointmentDateTime = new Date(this.appointmentDate);
-  const [hours, minutes] = this.appointmentTime.split(':').map(Number);
-  appointmentDateTime.setHours(hours, minutes);
+  // Parse appointment date and time
+  const [datePart, timePart] = this.appointmentDate.split('T');
+  const [year, month, day] = datePart.split('-').map(Number);
+  const [hours, minutes] = timePart.split(':').map(Number);
   
+  const appointmentDateTime = new Date(year, month - 1, day, hours, minutes);
   const now = new Date();
   const twoHoursFromNow = new Date(now.getTime() + (2 * 60 * 60 * 1000));
   
@@ -85,6 +162,9 @@ AppointmentSchema.methods.canBeCancelled = function () {
 };
 
 AppointmentSchema.pre('save', function(next) {
+  // Format appointmentDate to YYYY-MM-DDTHH:mm if it's a Date object or in wrong format
+  this.appointmentDate = ensureCorrectDateFormat(this.appointmentDate);
+  
   if (this.estimatedDuration && this.appointmentTime) {
     const [hours, minutes] = this.appointmentTime.split(':').map(Number);
     const totalMinutes = hours * 60 + minutes + this.estimatedDuration;
@@ -92,6 +172,12 @@ AppointmentSchema.pre('save', function(next) {
     const endMinutes = totalMinutes % 60;
     this.estimatedEndTime = `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
   }
+  
+  // Format timestamps
+  if (this.isNew) {
+    this.createdAt = formatToISOString(new Date());
+  }
+  this.updatedAt = formatToISOString(new Date());
   
   // Log staff assignment for debugging
   if (this.staffId) {

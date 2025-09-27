@@ -122,7 +122,7 @@ app.options('*', cors(corsOptions));
 // Rate limiting
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // limit each IP to 100 requests per windowMs
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 500, // Increased limit for dashboard operations
   message: {
     success: false,
     message: 'Too many requests from this IP, please try again later.'
@@ -130,12 +130,20 @@ const limiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => {
-    // Allow unauthenticated flows to avoid lockouts
+    // Allow unauthenticated flows and authenticated dashboard operations
     const p = req.path || '';
     if (req.method === 'OPTIONS') return true;
     if (p.startsWith('/auth/login')) return true;
     if (p.startsWith('/auth/register')) return true;
     if (p.startsWith('/auth/refresh-token')) return true;
+    // Skip rate limiting for salon dashboard operations (with /api/ prefix)
+    if (p.startsWith('/api/salon/dashboard')) return true;
+    if (p.startsWith('/api/salon/appointments')) return true;
+    if (p.startsWith('/api/salon/staff')) return true;
+    if (p.startsWith('/api/salon/services')) return true;
+    // Skip for health checks and static files
+    if (p.startsWith('/health')) return true;
+    if (p.startsWith('/uploads')) return true;
     return false;
   }
 });

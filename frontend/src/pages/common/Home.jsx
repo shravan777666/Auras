@@ -38,7 +38,7 @@ const Home = () => {
       name: 'Modern Cuts',
       location: 'New York, NY',
       rating: 4.8,
-      image: 'https://images.unsplash.com/photo-1521590832167-7ce6b839fe7f?q=80&w=2187&auto=format&fit=crop',
+      image: 'https://cdn.pixabay.com/photo/2020/05/24/02/00/barber-shop-5212059_1280.jpg',
     },
     {
       name: 'The Style Room',
@@ -50,20 +50,20 @@ const Home = () => {
       name: 'Beauty Bliss',
       location: 'Chicago, IL',
       rating: 4.7,
-      image: 'https://images.unsplash.com/photo-1596788048228-dc0f06d2c5c7?q=80&w=2235&auto=format&fit=crop',
+      image: 'https://cdn.pixabay.com/photo/2020/05/24/02/00/barber-shop-5212059_1280.jpg',
     },
     {
         name: 'Glamour Lounge',
         location: 'Houston, TX',
         rating: 4.8,
-        image: 'https://images.unsplash.com/photo-1580615642422-ba2797b67a9b?q=80&w=2070&auto=format&fit=crop',
+        image: 'https://images.unsplash.com/photo-1632345031435-8727f6897d53?q=80&w=2070&auto=format&fit=crop',
     },
-    {
-        name: 'Elegance Studio',
-        location: 'Phoenix, AZ',
-        rating: 4.9,
-        image: 'https://images.unsplash.com/photo-1556760544-4421763def42?q=80&w=2070&auto=format&fit=crop',
-    },
+    // {
+    //     name: 'Elegance Studio',
+    //     location: 'Phoenix, AZ',
+    //     rating: 4.9,
+    //     image: 'https://images.unsplash.com/photo-1556760544-4421763def42?q=80&w=2070&auto=format&fit=crop',
+    // },
   ];
 
   const topServices = [
