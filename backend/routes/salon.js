@@ -20,7 +20,9 @@ import {
   getRevenueByService,
   addExpense,
   getExpenses,
-  getExpenseSummary
+  getExpenseSummary,
+  updateExpense,
+  deleteExpense
 } from '../controllers/salonController.js';
 import * as appointmentController from '../controllers/appointmentController.js';
 import { requireSalonOwner, requireSalonSetup } from '../middleware/roleAuth.js';
@@ -33,7 +35,6 @@ const router = express.Router();
 // Public routes
 router.post('/register', register);
 router.get('/locations', getSalonLocations);
-
 // Revenue by service (requires auth + setup)
 router.get('/dashboard/revenue-by-service', requireSalonOwner, requireSalonSetup, getRevenueByService);
 router.get('/dashboard/service-categories', requireSalonOwner, requireSalonSetup, getServiceCategories);
@@ -42,12 +43,13 @@ router.get('/dashboard/service-categories', requireSalonOwner, requireSalonSetup
 router.post('/expenses', requireSalonOwner, requireSalonSetup, addExpense);
 router.get('/expenses', requireSalonOwner, requireSalonSetup, validatePagination, getExpenses);
 router.get('/expenses/summary', requireSalonOwner, requireSalonSetup, getExpenseSummary);
+router.patch('/expenses/:expenseId', requireSalonOwner, requireSalonSetup, updateExpense);
+router.delete('/expenses/:expenseId', requireSalonOwner, requireSalonSetup, deleteExpense);
 
 // All routes below require salon owner authentication
 router.use(requireSalonOwner);
 
 // Details update route
-router.put('/details/:id', updateDetails);
 
 // Setup (no setup completion required)
 router.post('/setup', salonSetupUploads, uploadErrorHandler, validateSalonSetup, setupSalon);

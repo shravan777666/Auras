@@ -306,40 +306,42 @@ export const searchServices = asyncHandler(async (req, res) => {
 export const getServiceCatalog = asyncHandler(async (req, res) => {
   const { category } = req.query;
 
-  // Get unique service IDs from appointments
-  const appointments = await Appointment.find({}, 'services.serviceId').populate('services.serviceId');
-  const serviceIds = new Set();
-
-  appointments.forEach(appointment => {
-    appointment.services.forEach(service => {
-      if (service.serviceId && service.serviceId._id) {
-        serviceIds.add(service.serviceId._id.toString());
-      }
-    });
-  });
-
-  const uniqueServiceIds = Array.from(serviceIds);
-
-  // Fetch services that have been booked
-  let query = { _id: { $in: uniqueServiceIds }, isActive: true };
+  let query = { isActive: true };
   if (category) {
     query.category = new RegExp(`^${category}$`, 'i');
   }
 
   const services = await Service.find(query)
-    .select('name category description price duration')
+    .select('name category description price duration type')
     .sort({ category: 1, name: 1 });
 
-  // Transform to match the expected format
   const catalog = services.map(service => ({
     name: service.name,
     category: service.category,
     description: service.description,
     price: service.price,
-    duration: service.duration
+    duration: service.duration,
+    type: service.type
   }));
 
   return successResponse(res, catalog, 'Service catalog retrieved successfully');
+});
+
+export const getServiceCategories = asyncHandler(async (req, res) => {
+  const categories = await Service.distinct('category');
+  return successResponse(res, categories);
+});
+
+export const getServiceNamesByCategory = asyncHandler(async (req, res) => {
+  const { category } = req.params;
+  const serviceNames = await Service.distinct('name', { category });
+  return successResponse(res, serviceNames);
+});
+
+export const getServiceTypesByName = asyncHandler(async (req, res) => {
+  const { name } = req.params;
+  const serviceTypes = await Service.distinct('type', { name });
+  return successResponse(res, serviceTypes);
 });
 
 export default {
@@ -352,5 +354,8 @@ export default {
   getCategories,
   getPopularServices,
   searchServices,
-  getServiceCatalog
+  getServiceCatalog,
+  getServiceCategories,
+  getServiceNamesByCategory,
+  getServiceTypesByName
 };

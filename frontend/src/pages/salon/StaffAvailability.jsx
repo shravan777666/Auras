@@ -8,8 +8,19 @@ const StaffAvailability = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const handleRefresh = () => {
+    console.log('🔄 Manual refresh triggered');
     setRefreshTrigger(prev => prev + 1);
   };
+
+  // Auto-refresh every 30 seconds
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      console.log('🔄 Auto-refresh triggered');
+      setRefreshTrigger(prev => prev + 1);
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-screen">
@@ -31,14 +42,25 @@ const StaffAvailability = () => {
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Staff Appointments Calendar</h1>
               <p className="text-gray-600">View and manage your staff's appointments and availability</p>
+              <div className="flex items-center gap-4 mt-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-orange-100 border border-orange-300 rounded"></div>
+                  <span className="text-gray-600">Unassigned appointments (click to assign staff)</span>
+                </div>
+              </div>
             </div>
           </div>
-          <button
-            onClick={handleRefresh}
-            className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-          >
-            Refresh
-          </button>
+          <div className="flex items-center gap-3">
+            <div className="text-sm text-gray-500">
+              Auto-refreshes every 30s
+            </div>
+            <button
+              onClick={handleRefresh}
+              className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            >
+              Refresh Now
+            </button>
+          </div>
         </div>
       </div>
 

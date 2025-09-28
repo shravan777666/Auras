@@ -15,6 +15,7 @@ const BookAppointment = () => {
   const [appointmentDate, setAppointmentDate] = useState("");
   const [appointmentTime, setAppointmentTime] = useState("");
   const [customerNotes, setCustomerNotes] = useState("");
+  const [dateError, setDateError] = useState("");
 
   useEffect(() => {
     if (!salonId) { setLoading(false); return; }
@@ -47,6 +48,42 @@ const BookAppointment = () => {
     })();
   }, [salonId]);
 
+  // Get today's date in YYYY-MM-DD format
+  const getTodayDate = () => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  };
+
+  // Validate date selection
+  const validateDate = (selectedDate) => {
+    if (!selectedDate) {
+      setDateError("");
+      return true;
+    }
+
+    const today = new Date();
+    const selected = new Date(selectedDate);
+    
+    // Reset time to compare only dates
+    today.setHours(0, 0, 0, 0);
+    selected.setHours(0, 0, 0, 0);
+
+    if (selected < today) {
+      setDateError("Please select a valid date. Past dates are not allowed.");
+      return false;
+    }
+
+    setDateError("");
+    return true;
+  };
+
+  // Handle date change with validation
+  const handleDateChange = (e) => {
+    const selectedDate = e.target.value;
+    setAppointmentDate(selectedDate);
+    validateDate(selectedDate);
+  };
+
   const toggleService = (service) => {
     const exists = selectedServices.find(s => s.serviceId === service._id);
     if (exists) {
@@ -59,6 +96,12 @@ const BookAppointment = () => {
   const submitBooking = async () => {
     if (!salon?._id || selectedServices.length === 0 || !appointmentDate || !appointmentTime) {
       toast.error("Please select services, date, and time");
+      return;
+    }
+
+    // Validate date before submitting
+    if (!validateDate(appointmentDate)) {
+      toast.error("Please select a valid date. Past dates are not allowed.");
       return;
     }
     try {
@@ -154,11 +197,31 @@ const BookAppointment = () => {
             </div>
             <div>
               <h3 className="font-medium mb-2">Select Date & Time</h3>
+              <p className="text-sm text-gray-600 mb-3">
+                📅 You can only book appointments for today or future dates
+              </p>
               <div className="space-y-3">
-                <input type="date" value={appointmentDate} onChange={(e)=>setAppointmentDate(e.target.value)} className="w-full border rounded px-3 py-2" />
+                <div>
+                  <input 
+                    type="date" 
+                    value={appointmentDate} 
+                    onChange={handleDateChange}
+                    min={getTodayDate()}
+                    className={`w-full border rounded px-3 py-2 ${dateError ? 'border-red-500' : ''}`}
+                  />
+                  {dateError && (
+                    <p className="text-red-500 text-sm mt-1">{dateError}</p>
+                  )}
+                </div>
                 <input type="time" value={appointmentTime} onChange={(e)=>setAppointmentTime(e.target.value)} className="w-full border rounded px-3 py-2" />
                 <textarea placeholder="Notes (optional)" value={customerNotes} onChange={(e)=>setCustomerNotes(e.target.value)} className="w-full border rounded px-3 py-2" rows={3} />
-                <button onClick={submitBooking} className="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700">Book Appointment</button>
+                <button 
+                  onClick={submitBooking} 
+                  disabled={!!dateError}
+                  className={`px-4 py-2 text-white rounded ${dateError ? 'bg-gray-400 cursor-not-allowed' : 'bg-primary-600 hover:bg-primary-700'}`}
+                >
+                  Book Appointment
+                </button>
               </div>
             </div>
           </div>

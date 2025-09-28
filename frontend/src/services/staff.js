@@ -95,14 +95,37 @@ export const staffService = {
     return response.data;
   },
 
+  // ✅ FIXED: Added the missing getAppointments method
   async getAppointments(params = {}) {
-    const response = await api.get('/staff/appointments', { params });
-    return response.data;
+    try {
+      console.log('📡 Making request to /staff/appointments with params:', params);
+      const response = await api.get('/staff/appointments', { params });
+      console.log('✅ Appointments API Response:', {
+        success: response.data?.success,
+        dataLength: response.data?.data?.length || 0,
+        message: response.data?.message
+      });
+      return response.data;
+    } catch (error) {
+      console.error('❌ Error fetching staff appointments:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      throw error;
+    }
   },
 
   async getUpcomingAppointments(params = {}) {
-    const response = await api.get('/staff/upcoming-appointments', { params });
-    return response.data;
+    try {
+      console.log('📡 Fetching upcoming appointments with params:', params);
+      const response = await api.get('/staff/upcoming-appointments', { params });
+      console.log('✅ Upcoming appointments response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Error fetching upcoming appointments:', error);
+      throw error;
+    }
   },
 
   async getCompletedAppointments(params = {}) {
@@ -114,4 +137,7 @@ export const staffService = {
     const response = await api.get('/staff/report');
     return response.data;
   },
+
+  // Keep the individual export as well
+  getAppointmentsByStaffId,
 };

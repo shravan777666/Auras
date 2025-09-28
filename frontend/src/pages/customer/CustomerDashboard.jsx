@@ -16,8 +16,9 @@ import {
   Phone
 } from 'lucide-react'
 import SalonMap from '../../components/customer/SalonMap'
+import RecommendationsSection from '../../components/customer/RecommendationsSection'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5005'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5006'
 const IMAGE_BASE = (API_URL || '').replace(/\/+$/, '').replace(/\/api\/?$/, '')
 
 const CustomerDashboard = () => {
@@ -436,6 +437,11 @@ const CustomerDashboard = () => {
               })}
             </div>
           )}
+        </div>
+
+        {/* Recommendations Section */}
+        <div className="mb-8">
+          <RecommendationsSection />
         </div>
 
         {/* Browse Salons */}

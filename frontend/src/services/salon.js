@@ -58,6 +58,16 @@ export const salonService = {
     return response.data;
   },
 
+  async updateExpense(expenseId, expenseData) {
+    const response = await api.patch(`/salon/expenses/${expenseId}`, expenseData);
+    return response.data;
+  },
+
+  async deleteExpense(expenseId) {
+    const response = await api.delete(`/salon/expenses/${expenseId}`);
+    return response.data;
+  },
+
   async getServiceCategories() {
     const response = await api.get('/salon/dashboard/service-categories');
     return response.data?.data || [];
@@ -121,7 +131,7 @@ export const salonService = {
   },
 
   async addService(serviceData) {
-    const response = await api.post('/salon/services', serviceData);
+    const response = await api.post('/service', serviceData);
     return response.data;
   },
 
@@ -131,13 +141,38 @@ export const salonService = {
     params.set('limit', limit);
     if (category) params.set('category', category);
     if (active !== undefined) params.set('active', active);
-    const response = await api.get(`/salon/services?${params.toString()}`);
+    const response = await api.get(`/service/my/services?${params.toString()}`);
     return response.data;
   },
 
   async getServiceCatalog(params = {}) {
     const query = new URLSearchParams(params).toString();
     const response = await api.get(`/service/catalog${query ? `?${query}` : ''}`);
+    return response.data;
+  },
+
+  async getServiceCategories() {
+    const response = await api.get('/service/categories');
+    return response.data;
+  },
+
+  async getServiceNamesByCategory(category) {
+    const response = await api.get(`/service/service-names/${category}`);
+    return response.data;
+  },
+
+  async getServiceTypesByName(name) {
+    const response = await api.get(`/service/service-types/${name}`);
+    return response.data;
+  },
+
+  async updateService(serviceId, serviceData) {
+    const response = await api.patch(`/service/${serviceId}`, serviceData);
+    return response.data;
+  },
+
+  async deleteService(serviceId) {
+    const response = await api.delete(`/service/${serviceId}`);
     return response.data;
   },
 

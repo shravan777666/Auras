@@ -2,7 +2,7 @@ import axios from 'axios'
 import toast from 'react-hot-toast'
 
 // Base API configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5005/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5006/api';
 console.log('🔧 API Configuration:', {
   VITE_API_URL: import.meta.env.VITE_API_URL,
   API_BASE_URL: API_BASE_URL,
@@ -24,23 +24,16 @@ api.interceptors.request.use(
     const token = localStorage.getItem('auracare_token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
+      console.log('🔐 Token added to request:', config.url);
+    } else {
+      console.warn('⚠️ No token found for request:', config.url);
     }
+    
     // If sending FormData, let the browser set Content-Type with boundary
     const isFormData = typeof FormData !== 'undefined' && config.data instanceof FormData
     if (isFormData) {
-      // Axios may lowercase header keys internally; ensure both cases
       delete config.headers['Content-Type']
       delete config.headers['content-type']
-    }
-    
-    // Debug logging for admin dashboard requests
-    if (config.url.includes('admin/dashboard/stats')) {
-      console.log('🚀 Making dashboard stats request:', {
-        url: config.url,
-        baseURL: config.baseURL,
-        fullURL: config.baseURL + config.url,
-        hasToken: !!token
-      });
     }
     
     return config
@@ -53,15 +46,25 @@ api.interceptors.request.use(
 // Response interceptor for error handling
 api.interceptors.response.use(
   (response) => {  
+    console.log('✅ API Response received:', response.config.url, response.status);
     return response
   },
   (error) => {
+    console.error('❌ API Error:', {
+      url: error.config?.url,
+      status: error.response?.status,
+      message: error.message
+    });
+
     const message = error.response?.data?.message || 'An error occurred'
 
     if (error.response?.status === 401) {
       localStorage.removeItem('auracare_token')
-      window.location.href = '/login'
+      localStorage.removeItem('auracare_user')
       toast.error('Session expired. Please login again.')
+      setTimeout(() => {
+        window.location.href = '/login'
+      }, 2000)
     } else if (error.response?.status === 403) {
       toast.error('Access denied')
     } else if (error.response?.status >= 500) {

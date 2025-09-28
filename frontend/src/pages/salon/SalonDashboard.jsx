@@ -537,6 +537,12 @@ const SalonDashboard = () => {
           />
         </div>
 
+        {/* Staff Availability Calendar */}
+        <AvailabilityCard 
+          color="border-indigo-500"
+          onClick={() => navigate('/salon/staff-availability')}
+        />
+
         {/* Expense Tracking Card - Added after Statistics Grid */}
         <ExpenseTrackingCard 
           expenses={expenses}

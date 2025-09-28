@@ -446,10 +446,16 @@ export const getProfile = asyncHandler(async (req, res) => {
   // Find salon by email
   const salon = await Salon.findOne({ email: user.email })
     .populate('staff', 'name email skills employmentStatus')
-    .populate('services', 'name category price isActive');
+    .populate('services', 'name category price isActive')
+    .lean();
 
   if (!salon) {
     return notFoundResponse(res, 'Salon profile');
+  }
+
+  // Convert document file paths to full URLs
+  if (salon.documents) {
+    salon.documents = convertDocumentsToUrls(salon.documents);
   }
 
   return successResponse(res, salon, 'Salon profile retrieved successfully');
@@ -643,7 +649,13 @@ export const updateProfile = asyncHandler(async (req, res) => {
 
   await salon.save();
 
-  return successResponse(res, salon, 'Profile updated successfully');
+  // Convert document file paths to full URLs for response
+  const salonResponse = salon.toObject();
+  if (salonResponse.documents) {
+    salonResponse.documents = convertDocumentsToUrls(salonResponse.documents);
+  }
+
+  return successResponse(res, salonResponse, 'Profile updated successfully');
 });
 
 // Get available staff (not assigned to any salon)
@@ -862,23 +874,43 @@ export const getStaffAvailability = asyncHandler(async (req, res) => {
   };
 
   if (startDate && endDate) {
+    // Since appointmentDate is stored as string in YYYY-MM-DDTHH:mm format,
+    // we need to do string comparison rather than Date comparison
     appointmentFilter.appointmentDate = {
-      $gte: new Date(startDate),
-      $lte: new Date(endDate)
+      $gte: startDate + 'T00:00',
+      $lte: endDate + 'T23:59'
     };
+    
+    console.log('🗓️ Date filter applied:', {
+      startDate: startDate + 'T00:00',
+      endDate: endDate + 'T23:59'
+    });
   }
 
   const appointments = await Appointment.find(appointmentFilter)
-    .populate('staffId', 'name')
-    .populate('customerId', 'name')
+    .populate('staffId', 'name position')
+    .populate('customerId', 'name email phone')
     .populate('services.serviceId', 'name duration')
     .sort({ appointmentDate: 1, appointmentTime: 1 });
+
+  console.log('🔍 Staff Availability Debug:', {
+    salonId,
+    appointmentFilter,
+    totalAppointments: appointments.length,
+    appointmentStatuses: appointments.map(apt => ({ id: apt._id, status: apt.status, staffId: apt.staffId?.name || 'Unassigned' }))
+  });
 
   // Group appointments by staff
   const staffAppointments = staff.map(staffMember => {
     const staffAppts = appointments.filter(apt =>
       apt.staffId && apt.staffId._id.toString() === staffMember._id.toString()
     );
+    
+    console.log(`👤 Staff ${staffMember.name} appointments:`, {
+      staffId: staffMember._id,
+      appointmentCount: staffAppts.length,
+      appointments: staffAppts.map(apt => ({ id: apt._id, status: apt.status, date: apt.appointmentDate }))
+    });
 
     return {
       staff: {
@@ -894,10 +926,38 @@ export const getStaffAvailability = asyncHandler(async (req, res) => {
         status: apt.status,
         duration: apt.estimatedDuration || apt.services.reduce((total, service) => total + (service.duration || 0), 0),
         customer: apt.customerId ? apt.customerId.name : 'Unknown Customer',
-        services: apt.services.map(s => s.serviceName || (s.serviceId ? s.serviceId.name : 'Service'))
+        services: apt.services.map(s => s.serviceName || (s.serviceId ? s.serviceId.name : 'Service')),
+        staffName: staffMember.name,
+        staffId: staffMember._id
       }))
     };
   });
+
+  // Get unassigned appointments (no staff assigned)
+  const unassignedAppointments = appointments.filter(apt => !apt.staffId).map(apt => ({
+    _id: apt._id,
+    date: apt.appointmentDate,
+    time: apt.appointmentTime,
+    status: apt.status,
+    duration: apt.estimatedDuration || apt.services.reduce((total, service) => total + (service.duration || 0), 0),
+    customer: apt.customerId ? apt.customerId.name : 'Unknown Customer',
+    services: apt.services.map(s => s.serviceName || (s.serviceId ? s.serviceId.name : 'Service')),
+    staffName: 'Unassigned',
+    staffId: null
+  }));
+
+  // Add unassigned appointments as a separate "staff" entry
+  if (unassignedAppointments.length > 0) {
+    staffAppointments.push({
+      staff: {
+        _id: 'unassigned',
+        name: 'Unassigned Appointments',
+        position: 'Pending Assignment',
+        availability: null
+      },
+      appointments: unassignedAppointments
+    });
+  }
 
   return successResponse(res, { staffAppointments }, 'Staff availability data retrieved successfully');
 });
@@ -1238,10 +1298,75 @@ export const getExpenseSummary = asyncHandler(async (req, res) => {
   return successResponse(res, response, 'Expense summary retrieved successfully');
 });
 
-// Public: Get salon locations (name, address, lat, lng)
+// Update expense
+export const updateExpense = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+  const { expenseId } = req.params;
+  
+  // Find user and verify salon owner
+  const User = (await import('../models/User.js')).default;
+  const user = await User.findById(userId);
+  if (!user || user.type !== 'salon') {
+    return errorResponse(res, 'Access denied: Only salon owners can update expenses', 403);
+  }
+
+  const salon = await Salon.findOne({ email: user.email });
+  if (!salon) {
+    return notFoundResponse(res, 'Salon profile');
+  }
+
+  const { category, amount, description, date } = req.body;
+
+  // Find and update the expense
+  const expense = await Expense.findOneAndUpdate(
+    { _id: expenseId, salonId: salon._id },
+    {
+      category,
+      amount,
+      description,
+      date: date ? new Date(date) : new Date(),
+      updatedAt: new Date()
+    },
+    { new: true }
+  );
+
+  if (!expense) {
+    return notFoundResponse(res, 'Expense');
+  }
+
+  return successResponse(res, expense, 'Expense updated successfully');
+});
+
+// Delete expense
+export const deleteExpense = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+  const { expenseId } = req.params;
+  
+  // Find user and verify salon owner
+  const User = (await import('../models/User.js')).default;
+  const user = await User.findById(userId);
+  if (!user || user.type !== 'salon') {
+    return errorResponse(res, 'Access denied: Only salon owners can delete expenses', 403);
+  }
+
+  const salon = await Salon.findOne({ email: user.email });
+  if (!salon) {
+    return notFoundResponse(res, 'Salon profile');
+  }
+
+  // Find and delete the expense
+  const expense = await Expense.findOneAndDelete({ _id: expenseId, salonId: salon._id });
+
+  if (!expense) {
+    return notFoundResponse(res, 'Expense');
+  }
+
+  return successResponse(res, null, 'Expense deleted successfully');
+});
+
+// Get salon locations for map display
 export const getSalonLocations = asyncHandler(async (req, res) => {
-  // Return all salons as requested (no approval filter)
-  const salons = await Salon.find({})
+  const salons = await Salon.find({ isActive: true, setupCompleted: true })
     .select('salonName salonAddress')
     .lean();
 
@@ -1294,5 +1419,8 @@ export default {
   getRevenueByService,
   addExpense,
   getExpenses,
-  getExpenseSummary
+  getExpenseSummary,
+  updateExpense,
+  deleteExpense,
+  getSalonLocations
 };

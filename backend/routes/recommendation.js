@@ -3,13 +3,17 @@ import {
   getRecentClients,
   getClients,
   getClientRecommendations,
-  sendRecommendations
+  sendRecommendations,
+  getCustomerRecommendations
 } from '../controllers/recommendationController.js';
-import { requireSalonOwner } from '../middleware/roleAuth.js';
+import { requireSalonOwner, requireAuth } from '../middleware/roleAuth.js';
 
 const router = express.Router();
 
-// All routes require salon owner authentication
+// Customer route - requires authentication but not salon owner
+router.get('/customer/:customerId', requireAuth, getCustomerRecommendations);
+
+// All routes below require salon owner authentication
 router.use(requireSalonOwner);
 
 // Client routes

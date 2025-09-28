@@ -74,6 +74,25 @@ export const bookAppointment = asyncHandler(async (req, res) => {
       formattedAppointmentDate = `${appointmentDate}T${appointmentTime}`;
     }
 
+    // Validate appointment date - must be today or future
+    const appointmentDateTimeForValidation = new Date(formattedAppointmentDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to compare only dates
+    
+    const appointmentDateOnly = new Date(appointmentDateTimeForValidation);
+    appointmentDateOnly.setHours(0, 0, 0, 0);
+    
+    if (appointmentDateOnly < today) {
+      return errorResponse(res, 'Appointment date cannot be in the past. Please select today or a future date.', 400);
+    }
+
+    console.log('📅 Date validation passed:', {
+      appointmentDate: formattedAppointmentDate,
+      appointmentDateOnly: appointmentDateOnly.toISOString().split('T')[0],
+      today: today.toISOString().split('T')[0],
+      isValid: appointmentDateOnly >= today
+    });
+
     // Verify salon exists and is active
     const salon = await Salon.findOne({ _id: salonId, isActive: true });
     if (!salon) {
@@ -141,7 +160,7 @@ export const bookAppointment = asyncHandler(async (req, res) => {
     }
 
     // Check for time conflicts
-    const appointmentDateTime = parseAppointmentDateTime(appointmentDate, appointmentTime);
+    const appointmentDateTimeForConflictCheck = parseAppointmentDateTime(appointmentDate, appointmentTime);
 
     const conflictFilter = {
       $or: [
@@ -423,7 +442,14 @@ export const updateAppointment = asyncHandler(async (req, res) => {
   await appointment.save();
   console.log('✅ Appointment updated successfully:', { id: appointment._id, staffId: appointment.staffId });
 
-  return successResponse(res, appointment, 'Appointment updated successfully');
+  // Populate the updated appointment with staff and customer data
+  const populatedAppointment = await Appointment.findById(appointment._id)
+    .populate('staffId', 'name email position')
+    .populate('customerId', 'name email phone')
+    .populate('salonId', 'salonName')
+    .populate('services.serviceId', 'name duration price');
+
+  return successResponse(res, populatedAppointment, 'Appointment updated successfully');
 });
 
 // Get available time slots

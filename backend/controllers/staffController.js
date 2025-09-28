@@ -581,13 +581,14 @@ export const updateAvailability = asyncHandler(async (req, res) => {
 
 // Get staff appointments
 export const getAppointments = asyncHandler(async (req, res) => {
-  const userId = req.user.id;
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 10;
-  const skip = (page - 1) * limit;
+  try {
+    const userId = req.user.id;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
 
-  console.log('👤 Staff appointments request for userId:', userId);
-  console.log('📋 Query parameters:', req.query);
+    console.log('👤 Staff appointments request for userId:', userId);
+    console.log('📋 Query parameters:', req.query);
 
   // First find the staff record to get the staff ID
   const staff = await Staff.findOne({ user: userId });
@@ -610,34 +611,52 @@ export const getAppointments = asyncHandler(async (req, res) => {
     return errorResponse(res, 'Staff profile not approved for appointment access', 403);
   }
 
-  const filter = { staffId: staff._id };
+  // Base filter: only show Approved appointments for the logged-in staff
+  const filter = { 
+    staffId: staff._id,
+    status: 'Approved' // Only show approved appointments assigned to this staff
+  };
   console.log('🔍 Base appointment filter:', filter);
 
+  // Allow overriding status filter if explicitly requested
   if (req.query.status) {
     filter.status = req.query.status;
-    console.log('📊 Added status filter:', req.query.status);
+    console.log('📊 Overriding status filter:', req.query.status);
   }
 
   // Support both single date and date range queries
+  // Since appointmentDate is stored as string in YYYY-MM-DDTHH:mm format,
+  // we need to use string comparison instead of Date objects
   if (req.query.date) {
     // Single date filter (backward compatibility)
-    const date = new Date(req.query.date);
+    const dateStr = req.query.date;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      console.log('❌ Invalid date parameter format (expected YYYY-MM-DD):', dateStr);
+      return errorResponse(res, 'Invalid date parameter format. Expected YYYY-MM-DD', 400);
+    }
+    
     filter.appointmentDate = {
-      $gte: new Date(date.setHours(0, 0, 0, 0)),
-      $lt: new Date(date.setHours(23, 59, 59, 999))
+      $gte: dateStr + 'T00:00',
+      $lt: dateStr + 'T23:59'
     };
-    console.log('📅 Single date filter:', { date: req.query.date, filter: filter.appointmentDate });
+    console.log('📅 Single date filter:', { date: dateStr, filter: filter.appointmentDate });
   } else if (req.query.startDate && req.query.endDate) {
     // Date range filter (for calendar views)
-    const start = new Date(req.query.startDate);
-    const end = new Date(req.query.endDate);
+    const startDateStr = req.query.startDate;
+    const endDateStr = req.query.endDate;
+    
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateStr) || !/^\d{4}-\d{2}-\d{2}$/.test(endDateStr)) {
+      console.log('❌ Invalid date range format (expected YYYY-MM-DD):', { startDate: startDateStr, endDate: endDateStr });
+      return errorResponse(res, 'Invalid date range format. Expected YYYY-MM-DD', 400);
+    }
+    
     filter.appointmentDate = {
-      $gte: new Date(start.setHours(0, 0, 0, 0)),
-      $lte: new Date(end.setHours(23, 59, 59, 999))
+      $gte: startDateStr + 'T00:00',
+      $lte: endDateStr + 'T23:59'
     };
     console.log('📅 Date range filter:', { 
-      startDate: req.query.startDate, 
-      endDate: req.query.endDate, 
+      startDate: startDateStr, 
+      endDate: endDateStr, 
       filter: filter.appointmentDate 
     });
   }
@@ -648,16 +667,25 @@ export const getAppointments = asyncHandler(async (req, res) => {
   const totalAppointmentsForStaff = await Appointment.countDocuments({ staffId: staff._id });
   console.log('🔍 Total appointments for staff (any date):', totalAppointmentsForStaff);
 
-  const [appointments, totalAppointments] = await Promise.all([
-    Appointment.find(filter)
-      .populate('customerId', 'name email')
-      .populate('salonId', 'salonName')
-      .populate('services.serviceId', 'name price duration')
-      .skip(skip)
-      .limit(limit)
-      .sort({ appointmentDate: 1, appointmentTime: 1 }),
-    Appointment.countDocuments(filter)
-  ]);
+  let appointments, totalAppointments;
+  
+  try {
+    [appointments, totalAppointments] = await Promise.all([
+      Appointment.find(filter)
+        .populate('customerId', 'name email')
+        .populate('salonId', 'salonName')
+        .populate('services.serviceId', 'name price duration')
+        .skip(skip)
+        .limit(limit)
+        .sort({ appointmentDate: 1, appointmentTime: 1 }),
+      Appointment.countDocuments(filter)
+    ]);
+  } catch (error) {
+    console.error('❌ Error fetching appointments:', error);
+    console.error('❌ Filter used:', JSON.stringify(filter, null, 2));
+    console.error('❌ Query params:', req.query);
+    return errorResponse(res, `Failed to fetch appointments: ${error.message}`, 500);
+  }
 
   console.log('📊 Found appointments:', appointments.length, 'total:', totalAppointments);
   console.log('📅 Appointment details:', appointments.map(apt => ({
@@ -699,6 +727,11 @@ export const getAppointments = asyncHandler(async (req, res) => {
     totalPages,
     totalItems: totalAppointments
   });
+  
+  } catch (error) {
+    console.error('❌ Unexpected error in getAppointments:', error);
+    return errorResponse(res, `Internal server error: ${error.message}`, 500);
+  }
 });
 
 // Update appointment status

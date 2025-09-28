@@ -11,7 +11,9 @@ import {
   Calendar,
   Tag,
   FileText,
-  Loader2
+  Loader2,
+  Edit,
+  Trash2
 } from 'lucide-react';
 
 const ExpenseTracking = () => {
@@ -24,6 +26,10 @@ const ExpenseTracking = () => {
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState([]);
+  const [showEditExpense, setShowEditExpense] = useState(false);
+  const [editingExpense, setEditingExpense] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletingExpense, setDeletingExpense] = useState(null);
 
   // Fetch expense data from API
   useEffect(() => {
@@ -106,6 +112,68 @@ const ExpenseTracking = () => {
 
   const handleExport = () => {
     toast.success('Export functionality would be implemented here');
+  };
+
+  const handleEditExpense = (expense) => {
+    setEditingExpense(expense);
+    setShowEditExpense(true);
+  };
+
+  const handleUpdateExpense = async (expenseData) => {
+    try {
+      await salonService.updateExpense(editingExpense._id, expenseData);
+      setShowEditExpense(false);
+      setEditingExpense(null);
+      toast.success('Expense updated successfully!');
+      
+      // Refresh the expense list
+      const expenseResponse = await salonService.getExpenses();
+      const expensesData = expenseResponse.data || [];
+      setExpenses(expensesData);
+      setFilteredExpenses(expensesData);
+      
+      // Recalculate total expenses
+      const total = expensesData.reduce((sum, expense) => sum + (expense.amount || 0), 0);
+      setTotalExpenses(total);
+      
+      // Update categories if new category was added
+      const uniqueCategories = [...new Set(expensesData.map(e => e.category))];
+      setCategories(uniqueCategories);
+    } catch (error) {
+      console.error('Error updating expense:', error);
+      toast.error('Failed to update expense');
+    }
+  };
+
+  const handleDeleteExpense = (expense) => {
+    setDeletingExpense(expense);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteExpense = async () => {
+    try {
+      await salonService.deleteExpense(deletingExpense._id);
+      setShowDeleteConfirm(false);
+      setDeletingExpense(null);
+      toast.success('Expense deleted successfully!');
+      
+      // Refresh the expense list
+      const expenseResponse = await salonService.getExpenses();
+      const expensesData = expenseResponse.data || [];
+      setExpenses(expensesData);
+      setFilteredExpenses(expensesData);
+      
+      // Recalculate total expenses
+      const total = expensesData.reduce((sum, expense) => sum + (expense.amount || 0), 0);
+      setTotalExpenses(total);
+      
+      // Update categories
+      const uniqueCategories = [...new Set(expensesData.map(e => e.category))];
+      setCategories(uniqueCategories);
+    } catch (error) {
+      console.error('Error deleting expense:', error);
+      toast.error('Failed to delete expense');
+    }
   };
 
   // Calculate expenses by category
@@ -286,10 +354,13 @@ const ExpenseTracking = () => {
                       Description
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Amount
+                      Amount (₹)
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Receipt
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
                     </th>
                   </tr>
                 </thead>
@@ -316,11 +387,29 @@ const ExpenseTracking = () => {
                             <span className="text-gray-400">No receipt</span>
                           )}
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => handleEditExpense(expense)}
+                              className="text-indigo-600 hover:text-indigo-900 p-1 rounded"
+                              title="Edit expense"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteExpense(expense)}
+                              className="text-red-600 hover:text-red-900 p-1 rounded"
+                              title="Delete expense"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500">
+                      <td colSpan="6" className="px-6 py-4 text-center text-sm text-gray-500">
                         No expenses found matching your filters
                       </td>
                     </tr>
@@ -337,6 +426,30 @@ const ExpenseTracking = () => {
         <AddExpenseModal
           onClose={() => setShowAddExpense(false)}
           onAdd={handleAddExpense}
+        />
+      )}
+
+      {/* Edit Expense Modal */}
+      {showEditExpense && (
+        <EditExpenseModal
+          expense={editingExpense}
+          onClose={() => {
+            setShowEditExpense(false);
+            setEditingExpense(null);
+          }}
+          onUpdate={handleUpdateExpense}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <DeleteConfirmModal
+          expense={deletingExpense}
+          onClose={() => {
+            setShowDeleteConfirm(false);
+            setDeletingExpense(null);
+          }}
+          onConfirm={confirmDeleteExpense}
         />
       )}
     </div>
@@ -468,6 +581,206 @@ const AddExpenseModal = ({ onClose, onAdd }) => {
               </button>
             </div>
           </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Edit Expense Modal Component
+const EditExpenseModal = ({ expense, onClose, onUpdate }) => {
+  const [formData, setFormData] = useState({
+    category: expense?.category || '',
+    amount: expense?.amount || '',
+    description: expense?.description || '',
+    date: expense?.date ? new Date(expense.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+  });
+  const [loading, setLoading] = useState(false);
+
+  const categories = ['Supplies', 'Rent', 'Utilities', 'Marketing', 'Salaries', 'Equipment', 'Insurance', 'Maintenance', 'Other'];
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await onUpdate({
+        ...formData,
+        amount: parseFloat(formData.amount)
+      });
+    } catch (error) {
+      console.error('Error in modal submit:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+      <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div className="mt-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-medium text-gray-900">Edit Expense</h3>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-500"
+            >
+              <span className="sr-only">Close</span>
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <form className="mt-4 space-y-4" onSubmit={handleSubmit}>
+            <div>
+              <label htmlFor="edit-category" className="block text-sm font-medium text-gray-700">
+                Category
+              </label>
+              <select
+                id="edit-category"
+                required
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+              >
+                <option value="">Select a category</option>
+                {categories.map(category => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label htmlFor="edit-amount" className="block text-sm font-medium text-gray-700">
+                Amount (₹)
+              </label>
+              <input
+                type="number"
+                id="edit-amount"
+                required
+                min="0"
+                step="0.01"
+                value={formData.amount}
+                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="edit-description" className="block text-sm font-medium text-gray-700">
+                Description
+              </label>
+              <textarea
+                id="edit-description"
+                rows={3}
+                required
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="edit-date" className="block text-sm font-medium text-gray-700">
+                Date
+              </label>
+              <input
+                type="date"
+                id="edit-date"
+                required
+                value={formData.date}
+                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              />
+            </div>
+            
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={loading}
+                className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 flex items-center"
+              >
+                {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Update Expense
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Delete Confirmation Modal Component
+const DeleteConfirmModal = ({ expense, onClose, onConfirm }) => {
+  const [loading, setLoading] = useState(false);
+
+  const handleConfirm = async () => {
+    setLoading(true);
+    try {
+      await onConfirm();
+    } catch (error) {
+      console.error('Error in delete confirm:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+      <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div className="mt-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-medium text-gray-900">Delete Expense</h3>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-500"
+            >
+              <span className="sr-only">Close</span>
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="mt-4">
+            <p className="text-sm text-gray-500">
+              Are you sure you want to delete this expense? This action cannot be undone.
+            </p>
+            <div className="mt-4 p-4 bg-gray-50 rounded-md">
+              <div className="text-sm">
+                <p><strong>Category:</strong> {expense?.category}</p>
+                <p><strong>Amount:</strong> ₹{expense?.amount?.toLocaleString()}</p>
+                <p><strong>Description:</strong> {expense?.description}</p>
+                <p><strong>Date:</strong> {expense?.date ? new Date(expense.date).toLocaleDateString() : ''}</p>
+              </div>
+            </div>
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={loading}
+                className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirm}
+                disabled={loading}
+                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 flex items-center"
+              >
+                {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Delete Expense
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

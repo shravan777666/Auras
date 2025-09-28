@@ -10,6 +10,8 @@ const StaffAppointmentsCalendar = ({ embedded = false, onRefresh }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedStaff, setSelectedStaff] = useState(null);
   const [viewMode, setViewMode] = useState('individual'); // 'individual' or 'all'
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [showAssignModal, setShowAssignModal] = useState(false);
 
   // Color palette for different staff members
   const staffColors = [
@@ -30,6 +32,7 @@ const StaffAppointmentsCalendar = ({ embedded = false, onRefresh }) => {
   // Refresh when onRefresh is called (e.g., after staff assignment)
   useEffect(() => {
     if (onRefresh) {
+      console.log('🔄 Refreshing staff availability due to external trigger');
       fetchStaffAvailability();
     }
   }, [onRefresh]);
@@ -48,6 +51,22 @@ const StaffAppointmentsCalendar = ({ embedded = false, onRefresh }) => {
       });
 
       if (response?.success) {
+        console.log('📊 Staff Availability Response:', {
+          success: response.success,
+          staffCount: response.data?.staffAppointments?.length || 0,
+          staffData: response.data?.staffAppointments?.map(staff => ({
+            staffName: staff.staff.name,
+            appointmentCount: staff.appointments.length,
+            appointments: staff.appointments.map(apt => ({
+              id: apt._id,
+              customer: apt.customer,
+              status: apt.status,
+              date: apt.date,
+              time: apt.time
+            }))
+          }))
+        });
+        
         setStaffAvailability(response.data?.staffAppointments || []);
         if (!selectedStaff && response.data?.staffAppointments?.length > 0) {
           setSelectedStaff(response.data.staffAppointments[0].staff._id);
@@ -98,16 +117,48 @@ const StaffAppointmentsCalendar = ({ embedded = false, onRefresh }) => {
       const staffData = staffAvailability.find(sa => sa.staff._id === staffId);
       if (staffData) {
         appointments.push(...staffData.appointments.filter(apt => {
-          const aptDate = new Date(apt.date);
-          return aptDate.toDateString() === date.toDateString();
+          // Handle both string and Date formats
+          let aptDate;
+          if (typeof apt.date === 'string') {
+            // If it's in YYYY-MM-DDTHH:mm format, extract just the date part
+            const datePart = apt.date.split('T')[0];
+            aptDate = new Date(datePart);
+          } else {
+            aptDate = new Date(apt.date);
+          }
+          
+          const targetDateStr = date.toISOString().split('T')[0];
+          const aptDateStr = aptDate.toISOString().split('T')[0];
+          
+          return aptDateStr === targetDateStr;
         }));
       }
     } else {
       // Get appointments for all staff
       staffAvailability.forEach(staffData => {
         const staffAppointments = staffData.appointments.filter(apt => {
-          const aptDate = new Date(apt.date);
-          return aptDate.toDateString() === date.toDateString();
+          // Handle both string and Date formats
+          let aptDate;
+          if (typeof apt.date === 'string') {
+            // If it's in YYYY-MM-DDTHH:mm format, extract just the date part
+            const datePart = apt.date.split('T')[0];
+            aptDate = new Date(datePart);
+          } else {
+            aptDate = new Date(apt.date);
+          }
+          
+          const targetDateStr = date.toISOString().split('T')[0];
+          const aptDateStr = aptDate.toISOString().split('T')[0];
+          
+          console.log('🗓️ Date comparison:', {
+            appointmentId: apt._id,
+            aptDateOriginal: apt.date,
+            aptDateStr,
+            targetDateStr,
+            matches: aptDateStr === targetDateStr
+          });
+          
+          return aptDateStr === targetDateStr;
         });
         appointments.push(...staffAppointments.map(apt => ({
           ...apt,
@@ -148,6 +199,33 @@ const StaffAppointmentsCalendar = ({ embedded = false, onRefresh }) => {
         return 'bg-red-100 text-red-800 border-red-200';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  const handleAppointmentClick = (appointment) => {
+    setSelectedAppointment(appointment);
+    if (!appointment.staffId) {
+      setShowAssignModal(true);
+    }
+  };
+
+  const assignStaffToAppointment = async (appointmentId, staffId) => {
+    try {
+      setLoading(true);
+      const response = await salonService.assignStaffToAppointment(appointmentId, { staffId });
+      
+      if (response?.success) {
+        console.log('✅ Staff assigned successfully:', response);
+        // Refresh the calendar data
+        await fetchStaffAvailability();
+        setShowAssignModal(false);
+        setSelectedAppointment(null);
+      }
+    } catch (error) {
+      console.error('❌ Error assigning staff:', error);
+      setError('Failed to assign staff to appointment');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -323,18 +401,20 @@ const StaffAppointmentsCalendar = ({ embedded = false, onRefresh }) => {
                       {appointments.map((appointment, aptIndex) => (
                         <div
                           key={aptIndex}
-                          className={`px-2 py-1 rounded text-xs border truncate ${
+                          className={`px-2 py-1 rounded text-xs border truncate cursor-pointer hover:opacity-80 transition-opacity ${
                             viewMode === 'all' 
                               ? getStaffColor(appointment.staffId, appointment.staffName)
                               : getStatusColor(appointment.status)
-                          }`}
-                          title={`${appointment.customer} - ${formatAppointmentTime(appointment.time)} - ${appointment.status}`}
+                          } ${!appointment.staffId ? 'ring-2 ring-orange-300 bg-orange-50' : ''}`}
+                          title={`${appointment.customer} - ${formatAppointmentTime(appointment.time)} - ${appointment.status}${!appointment.staffId ? ' (Click to assign staff)' : ''}`}
+                          onClick={() => handleAppointmentClick(appointment)}
                         >
                           <div className="font-medium truncate">
                             {viewMode === 'all' ? appointment.staffName : appointment.customer}
                           </div>
                           <div className="text-xs opacity-75">
                             {formatAppointmentTime(appointment.time)}
+                            {!appointment.staffId && <span className="ml-1 text-orange-600">⚠</span>}
                           </div>
                         </div>
                       ))}
@@ -380,10 +460,83 @@ const StaffAppointmentsCalendar = ({ embedded = false, onRefresh }) => {
     </>
   );
 
-  return embedded ? calendarContent : (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      {calendarContent}
-    </div>
+  return (
+    <>
+      {embedded ? calendarContent : (
+        <div className="bg-white rounded-lg shadow-md p-6">
+          {calendarContent}
+        </div>
+      )}
+
+      {/* Staff Assignment Modal */}
+      {showAssignModal && selectedAppointment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h3 className="text-lg font-semibold text-gray-900">Assign Staff</h3>
+              <button
+                onClick={() => {
+                  setShowAssignModal(false);
+                  setSelectedAppointment(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <XCircle className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <div className="p-6">
+              <div className="mb-4">
+                <h4 className="font-medium text-gray-900 mb-2">Appointment Details</h4>
+                <div className="bg-gray-50 p-3 rounded-lg text-sm">
+                  <p><span className="font-medium">Customer:</span> {selectedAppointment.customer}</p>
+                  <p><span className="font-medium">Date:</span> {new Date(selectedAppointment.date).toLocaleDateString()}</p>
+                  <p><span className="font-medium">Time:</span> {formatAppointmentTime(selectedAppointment.time)}</p>
+                  <p><span className="font-medium">Services:</span> {selectedAppointment.services.join(', ')}</p>
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <h4 className="font-medium text-gray-900 mb-3">Select Staff Member</h4>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {staffAvailability
+                    .filter(staffData => staffData.staff._id !== 'unassigned')
+                    .map((staffData) => (
+                    <button
+                      key={staffData.staff._id}
+                      onClick={() => assignStaffToAppointment(selectedAppointment._id, staffData.staff._id)}
+                      className="w-full text-left p-3 rounded-lg border hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
+                          <User className="h-5 w-5 text-indigo-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">{staffData.staff.name}</p>
+                          <p className="text-sm text-gray-600">{staffData.staff.position}</p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setShowAssignModal(false);
+                    setSelectedAppointment(null);
+                  }}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

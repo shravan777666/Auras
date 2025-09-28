@@ -9,7 +9,9 @@ import {
   getCategories,
   getPopularServices,
   searchServices,
-  getServiceCatalog
+  getServiceCatalog,
+  getServiceNamesByCategory,
+  getServiceTypesByName
 } from '../controllers/serviceController.js';
 import { requireSalonOwner, requireAuth } from '../middleware/roleAuth.js';
 import { validateService, validatePagination, validateObjectId } from '../middleware/validation.js';
@@ -21,6 +23,8 @@ router.get('/categories', getCategories);
 router.get('/popular', getPopularServices);
 router.get('/search', validatePagination, searchServices);
 router.get('/catalog', getServiceCatalog);
+router.get('/service-names/:category', getServiceNamesByCategory);
+router.get('/service-types/:name', getServiceTypesByName);
 router.get('/:serviceId', validateObjectId('serviceId'), getServiceDetails);
 
 // Routes requiring authentication

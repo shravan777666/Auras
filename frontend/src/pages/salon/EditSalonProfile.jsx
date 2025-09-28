@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { salonService } from '../../services/salon';
 import { toast } from 'react-hot-toast';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import ImagePreview from '../../components/common/ImagePreview';
 
 const EditSalonProfile = () => {
   const navigate = useNavigate();
@@ -22,6 +23,12 @@ const EditSalonProfile = () => {
   });
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [imagePreview, setImagePreview] = useState({
+    isOpen: false,
+    images: [],
+    currentIndex: 0,
+    title: ''
+  });
   const salonImageRef = useRef(null);
   const salonLogoRef = useRef(null);
 
@@ -100,6 +107,47 @@ const EditSalonProfile = () => {
     } else if (fieldName === 'salonLogo') {
       salonLogoRef.current.value = '';
     }
+  };
+
+  const openImagePreview = (imageType) => {
+    const images = [];
+    let currentIndex = 0;
+    let title = '';
+
+    if (imageType === 'logo' && previewImages.salonLogo) {
+      images.push(previewImages.salonLogo);
+      title = 'Salon Logo';
+    } else if (imageType === 'image' && previewImages.salonImage) {
+      images.push(previewImages.salonImage);
+      title = 'Salon Image';
+    } else if (imageType === 'all') {
+      // Show all available images
+      if (previewImages.salonLogo) {
+        images.push(previewImages.salonLogo);
+      }
+      if (previewImages.salonImage) {
+        images.push(previewImages.salonImage);
+      }
+      title = 'Salon Images';
+    }
+
+    if (images.length > 0) {
+      setImagePreview({
+        isOpen: true,
+        images,
+        currentIndex,
+        title
+      });
+    }
+  };
+
+  const closeImagePreview = () => {
+    setImagePreview({
+      isOpen: false,
+      images: [],
+      currentIndex: 0,
+      title: ''
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -297,11 +345,21 @@ const EditSalonProfile = () => {
               <div className="flex items-start space-x-4">
                 <div className="flex-shrink-0">
                   {previewImages.salonLogo ? (
-                    <img 
-                      src={previewImages.salonLogo} 
-                      alt="Salon Logo Preview" 
-                      className="h-16 w-16 rounded-md object-cover border"
-                    />
+                    <div 
+                      className="relative group cursor-pointer"
+                      onClick={() => openImagePreview('logo')}
+                    >
+                      <img 
+                        src={previewImages.salonLogo} 
+                        alt="Salon Logo Preview" 
+                        className="h-16 w-16 rounded-md object-cover border transition-all group-hover:opacity-80"
+                      />
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 rounded-md transition-all flex items-center justify-center">
+                        <span className="text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity">
+                          Click to preview
+                        </span>
+                      </div>
+                    </div>
                   ) : (
                     <div className="bg-gray-200 border-2 border-dashed rounded-md w-16 h-16 flex items-center justify-center">
                       <span className="text-gray-500 text-xs">Logo</span>
@@ -340,11 +398,21 @@ const EditSalonProfile = () => {
               <div className="flex items-start space-x-4">
                 <div className="flex-shrink-0">
                   {previewImages.salonImage ? (
-                    <img 
-                      src={previewImages.salonImage} 
-                      alt="Salon Image Preview" 
-                      className="h-16 w-16 rounded-md object-cover border"
-                    />
+                    <div 
+                      className="relative group cursor-pointer"
+                      onClick={() => openImagePreview('image')}
+                    >
+                      <img 
+                        src={previewImages.salonImage} 
+                        alt="Salon Image Preview" 
+                        className="h-16 w-16 rounded-md object-cover border transition-all group-hover:opacity-80"
+                      />
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 rounded-md transition-all flex items-center justify-center">
+                        <span className="text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity">
+                          Click to preview
+                        </span>
+                      </div>
+                    </div>
                   ) : (
                     <div className="bg-gray-200 border-2 border-dashed rounded-md w-16 h-16 flex items-center justify-center">
                       <span className="text-gray-500 text-xs">Image</span>
@@ -377,6 +445,22 @@ const EditSalonProfile = () => {
               </div>
             </div>
           </div>
+          
+          {/* View All Images Button */}
+          {(previewImages.salonLogo || previewImages.salonImage) && (
+            <div className="mt-4 text-center">
+              <button
+                type="button"
+                onClick={() => openImagePreview('all')}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                View All Images
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Actions */}
@@ -398,6 +482,15 @@ const EditSalonProfile = () => {
           </button>
         </div>
       </form>
+
+      {/* Image Preview Modal */}
+      <ImagePreview
+        isOpen={imagePreview.isOpen}
+        onClose={closeImagePreview}
+        images={imagePreview.images}
+        currentIndex={imagePreview.currentIndex}
+        title={imagePreview.title}
+      />
     </div>
   );
 };

@@ -64,4 +64,9 @@ export const customerService = {
     const response = await api.post(`/reviews`, payload);
     return response.data;
   },
+
+  async getRecommendations(customerId) {
+    const response = await api.get(`/recommendations/customer/${customerId}`);
+    return response.data;
+  },
 };

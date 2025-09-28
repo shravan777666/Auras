@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { recommendationService } from '../../services/recommendations';
 import { toast } from 'react-hot-toast';
-import { RefreshCw, Send, User, Scissors, MessageCircle, Star, Flower2 } from 'lucide-react';
+import { RefreshCw, Send, User, Scissors, MessageCircle, Star, Flower2, Heart, Sparkles } from 'lucide-react';
 
 const RecentClientRecommendations = () => {
   const [clients, setClients] = useState([]);
@@ -9,43 +9,59 @@ const RecentClientRecommendations = () => {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState({});
   const [error, setError] = useState(null);
+  const [selectedRecommendations, setSelectedRecommendations] = useState({});
 
-  // Fetch recent clients and their recommendations
+  // Fetch recent clients and their recommendations from API
   useEffect(() => {
     const fetchRecentClientsAndRecommendations = async () => {
       try {
         setLoading(true);
         setError(null);
         
-        // Fetch recent clients
+        // Fetch real clients from API
         const clientsResponse = await recommendationService.getRecentClients();
+        
+        if (!clientsResponse.success) {
+          throw new Error(clientsResponse.message || 'Failed to fetch clients');
+        }
+        
         const clientsData = clientsResponse.data || [];
         setClients(clientsData);
         
-        // Fetch recommendations for each client with a delay to prevent rate limiting
+        // Fetch recommendations for each client
         const recommendationsData = {};
-        for (let i = 0; i < clientsData.length; i++) {
-          const client = clientsData[i];
+        const initialSelections = {};
+        
+        for (const client of clientsData) {
           try {
-            // Use the client ID to get recommendations
             const recResponse = await recommendationService.getClientRecommendations(client.id);
-            recommendationsData[client.id] = recResponse.data || { recommendations: [] };
-            
-            // Add a small delay between requests to prevent rate limiting
-            if (i < clientsData.length - 1) {
-              await new Promise(resolve => setTimeout(resolve, 100));
+            if (recResponse.success && recResponse.data) {
+              const clientRecs = recResponse.data.recommendations || [];
+              recommendationsData[client.id] = { recommendations: clientRecs };
+              
+              // Initialize all recommendations as selected
+              initialSelections[client.id] = clientRecs.reduce((acc, rec) => {
+                acc[rec] = true;
+                return acc;
+              }, {});
+            } else {
+              // If no recommendations, set empty array
+              recommendationsData[client.id] = { recommendations: [] };
+              initialSelections[client.id] = {};
             }
-          } catch (err) {
-            console.error(`Failed to fetch recommendations for client ${client.id}:`, err);
+          } catch (recError) {
+            console.error(`Failed to fetch recommendations for client ${client.id}:`, recError);
             recommendationsData[client.id] = { recommendations: [] };
+            initialSelections[client.id] = {};
           }
         }
         
         setRecommendations(recommendationsData);
+        setSelectedRecommendations(initialSelections);
       } catch (err) {
         console.error('Failed to fetch recent clients:', err);
-        setError('Failed to load recent client data');
-        toast.error('Failed to load recent client data');
+        setError(err.message || 'Failed to load recent client data');
+        toast.error(err.message || 'Failed to load recent client data');
       } finally {
         setLoading(false);
       }
@@ -54,22 +70,49 @@ const RecentClientRecommendations = () => {
     fetchRecentClientsAndRecommendations();
   }, []);
 
+  // Toggle recommendation selection
+  const handleToggleRecommendation = (clientId, recommendation) => {
+    setSelectedRecommendations(prev => ({
+      ...prev,
+      [clientId]: {
+        ...prev[clientId],
+        [recommendation]: !prev[clientId]?.[recommendation]
+      }
+    }));
+  };
+
+  // Get selected recommendations for a client
+  const getSelectedRecommendations = (clientId) => {
+    const clientSelections = selectedRecommendations[clientId] || {};
+    const clientRecs = recommendations[clientId]?.recommendations || [];
+    return clientRecs.filter(rec => clientSelections[rec]);
+  };
+
+  // Check if any recommendations are selected for a client
+  const hasSelectedRecommendations = (clientId) => {
+    return getSelectedRecommendations(clientId).length > 0;
+  };
+
+  // Check if any client has selected recommendations
+  const hasAnySelectedRecommendations = () => {
+    return clients.some(client => hasSelectedRecommendations(client.id));
+  };
+
   // Send recommendations to a client
   const handleSendRecommendations = async (clientId, clientName) => {
     try {
       setSending(prev => ({ ...prev, [clientId]: true }));
       
-      const clientRecommendations = recommendations[clientId]?.recommendations || [];
+      const selectedRecs = getSelectedRecommendations(clientId);
       
-      if (clientRecommendations.length === 0) {
-        toast.error('No recommendations to send');
+      if (selectedRecs.length === 0) {
+        toast.error('No recommendations selected');
         return;
       }
       
-      await recommendationService.sendRecommendations(clientId, clientRecommendations);
+      await recommendationService.sendRecommendations(clientId, selectedRecs);
       toast.success(`Recommendations sent to ${clientName}!`);
       
-      // Show alert as specified in requirements
       alert(`Sent recommendations to ${clientName}!`);
     } catch (err) {
       console.error('Failed to send recommendations:', err);
@@ -79,15 +122,49 @@ const RecentClientRecommendations = () => {
     }
   };
 
+  // Send all selected recommendations
+  const handleSendAll = async () => {
+    try {
+      for (const client of clients) {
+        const selectedRecs = getSelectedRecommendations(client.id);
+        if (selectedRecs.length > 0) {
+          await recommendationService.sendRecommendations(client.id, selectedRecs);
+        }
+      }
+      toast.success('All recommendations sent successfully!');
+      alert('All recommendations sent successfully!');
+    } catch (err) {
+      console.error('Failed to send recommendations:', err);
+      toast.error('Failed to send some recommendations');
+    }
+  };
+
   // Refresh recommendations for a client
   const handleRefreshRecommendations = async (clientId) => {
     try {
       const recResponse = await recommendationService.getClientRecommendations(clientId);
-      setRecommendations(prev => ({
-        ...prev,
-        [clientId]: recResponse.data || { recommendations: [] }
-      }));
-      toast.success('Recommendations updated');
+      
+      if (recResponse.success && recResponse.data) {
+        const newRecs = recResponse.data.recommendations || [];
+        
+        setRecommendations(prev => ({
+          ...prev,
+          [clientId]: { recommendations: newRecs }
+        }));
+        
+        // Update selections for new recommendations
+        setSelectedRecommendations(prev => ({
+          ...prev,
+          [clientId]: newRecs.reduce((acc, rec) => {
+            acc[rec] = true;
+            return acc;
+          }, {})
+        }));
+        
+        toast.success('Recommendations updated');
+      } else {
+        toast.error('Failed to refresh recommendations');
+      }
     } catch (err) {
       console.error(`Failed to refresh recommendations for client ${clientId}:`, err);
       toast.error('Failed to refresh recommendations');
@@ -96,17 +173,22 @@ const RecentClientRecommendations = () => {
 
   // Get icon for service
   const getServiceIcon = (service) => {
-    switch (service) {
-      case 'Haircut':
-        return <Scissors className="h-4 w-4" />;
-      case 'Spa Package':
-        return <Flower2 className="h-4 w-4" />;
-      case 'Massage':
-        return <User className="h-4 w-4" />;
-      case 'Facial':
-        return <Star className="h-4 w-4" />;
-      default:
-        return <MessageCircle className="h-4 w-4" />;
+    const serviceLower = service.toLowerCase();
+    
+    if (serviceLower.includes('hair') || serviceLower.includes('cut') || serviceLower.includes('style') || serviceLower.includes('keratin')) {
+      return <Scissors className="h-4 w-4" />;
+    } else if (serviceLower.includes('facial') || serviceLower.includes('skin') || serviceLower.includes('wax') || serviceLower.includes('peel')) {
+      return <Star className="h-4 w-4" />;
+    } else if (serviceLower.includes('nail') || serviceLower.includes('manicure') || serviceLower.includes('pedicure')) {
+      return <Flower2 className="h-4 w-4" />;
+    } else if (serviceLower.includes('makeup') || serviceLower.includes('bridal')) {
+      return <Sparkles className="h-4 w-4" />;
+    } else if (serviceLower.includes('massage') || serviceLower.includes('spa') || serviceLower.includes('aromatherapy')) {
+      return <Heart className="h-4 w-4" />;
+    } else if (serviceLower.includes('package') || serviceLower.includes('combo')) {
+      return <Star className="h-4 w-4" />;
+    } else {
+      return <MessageCircle className="h-4 w-4" />;
     }
   };
 
@@ -152,13 +234,27 @@ const RecentClientRecommendations = () => {
       <div className="p-6">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-gray-800">Recent Client Recommendations</h2>
-          <button 
-            onClick={() => window.location.reload()}
-            className="flex items-center px-3 py-2 text-sm text-gray-600 hover:text-indigo-600 transition-colors"
-          >
-            <RefreshCw className="h-4 w-4 mr-1" />
-            Refresh
-          </button>
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={handleSendAll}
+              disabled={!hasAnySelectedRecommendations()}
+              className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white transition-colors ${
+                !hasAnySelectedRecommendations()
+                  ? 'bg-gray-300 cursor-not-allowed' 
+                  : 'bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500'
+              }`}
+            >
+              <Send className="h-4 w-4 mr-2" />
+              Send All Selected
+            </button>
+            <button 
+              onClick={() => window.location.reload()}
+              className="flex items-center px-3 py-2 text-sm text-gray-600 hover:text-indigo-600 transition-colors"
+            >
+              <RefreshCw className="h-4 w-4 mr-1" />
+              Refresh All
+            </button>
+          </div>
         </div>
         
         {clients.length === 0 ? (
@@ -166,10 +262,11 @@ const RecentClientRecommendations = () => {
             <p className="text-gray-500">No recent clients found</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {clients.map((client) => {
               const clientRecs = recommendations[client.id] || { recommendations: [] };
               const clientRecommendations = clientRecs.recommendations || [];
+              const hasSelections = hasSelectedRecommendations(client.id);
               
               return (
                 <div 
@@ -187,7 +284,7 @@ const RecentClientRecommendations = () => {
                           <p className="text-sm text-gray-500">
                             {client.lastService ? `Last service: ${client.lastService}` : 'No service history'}
                             {client.lastAppointmentDate && (
-                              <span className="block">Last appointment: {client.lastAppointmentDate}</span>
+                              <span className="block">Last appointment: {new Date(client.lastAppointmentDate).toLocaleDateString()}</span>
                             )}
                           </p>
                         </div>
@@ -196,18 +293,31 @@ const RecentClientRecommendations = () => {
                       <div className="mt-4 ml-16">
                         {clientRecommendations.length > 0 ? (
                           <div>
-                            <p className="text-sm font-medium text-gray-700 mb-2">Recommended services:</p>
-                            <div className="flex flex-wrap gap-2">
+                            <p className="text-sm font-medium text-gray-700 mb-3">Recommended services:</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                               {clientRecommendations.map((rec, index) => (
-                                <span 
+                                <label 
                                   key={index} 
-                                  className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800 hover:bg-indigo-200 transition-colors"
+                                  className={`inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium border transition-colors cursor-pointer ${
+                                    selectedRecommendations[client.id]?.[rec]
+                                      ? 'bg-indigo-100 text-indigo-800 border-indigo-300'
+                                      : 'bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200'
+                                  }`}
                                 >
-                                  <span className="mr-1.5">{getServiceIcon(rec)}</span>
+                                  <input
+                                    type="checkbox"
+                                    checked={!!selectedRecommendations[client.id]?.[rec]}
+                                    onChange={() => handleToggleRecommendation(client.id, rec)}
+                                    className="hidden"
+                                  />
+                                  <span className="mr-2">{getServiceIcon(rec)}</span>
                                   {rec}
-                                </span>
+                                </label>
                               ))}
                             </div>
+                            <p className="text-xs text-gray-500 mt-2">
+                              {getSelectedRecommendations(client.id).length} of {clientRecommendations.length} selected
+                            </p>
                           </div>
                         ) : (
                           <div className="rounded-lg bg-yellow-50 p-3">
@@ -220,7 +330,7 @@ const RecentClientRecommendations = () => {
                       </div>
                     </div>
                     
-                    <div className="flex flex-col space-y-2">
+                    <div className="flex flex-col space-y-2 ml-4">
                       <button
                         onClick={() => handleRefreshRecommendations(client.id)}
                         className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-gray-100 transition-colors"
@@ -230,9 +340,9 @@ const RecentClientRecommendations = () => {
                       </button>
                       <button
                         onClick={() => handleSendRecommendations(client.id, client.name)}
-                        disabled={sending[client.id] || clientRecommendations.length === 0}
+                        disabled={sending[client.id] || !hasSelections}
                         className={`inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white transition-colors ${
-                          clientRecommendations.length === 0 
+                          !hasSelections
                             ? 'bg-gray-300 cursor-not-allowed' 
                             : 'bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500'
                         }`}
