@@ -34,6 +34,7 @@ import forgotPasswordRoutes from './routes/forgotPassword.js';
 import reviewRoutes from './routes/review.js';
 import recommendationRoutes from './routes/recommendation.js';
 import clientProfileRoutes from './routes/clientProfile.js';
+import customerMessageRoutes from './routes/customerMessage.js';
 
 // Create Express app
 const app = express();
@@ -295,6 +296,7 @@ app.use('/api/forgot-password', forgotPasswordRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/recommendations', recommendationRoutes);
 app.use('/api/client-profiles', clientProfileRoutes);
+app.use('/api/customer/messages', customerMessageRoutes);
 
 // Handle undefined routes
 app.all('*', (req, res) => {

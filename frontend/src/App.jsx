@@ -48,6 +48,7 @@ const BookAppointment = React.lazy(() => import('./pages/customer/BookAppointmen
 const SalonDetails = React.lazy(() => import('./pages/customer/SalonDetails'))
 const MyBookings = React.lazy(() => import('./pages/customer/MyBookings'))
 const EditCustomerProfile = React.lazy(() => import('./pages/customer/EditCustomerProfile'))
+const CustomerMessages = React.lazy(() => import('./pages/customer/CustomerMessages'))
 
 // Common Pages
 const About = React.lazy(() => import('./pages/common/About'))
@@ -423,6 +424,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['customer']}>
                 <EditCustomerProfile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/customer/messages"
+            element={
+              <ProtectedRoute allowedRoles={['customer']}>
+                <CustomerMessages />
               </ProtectedRoute>
             }
           />

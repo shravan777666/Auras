@@ -13,10 +13,14 @@ import {
   Plus,
   ArrowRight,
   Mail,
-  Phone
+  Phone,
+  MessageCircle,
+  Bell
 } from 'lucide-react'
 import SalonMap from '../../components/customer/SalonMap'
 import RecommendationsSection from '../../components/customer/RecommendationsSection'
+import { customerMessageService } from '../../services/customerMessage'
+import MessageNotificationBadge from '../../components/customer/MessageNotificationBadge'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001'
 const IMAGE_BASE = (API_URL || '').replace(/\/+$/, '').replace(/\/api\/?$/, '')
@@ -39,11 +43,13 @@ const CustomerDashboard = () => {
   const [pendingAppointments, setPendingAppointments] = useState([])
   const [pendingLoading, setPendingLoading] = useState(false)
   const [lastUpdated, setLastUpdated] = useState(null)
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0)
 
   useEffect(() => {
     fetchDashboardData()
     fetchApprovedSalons() // This function needs to be defined
     fetchPendingAppointments()
+    fetchUnreadMessageCount()
   }, [])
 
   // Refresh data when component becomes visible (e.g., returning from booking)
@@ -142,6 +148,18 @@ const CustomerDashboard = () => {
     }
   }
 
+  const fetchUnreadMessageCount = async () => {
+    try {
+      const response = await customerMessageService.getUnreadCount()
+      if (response.success) {
+        setUnreadMessageCount(response.data.totalUnreadCount || 0)
+      }
+    } catch (error) {
+      console.error('Error fetching unread message count:', error)
+      setUnreadMessageCount(0)
+    }
+  }
+
   if (loading) {
     return <LoadingSpinner text="Loading your dashboard..." />
   }
@@ -160,6 +178,9 @@ const CustomerDashboard = () => {
             </div>
 
             <div className="flex items-center space-x-4">
+              {/* Message Notification Badge */}
+              <MessageNotificationBadge />
+              
               <div className="flex items-center space-x-2">
                 {dashboardData.customerInfo?.profilePic || dashboardData.customerInfo?.profilePicture ? (
                   <img
