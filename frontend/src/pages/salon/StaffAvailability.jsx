@@ -12,15 +12,7 @@ const StaffAvailability = () => {
     setRefreshTrigger(prev => prev + 1);
   };
 
-  // Auto-refresh every 30 seconds
-  React.useEffect(() => {
-    const interval = setInterval(() => {
-      console.log('🔄 Auto-refresh triggered');
-      setRefreshTrigger(prev => prev + 1);
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, []);
+  // Removed auto-refresh functionality - now only manual refresh
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-screen">
@@ -51,14 +43,12 @@ const StaffAvailability = () => {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <div className="text-sm text-gray-500">
-              Auto-refreshes every 30s
-            </div>
             <button
               onClick={handleRefresh}
-              className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
             >
-              Refresh Now
+              <Calendar className="h-4 w-4" />
+              Refresh Calendar
             </button>
           </div>
         </div>

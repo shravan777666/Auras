@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { salonService } from '../../services/salon';
 import { Calendar, Clock, User, ChevronLeft, ChevronRight, CheckCircle, XCircle, MapPin } from 'lucide-react';
 import LoadingSpinner from '../common/LoadingSpinner';
+import { extractDatePart, formatDateToString, isSameDay, formatTimeForDisplay, extractTimePart } from '../../utils/dateUtils';
 
 const StaffAppointmentsCalendar = ({ embedded = false, onRefresh }) => {
   const [staffAvailability, setStaffAvailability] = useState([]);
@@ -117,48 +118,27 @@ const StaffAppointmentsCalendar = ({ embedded = false, onRefresh }) => {
       const staffData = staffAvailability.find(sa => sa.staff._id === staffId);
       if (staffData) {
         appointments.push(...staffData.appointments.filter(apt => {
-          // Handle both string and Date formats
-          let aptDate;
-          if (typeof apt.date === 'string') {
-            // If it's in YYYY-MM-DDTHH:mm format, extract just the date part
-            const datePart = apt.date.split('T')[0];
-            aptDate = new Date(datePart);
-          } else {
-            aptDate = new Date(apt.date);
-          }
-          
-          const targetDateStr = date.toISOString().split('T')[0];
-          const aptDateStr = aptDate.toISOString().split('T')[0];
-          
-          return aptDateStr === targetDateStr;
+          return isSameDay(apt.date, date);
         }));
       }
     } else {
       // Get appointments for all staff
       staffAvailability.forEach(staffData => {
         const staffAppointments = staffData.appointments.filter(apt => {
-          // Handle both string and Date formats
-          let aptDate;
-          if (typeof apt.date === 'string') {
-            // If it's in YYYY-MM-DDTHH:mm format, extract just the date part
-            const datePart = apt.date.split('T')[0];
-            aptDate = new Date(datePart);
-          } else {
-            aptDate = new Date(apt.date);
-          }
+          const matches = isSameDay(apt.date, date);
           
-          const targetDateStr = date.toISOString().split('T')[0];
-          const aptDateStr = aptDate.toISOString().split('T')[0];
-          
-          console.log('🗓️ Date comparison:', {
+          console.log('🗓️ Date comparison (using utility):', {
             appointmentId: apt._id,
             aptDateOriginal: apt.date,
-            aptDateStr,
-            targetDateStr,
-            matches: aptDateStr === targetDateStr
+            aptTimeOriginal: apt.time,
+            aptDateStr: extractDatePart(apt.date),
+            aptTimeExtracted: extractTimePart(apt.time),
+            aptTimeFormatted: formatTimeForDisplay(apt.time),
+            targetDateStr: formatDateToString(date),
+            matches
           });
           
-          return aptDateStr === targetDateStr;
+          return matches;
         });
         appointments.push(...staffAppointments.map(apt => ({
           ...apt,
@@ -177,11 +157,7 @@ const StaffAppointmentsCalendar = ({ embedded = false, onRefresh }) => {
   };
 
   const formatAppointmentTime = (time) => {
-    const [hours, minutes] = time.split(':');
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour % 12 || 12;
-    return `${displayHour}:${minutes} ${ampm}`;
+    return formatTimeForDisplay(time);
   };
 
   const getStatusColor = (status) => {
@@ -490,7 +466,7 @@ const StaffAppointmentsCalendar = ({ embedded = false, onRefresh }) => {
                 <h4 className="font-medium text-gray-900 mb-2">Appointment Details</h4>
                 <div className="bg-gray-50 p-3 rounded-lg text-sm">
                   <p><span className="font-medium">Customer:</span> {selectedAppointment.customer}</p>
-                  <p><span className="font-medium">Date:</span> {new Date(selectedAppointment.date).toLocaleDateString()}</p>
+                  <p><span className="font-medium">Date:</span> {extractDatePart(selectedAppointment.date)}</p>
                   <p><span className="font-medium">Time:</span> {formatAppointmentTime(selectedAppointment.time)}</p>
                   <p><span className="font-medium">Services:</span> {selectedAppointment.services.join(', ')}</p>
                 </div>

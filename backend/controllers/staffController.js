@@ -611,15 +611,58 @@ export const getAppointments = asyncHandler(async (req, res) => {
     return errorResponse(res, 'Staff profile not approved for appointment access', 403);
   }
 
-  // Base filter: only show Approved appointments for the logged-in staff
-  const filter = { 
-    staffId: staff._id,
-    status: 'Approved' // Only show approved appointments assigned to this staff
-  };
-  console.log('🔍 Base appointment filter:', filter);
+  // Base filter: show appointments based on scope parameter
+  let filter;
+  
+  if (req.query.scope === 'salon') {
+    // Show all approved appointments in the staff's salon
+    const staffSalonId = staff.assignedSalon || staff.salonId;
+    
+    if (staffSalonId) {
+      filter = {
+        salonId: staffSalonId,
+        status: 'Approved'
+      };
+      console.log('🔍 Salon-wide appointment filter:', filter);
+      console.log('🔍 Staff salon ID:', staffSalonId);
+    } else {
+      // Fallback: if staff doesn't have salon assignment, show all approved appointments
+      // This is temporary for debugging - in production, staff should have salon assignment
+      console.log('⚠️ Staff has no salon assignment, showing all approved appointments');
+      filter = {
+        status: 'Approved'
+      };
+    }
+  } else {
+    // Default: show appointments either assigned to this staff OR unassigned in their salon
+    const staffSalonId = staff.assignedSalon || staff.salonId;
+    
+    if (staffSalonId) {
+      filter = {
+        $or: [
+          { staffId: staff._id, status: 'Approved' }, // Assigned to this staff
+          { salonId: staffSalonId, status: 'Approved', staffId: { $exists: false } }, // Unassigned in salon
+          { salonId: staffSalonId, status: 'Approved', staffId: null } // Explicitly null staffId
+        ]
+      };
+      console.log('🔍 Staff + unassigned appointment filter:', filter);
+    } else {
+      filter = { 
+        staffId: staff._id,
+        status: 'Approved'
+      };
+      console.log('🔍 Staff-specific appointment filter (no salon):', filter);
+    }
+  }
 
   // Allow overriding status filter if explicitly requested
-  if (req.query.status) {
+  if (req.query.status && !req.query.scope) {
+    // If status is provided without scope, show all appointments with that status (debugging)
+    filter = {
+      status: req.query.status
+    };
+    console.log('📊 Debug mode - showing all appointments with status:', req.query.status);
+  } else if (req.query.status) {
     filter.status = req.query.status;
     console.log('📊 Overriding status filter:', req.query.status);
   }
@@ -665,7 +708,57 @@ export const getAppointments = asyncHandler(async (req, res) => {
 
   // Debug: Check if there are any appointments for this staff at all
   const totalAppointmentsForStaff = await Appointment.countDocuments({ staffId: staff._id });
-  console.log('🔍 Total appointments for staff (any date):', totalAppointmentsForStaff);
+  console.log('🔍 Total appointments for staff (any date, any status):', totalAppointmentsForStaff);
+  
+  // Debug: Check appointments by status
+  const appointmentsByStatus = await Appointment.aggregate([
+    { $match: { staffId: staff._id } },
+    { $group: { _id: '$status', count: { $sum: 1 } } }
+  ]);
+  console.log('🔍 Appointments by status for this staff:', appointmentsByStatus);
+  
+  // Debug: Check if staff is assigned to any salon
+  console.log('🔍 Staff salon assignment:', {
+    staffId: staff._id,
+    assignedSalon: staff.assignedSalon,
+    salonId: staff.salonId,
+    fullStaffObject: staff
+  });
+  
+  // Debug: Check what salon ID we're actually filtering by
+  const filterSalonId = staff.assignedSalon || staff.salonId;
+  console.log('🔍 Filter salon ID:', filterSalonId);
+  
+  // Debug: Check if there are any appointments in the salon (regardless of staff assignment)
+  const salonAppointments = await Appointment.countDocuments({ 
+    salonId: staff.assignedSalon || staff.salonId 
+  });
+  console.log('🔍 Total appointments in staff\'s salon:', salonAppointments);
+  
+  // Debug: Check for appointments with the specific salon ID from the example
+  const exampleSalonId = '68cceb54faf3e420e3dae255';
+  const exampleSalonAppointments = await Appointment.find({ 
+    salonId: exampleSalonId,
+    status: 'Approved'
+  }).limit(3);
+  console.log('🔍 Appointments in example salon (68cceb54faf3e420e3dae255):', exampleSalonAppointments.length);
+  console.log('🔍 Sample appointments:', exampleSalonAppointments.map(apt => ({
+    id: apt._id,
+    salonId: apt.salonId,
+    status: apt.status,
+    date: apt.appointmentDate,
+    staffId: apt.staffId
+  })));
+  
+  // Debug: Check if staff salon ID matches the example
+  const staffSalonIdForComparison = staff.assignedSalon || staff.salonId;
+  console.log('🔍 Salon ID comparison:', {
+    staffSalonId: staffSalonIdForComparison,
+    exampleSalonId: exampleSalonId,
+    match: staffSalonIdForComparison?.toString() === exampleSalonId,
+    staffSalonIdType: typeof staffSalonIdForComparison,
+    exampleSalonIdType: typeof exampleSalonId
+  });
 
   let appointments, totalAppointments;
   
@@ -687,14 +780,42 @@ export const getAppointments = asyncHandler(async (req, res) => {
     return errorResponse(res, `Failed to fetch appointments: ${error.message}`, 500);
   }
 
-  console.log('📊 Found appointments:', appointments.length, 'total:', totalAppointments);
-  console.log('📅 Appointment details:', appointments.map(apt => ({
+  // Process appointments to ensure correct time extraction
+  const processedAppointments = appointments.map(apt => {
+    // Extract time from appointmentDate if it contains time, otherwise use appointmentTime
+    let timeToDisplay = apt.appointmentTime;
+    if (apt.appointmentDate && apt.appointmentDate.includes('T')) {
+      const timePart = apt.appointmentDate.split('T')[1];
+      if (timePart) {
+        timeToDisplay = timePart.substring(0, 5); // Get HH:mm part
+      }
+    }
+    
+    return {
+      _id: apt._id,
+      appointmentDate: apt.appointmentDate,
+      appointmentTime: timeToDisplay,
+      status: apt.status,
+      estimatedDuration: apt.estimatedDuration,
+      totalAmount: apt.totalAmount,
+      finalAmount: apt.finalAmount,
+      customerNotes: apt.customerNotes,
+      specialRequests: apt.specialRequests,
+      customerId: apt.customerId,
+      salonId: apt.salonId,
+      services: apt.services,
+      createdAt: apt.createdAt,
+      updatedAt: apt.updatedAt
+    };
+  });
+
+  console.log('📊 Found appointments:', processedAppointments.length, 'total:', totalAppointments);
+  console.log('📅 Appointment details:', processedAppointments.map(apt => ({
     id: apt._id,
     customer: apt.customerId?.name,
     date: apt.appointmentDate,
     time: apt.appointmentTime,
-    status: apt.status,
-    staffId: apt.staffId
+    status: apt.status
   })));
 
   // Debug: If no appointments found, check for potential issues
@@ -712,16 +833,34 @@ export const getAppointments = asyncHandler(async (req, res) => {
     
     console.log('🔍 Alternative staff ID queries found:', allAppointmentsForStaff.length);
     
+    // Check if there are approved appointments in the staff's salon (regardless of staff assignment)
+    const salonApprovedAppointments = await Appointment.find({
+      salonId: staff.assignedSalon || staff.salonId,
+      status: 'Approved'
+    }).limit(5);
+    
+    console.log('🔍 Approved appointments in staff\'s salon (any staff):', salonApprovedAppointments.length);
+    console.log('🔍 Sample salon appointments:', salonApprovedAppointments.map(apt => ({
+      id: apt._id,
+      staffId: apt.staffId,
+      status: apt.status,
+      date: apt.appointmentDate
+    })));
+    
     // Check if there are any appointments in the date range without staff filter
     if (filter.appointmentDate) {
-      const appointmentsInDateRange = await Appointment.find(filter.appointmentDate).limit(5);
-      console.log('🔍 Appointments in date range (any staff):', appointmentsInDateRange.length);
+      const appointmentsInDateRange = await Appointment.find({
+        salonId: staff.assignedSalon || staff.salonId,
+        status: 'Approved',
+        ...filter.appointmentDate ? { appointmentDate: filter.appointmentDate } : {}
+      }).limit(5);
+      console.log('🔍 Appointments in date range (staff\'s salon, approved):', appointmentsInDateRange.length);
     }
   }
 
   const totalPages = Math.ceil(totalAppointments / limit);
 
-  return paginatedResponse(res, appointments, {
+  return paginatedResponse(res, processedAppointments, {
     page,
     limit,
     totalPages,

@@ -5,6 +5,7 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import "../../styles/fullcalendar.css";
 import { staffService } from "../../services/staff";
+import { parseAppointmentDate } from "../../utils/dateUtils";
 
 const StaffSchedule = () => {
   const calendarRef = useRef(null);
@@ -20,6 +21,11 @@ const StaffSchedule = () => {
   // ✅ FIXED: Improved fetch function with better error handling
   const fetchRangeAsEvents = async (rangeStart, rangeEnd) => {
     try {
+      console.log('🚀 fetchRangeAsEvents called with:', {
+        rangeStart: rangeStart?.toISOString(),
+        rangeEnd: rangeEnd?.toISOString()
+      });
+
       if (!rangeStart || !rangeEnd) {
         console.log('❌ Invalid date range:', { rangeStart, rangeEnd });
         return;
@@ -32,75 +38,154 @@ const StaffSchedule = () => {
       const token = localStorage.getItem('auracare_token');
       const user = localStorage.getItem('auracare_user');
       
-      if (!token || !user) {
+      console.log('🔐 Authentication check:', {
+        hasToken: !!token,
+        hasUser: !!user,
+        userType: user ? JSON.parse(user)?.role : 'none',
+        tokenValue: token ? token.substring(0, 20) + '...' : 'none',
+        userValue: user ? user.substring(0, 50) + '...' : 'none'
+      });
+      
+      if (!token) {
+        console.log('❌ No token found, redirecting to login');
         setError('Please login to view your schedule.');
         setLoading(false);
         return;
       }
+      
+      // If we have a token but no user data, try to fetch user info from the token
+      if (!user) {
+        console.log('⚠️ Token exists but no user data, continuing with token-only authentication');
+        // Don't return here - continue with the API call using just the token
+      }
 
-      const start = new Date(rangeStart);
-      const end = new Date(rangeEnd);
-      const startDate = start.toISOString().split('T')[0];
-      const endDate = end.toISOString().split('T')[0];
+      // First, test if backend is reachable
+      console.log('🔍 Testing backend connectivity...');
+      const connectionTest = await staffService.testConnection();
+      
+      if (!connectionTest.success) {
+        throw new Error(`Backend server is not reachable: ${connectionTest.error}`);
+      }
+      
+      console.log('✅ Backend connection successful');
+      
+      // If no user data, try to get current user info
+      if (!user) {
+        try {
+          console.log('🔍 Fetching current user info...');
+          const userResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/auth/me`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          if (userResponse.ok) {
+            const userData = await userResponse.json();
+            console.log('✅ User info retrieved:', {
+              role: userData.data?.role,
+              id: userData.data?._id,
+              name: userData.data?.name
+            });
+          } else {
+            console.log('⚠️ Could not fetch user info, status:', userResponse.status);
+          }
+        } catch (err) {
+          console.log('⚠️ Error fetching user info:', err.message);
+        }
+      }
+      
+      // Format dates for API
+      const startDate = rangeStart.toISOString().split('T')[0];
+      const endDate = rangeEnd.toISOString().split('T')[0];
 
       console.log('🔍 Fetching appointments for date range:', { 
         startDate, 
         endDate,
-        rangeStart: start.toISOString(),
-        rangeEnd: end.toISOString()
+        rangeStart: rangeStart.toISOString(),
+        rangeEnd: rangeEnd.toISOString()
       });
 
-      // Fetch appointments
+      // Fetch appointments - use salon scope to show all appointments in staff's salon
+      console.log('📡 About to call staffService.getAppointments with params:', {
+        startDate,
+        endDate,
+        limit: 100,
+        scope: 'salon'
+      });
+
       const response = await staffService.getAppointments({
         startDate,
         endDate,
-        limit: 100
+        limit: 100,
+        scope: 'salon' // Show all approved appointments in the staff's salon
       });
 
-      console.log('📊 Appointments API Response:', response);
+      console.log('📊 Appointments API Response received:', response);
+      console.log('📊 Response structure:', {
+        hasSuccess: 'success' in response,
+        successValue: response?.success,
+        hasData: 'data' in response,
+        dataType: typeof response?.data,
+        dataLength: Array.isArray(response?.data) ? response?.data.length : 'not array',
+        isArray: Array.isArray(response)
+      });
 
       // Handle different response structures
       let items = [];
       if (response?.success) {
         items = response.data || [];
-        console.log('✅ Using response.data structure');
+        console.log('✅ Using response.data structure, items:', items.length);
       } else if (Array.isArray(response)) {
         items = response;
-        console.log('✅ Using array response structure');
+        console.log('✅ Using array response structure, items:', items.length);
       } else if (response?.data) {
         items = response.data || [];
-        console.log('✅ Using response.data (non-success structure)');
+        console.log('✅ Using response.data (non-success structure), items:', items.length);
       } else {
         console.warn('⚠️ Unexpected response structure:', response);
         items = [];
       }
 
       console.log('📅 Number of raw appointments found:', items.length);
+      console.log('📅 Sample appointments:', items.slice(0, 2).map(apt => ({
+        id: apt._id,
+        date: apt.appointmentDate,
+        time: apt.appointmentTime,
+        customer: apt.customerId?.name,
+        service: apt.services?.[0]?.serviceId?.name || apt.services?.[0]?.serviceName
+      })));
 
       // Process appointments into calendar events
       const mappedEvents = items
         .map((appointment, index) => {
           try {
+            console.log(`📅 Processing appointment ${index + 1}/${items.length}:`, {
+              id: appointment._id,
+              date: appointment.appointmentDate,
+              time: appointment.appointmentTime,
+              customer: appointment.customerId?.name
+            });
+
             if (!appointment.appointmentDate) {
               console.warn(`⚠️ Appointment ${index} missing date:`, appointment._id);
               return null;
             }
 
-            // Parse appointment date
-            let eventStart = new Date(appointment.appointmentDate);
-            if (isNaN(eventStart.getTime())) {
+            // Parse appointment date using utility function to avoid timezone issues
+            let eventStart = parseAppointmentDate(appointment.appointmentDate);
+            console.log(`📅 Parsed date for appointment ${appointment._id}:`, eventStart);
+            
+            if (!eventStart || isNaN(eventStart.getTime())) {
               console.warn(`⚠️ Invalid date for appointment ${appointment._id}:`, appointment.appointmentDate);
               return null;
             }
-
-            // Set time if available
-            if (appointment.appointmentTime) {
+            
+            // If no time is included in the date string, set time from appointmentTime field
+            if (appointment.appointmentTime && !appointment.appointmentDate.includes('T')) {
               const [hours, minutes] = appointment.appointmentTime.split(':').map(Number);
               if (!isNaN(hours)) {
                 eventStart.setHours(hours, minutes || 0, 0, 0);
               }
-            } else {
-              eventStart.setHours(9, 0, 0, 0); // Default to 9 AM
             }
 
             // Calculate end time
@@ -141,6 +226,15 @@ const StaffSchedule = () => {
         .filter(Boolean);
 
       console.log('✅ Successfully mapped events:', mappedEvents.length);
+      console.log('📅 Final events for calendar:', mappedEvents.map(event => ({
+        id: event.id,
+        title: event.title,
+        start: event.start,
+        end: event.end,
+        startISO: event.start?.toISOString(),
+        endISO: event.end?.toISOString()
+      })));
+      
       setEvents(mappedEvents);
       setConnectionStatus('connected');
       setLastUpdated(new Date());
@@ -156,7 +250,7 @@ const StaffSchedule = () => {
       if (error.response?.status === 401) {
         setError('Authentication failed. Please login again.');
       } else if (error.response?.status === 500) {
-        setError('Server error. Please check if the backend server is running on port 5005.');
+        setError('Server error. Please check if the backend server is running on port 5001.');
       } else if (error.code === 'ECONNABORTED') {
         setError('Request timeout. Server is taking too long to respond.');
       } else if (error.message.includes('Network Error')) {
@@ -188,11 +282,19 @@ const StaffSchedule = () => {
     events: events,
     loading: loading,
     
-    // Handle view changes - only update the range reference, don't auto-fetch
+    // Handle view changes - update the range and fetch data
     datesSet: (arg) => {
+      console.log('📅 Calendar view changed:', {
+        type: arg.view.type,
+        start: arg.start,
+        end: arg.end
+      });
+      console.log('📅 About to call fetchRangeAsEvents...');
       viewRangeRef.current = { start: arg.start, end: arg.end };
       setCurrentView(arg.view.type);
-      // Removed automatic fetch - user must manually refresh to see new data
+      // Auto-fetch appointments for the new date range
+      fetchRangeAsEvents(arg.start, arg.end);
+      console.log('📅 fetchRangeAsEvents call completed');
     },
     
     // Handle event clicks
@@ -334,11 +436,11 @@ const StaffSchedule = () => {
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">My Schedule</h1>
-            <p className="text-gray-600">View your assigned appointments</p>
+            <p className="text-gray-600">View approved appointments in your salon</p>
             <div className="flex items-center gap-4 mt-2 text-sm">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-green-100 border border-green-300 rounded"></div>
-                <span className="text-gray-600">Approved appointments assigned to you</span>
+                <span className="text-gray-600">Approved appointments in your salon</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-blue-100 border border-blue-300 rounded"></div>
@@ -404,6 +506,93 @@ const StaffSchedule = () => {
               
               <div className="flex gap-2">
                 <button
+                  onClick={async () => {
+                    console.log('🔍 Testing API connection...');
+                    try {
+                      const test = await staffService.testConnection();
+                      console.log('Connection test result:', test);
+                      if (test.success) {
+                        alert('✅ Backend is reachable!');
+                      } else {
+                        alert(`❌ Backend connection failed: ${test.error}`);
+                      }
+                    } catch (err) {
+                      console.error('Connection test error:', err);
+                      alert(`❌ Connection test failed: ${err.message}`);
+                    }
+                  }}
+                  className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors text-sm font-medium"
+                >
+                  Test API
+                </button>
+                <button
+                  onClick={async () => {
+                    console.log('🔍 Testing staff appointments endpoint...');
+                    try {
+                      const response = await staffService.getAppointments({
+                        startDate: '2025-09-01',
+                        endDate: '2025-10-31',
+                        scope: 'salon'
+                      });
+                      console.log('Appointments test result:', response);
+                      alert(`✅ Appointments endpoint working! Found: ${response?.data?.length || 0} appointments`);
+                    } catch (err) {
+                      console.error('Appointments test error:', err);
+                      alert(`❌ Appointments test failed: ${err.message}`);
+                    }
+                  }}
+                  className="px-3 py-1.5 bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors text-sm font-medium"
+                >
+                  Test Appointments
+                </button>
+                <button
+                  onClick={async () => {
+                    console.log('🔍 Testing all approved appointments...');
+                    try {
+                      const response = await staffService.getAppointments({
+                        startDate: '2025-09-01',
+                        endDate: '2025-10-31',
+                        status: 'Approved' // This will override the salon filter
+                      });
+                      console.log('All approved appointments result:', response);
+                      alert(`✅ All approved appointments! Found: ${response?.data?.length || 0} appointments`);
+                    } catch (err) {
+                      console.error('All appointments test error:', err);
+                      alert(`❌ All appointments test failed: ${err.message}`);
+                    }
+                  }}
+                  className="px-3 py-1.5 bg-purple-100 text-purple-700 rounded hover:bg-purple-200 transition-colors text-sm font-medium"
+                >
+                  Test All Approved
+                </button>
+                <button
+                  onClick={() => {
+                    console.log('🔄 Manual calendar refresh triggered...');
+                    const calendarApi = calendarRef.current?.getApi();
+                    if (calendarApi) {
+                      const currentView = calendarApi.view;
+                      console.log('📅 Current calendar view:', currentView.type, currentView.activeStart, currentView.activeEnd);
+                      fetchRangeAsEvents(currentView.activeStart, currentView.activeEnd);
+                    }
+                  }}
+                  className="px-3 py-1.5 bg-yellow-100 text-yellow-700 rounded hover:bg-yellow-200 transition-colors text-sm font-medium"
+                >
+                  Refresh Calendar
+                </button>
+                <button
+                  onClick={() => {
+                    console.log('📅 Navigating to October 2025...');
+                    const calendarApi = calendarRef.current?.getApi();
+                    if (calendarApi) {
+                      calendarApi.gotoDate('2025-10-01');
+                      console.log('📅 Navigated to October 2025');
+                    }
+                  }}
+                  className="px-3 py-1.5 bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200 transition-colors text-sm font-medium"
+                >
+                  Go to Oct 2025
+                </button>
+                <button
                   onClick={loadDemoData}
                   className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors text-sm font-medium"
                 >
@@ -427,11 +616,11 @@ const StaffSchedule = () => {
               </div>
             </div>
             
-            {(error.includes('Server error') || error.includes('port 5005')) && (
+            {(error.includes('Server error') || error.includes('port 5001')) && (
               <div className="text-red-700 text-sm space-y-1 bg-red-100 p-3 rounded">
                 <p className="font-medium">Backend Server Issues:</p>
                 <ul className="list-disc list-inside space-y-1">
-                  <li>Make sure your backend server is running on port 5005</li>
+                  <li>Make sure your backend server is running on port 5001</li>
                   <li>Check your backend terminal for error messages</li>
                   <li>Verify database connection is working</li>
                   <li>Ensure the API route /api/staff/appointments exists</li>
@@ -442,11 +631,10 @@ const StaffSchedule = () => {
         )}
 
         {/* Calendar */}
-        <div className="bg-white rounded-lg shadow-sm border">
+        <div className="bg-white rounded-lg shadow-sm border p-4">
           <FullCalendar 
             ref={calendarRef} 
             {...calendarOptions}
-            className="p-4"
           />
         </div>
 

@@ -1,14 +1,13 @@
 import axios from 'axios'
 import toast from 'react-hot-toast'
 
-// Base API configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5006/api';
+// Base API configuration - Using actual backend port
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 console.log('🔧 API Configuration:', {
   VITE_API_URL: import.meta.env.VITE_API_URL,
   API_BASE_URL: API_BASE_URL,
   NODE_ENV: import.meta.env.NODE_ENV
 });
-
 // Create axios instance with base configuration
 const api = axios.create({
   baseURL: API_BASE_URL,

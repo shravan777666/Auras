@@ -17,6 +17,8 @@ const ClientRecommendations = ({ isDetailedView = false }) => {
 
   // Fetch clients and their recommendations from API
   useEffect(() => {
+    let isMounted = true; // Prevent state updates if component unmounts
+    
     const fetchClientsAndRecommendations = async () => {
       try {
         setLoading(true);
@@ -25,6 +27,8 @@ const ClientRecommendations = ({ isDetailedView = false }) => {
         // Fetch real clients from API - use getClients for all clients or getRecentClients for recent ones
         const clientsResponse = await recommendationService.getClients();
         
+        if (!isMounted) return; // Component unmounted, don't continue
+        
         if (!clientsResponse.success) {
           throw new Error(clientsResponse.message || 'Failed to fetch clients');
         }
@@ -32,12 +36,18 @@ const ClientRecommendations = ({ isDetailedView = false }) => {
         const clientsData = clientsResponse.data || [];
         setClients(clientsData);
         
-        // Fetch recommendations for each client
+        // Fetch recommendations for each client (limit to first 3 to avoid rate limiting)
         const recommendationsData = {};
         const initialSelections = {};
+        const limitedClients = clientsData.slice(0, 3); // Limit to 3 clients to avoid rate limiting
         
-        for (const client of clientsData) {
+        for (const client of limitedClients) {
+          if (!isMounted) return; // Check if component is still mounted
+          
           try {
+            // Add delay between requests to avoid rate limiting
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
             const recResponse = await recommendationService.getClientRecommendations(client.id);
             if (recResponse.success && recResponse.data) {
               const clientRecs = recResponse.data.recommendations || [];
@@ -60,19 +70,29 @@ const ClientRecommendations = ({ isDetailedView = false }) => {
           }
         }
         
-        setRecommendations(recommendationsData);
-        setSelectedRecommendations(initialSelections);
+        if (isMounted) {
+          setRecommendations(recommendationsData);
+          setSelectedRecommendations(initialSelections);
+        }
       } catch (err) {
         console.error('Failed to fetch clients:', err);
-        setError(err.message || 'Failed to load client data');
-        toast.error(err.message || 'Failed to load client data');
+        if (isMounted) {
+          setError(err.message || 'Failed to load client data');
+          toast.error(err.message || 'Failed to load client data');
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     fetchClientsAndRecommendations();
-  }, []);
+    
+    return () => {
+      isMounted = false; // Cleanup function
+    };
+  }, []); // Empty dependency array - only run once
 
   // Toggle recommendation selection
   const handleToggleRecommendation = (clientId, recommendation) => {
@@ -124,6 +144,9 @@ const ClientRecommendations = ({ isDetailedView = false }) => {
   // Refresh recommendations for a client
   const handleRefreshRecommendations = async (clientId) => {
     try {
+      // Clear cache before refreshing
+      recommendationService.clearCache();
+      
       const recResponse = await recommendationService.getClientRecommendations(clientId);
       
       if (recResponse.success && recResponse.data) {

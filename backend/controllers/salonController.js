@@ -919,32 +919,54 @@ export const getStaffAvailability = asyncHandler(async (req, res) => {
         position: staffMember.position || 'Staff',
         availability: staffMember.availability
       },
-      appointments: staffAppts.map(apt => ({
-        _id: apt._id,
-        date: apt.appointmentDate,
-        time: apt.appointmentTime,
-        status: apt.status,
-        duration: apt.estimatedDuration || apt.services.reduce((total, service) => total + (service.duration || 0), 0),
-        customer: apt.customerId ? apt.customerId.name : 'Unknown Customer',
-        services: apt.services.map(s => s.serviceName || (s.serviceId ? s.serviceId.name : 'Service')),
-        staffName: staffMember.name,
-        staffId: staffMember._id
-      }))
+      appointments: staffAppts.map(apt => {
+        // Extract time from appointmentDate if it contains time, otherwise use appointmentTime
+        let timeToDisplay = apt.appointmentTime;
+        if (apt.appointmentDate && apt.appointmentDate.includes('T')) {
+          const timePart = apt.appointmentDate.split('T')[1];
+          if (timePart) {
+            timeToDisplay = timePart.substring(0, 5); // Get HH:mm part
+          }
+        }
+        
+        return {
+          _id: apt._id,
+          date: apt.appointmentDate,
+          time: timeToDisplay,
+          status: apt.status,
+          duration: apt.estimatedDuration || apt.services.reduce((total, service) => total + (service.duration || 0), 0),
+          customer: apt.customerId ? apt.customerId.name : 'Unknown Customer',
+          services: apt.services.map(s => s.serviceName || (s.serviceId ? s.serviceId.name : 'Service')),
+          staffName: staffMember.name,
+          staffId: staffMember._id
+        };
+      })
     };
   });
 
   // Get unassigned appointments (no staff assigned)
-  const unassignedAppointments = appointments.filter(apt => !apt.staffId).map(apt => ({
-    _id: apt._id,
-    date: apt.appointmentDate,
-    time: apt.appointmentTime,
-    status: apt.status,
-    duration: apt.estimatedDuration || apt.services.reduce((total, service) => total + (service.duration || 0), 0),
-    customer: apt.customerId ? apt.customerId.name : 'Unknown Customer',
-    services: apt.services.map(s => s.serviceName || (s.serviceId ? s.serviceId.name : 'Service')),
-    staffName: 'Unassigned',
-    staffId: null
-  }));
+  const unassignedAppointments = appointments.filter(apt => !apt.staffId).map(apt => {
+    // Extract time from appointmentDate if it contains time, otherwise use appointmentTime
+    let timeToDisplay = apt.appointmentTime;
+    if (apt.appointmentDate && apt.appointmentDate.includes('T')) {
+      const timePart = apt.appointmentDate.split('T')[1];
+      if (timePart) {
+        timeToDisplay = timePart.substring(0, 5); // Get HH:mm part
+      }
+    }
+    
+    return {
+      _id: apt._id,
+      date: apt.appointmentDate,
+      time: timeToDisplay,
+      status: apt.status,
+      duration: apt.estimatedDuration || apt.services.reduce((total, service) => total + (service.duration || 0), 0),
+      customer: apt.customerId ? apt.customerId.name : 'Unknown Customer',
+      services: apt.services.map(s => s.serviceName || (s.serviceId ? s.serviceId.name : 'Service')),
+      staffName: 'Unassigned',
+      staffId: null
+    };
+  });
 
   // Add unassigned appointments as a separate "staff" entry
   if (unassignedAppointments.length > 0) {

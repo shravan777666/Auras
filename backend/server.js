@@ -122,7 +122,7 @@ app.options('*', cors(corsOptions));
 // Rate limiting
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 500, // Increased limit for dashboard operations
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 1000, // Increased limit for dashboard operations
   message: {
     success: false,
     message: 'Too many requests from this IP, please try again later.'
@@ -130,7 +130,6 @@ const limiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => {
-    // Allow unauthenticated flows and authenticated dashboard operations
     const p = req.path || '';
     if (req.method === 'OPTIONS') return true;
     if (p.startsWith('/auth/login')) return true;
@@ -141,9 +140,11 @@ const limiter = rateLimit({
     if (p.startsWith('/api/salon/appointments')) return true;
     if (p.startsWith('/api/salon/staff')) return true;
     if (p.startsWith('/api/salon/services')) return true;
+    if (p.startsWith('/api/recommendations')) return true;
     // Skip for health checks and static files
     if (p.startsWith('/health')) return true;
     if (p.startsWith('/uploads')) return true;
+    if (p.startsWith('/api/reviews')) return true;
     return false;
   }
 });
@@ -244,7 +245,7 @@ app.get('/health', (req, res) => {
 });
 
 // Root URL → redirect to frontend Home
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3002';
 app.get('/', (req, res) => {
   return res.redirect(FRONTEND_URL);
 });

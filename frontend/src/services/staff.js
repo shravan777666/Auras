@@ -1,4 +1,5 @@
 import api from './api';
+import axios from 'axios';
 
 export const getStaffById = async (id) => {
   try {
@@ -54,6 +55,31 @@ export const updateProfile = async (data) => {
 };
 
 export const staffService = {
+  // Test backend connectivity
+  async testConnection() {
+    try {
+      console.log('🔍 Testing backend connection...');
+      console.log('🔍 Trying health endpoint...');
+      
+      // Try the health endpoint (it should be at root level, not under /api)
+      const healthUrl = api.defaults.baseURL.replace('/api', '') + '/health';
+      console.log('🔍 Health URL:', healthUrl);
+      
+      const response = await axios.get(healthUrl);
+      console.log('✅ Backend is reachable:', response.status, response.data);
+      return { success: true, status: response.status, data: response.data };
+    } catch (error) {
+      console.error('❌ Backend connection failed:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        code: error.code,
+        url: error.config?.url
+      });
+      return { success: false, error: `${error.message} (Status: ${error.response?.status})` };
+    }
+  },
+
   async register(userData) {
     const response = await api.post('/staff/register', userData);
     return response.data;
@@ -99,18 +125,27 @@ export const staffService = {
   async getAppointments(params = {}) {
     try {
       console.log('📡 Making request to /staff/appointments with params:', params);
+      console.log('📡 API Base URL:', api.defaults.baseURL);
+      console.log('📡 Full URL will be:', `${api.defaults.baseURL}/staff/appointments`);
+      
       const response = await api.get('/staff/appointments', { params });
       console.log('✅ Appointments API Response:', {
         success: response.data?.success,
         dataLength: response.data?.data?.length || 0,
-        message: response.data?.message
+        message: response.data?.message,
+        fullResponse: response.data
       });
       return response.data;
     } catch (error) {
       console.error('❌ Error fetching staff appointments:', {
         message: error.message,
         status: error.response?.status,
-        data: error.response?.data
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        url: error.config?.url,
+        baseURL: error.config?.baseURL,
+        fullURL: `${error.config?.baseURL}${error.config?.url}`,
+        code: error.code
       });
       throw error;
     }

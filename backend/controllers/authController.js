@@ -312,7 +312,7 @@ export const googleCallback = async (req, res) => {
     const user = req.user;
     
     if (!user) {
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3002';
       return res.redirect(`${frontendUrl}/auth/callback?error=oauth_failed`);
     }
 
@@ -320,7 +320,7 @@ export const googleCallback = async (req, res) => {
     const token = signToken(user);
     
     // Redirect to frontend OAuth callback with token and user info
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3002';
     const userData = {
       id: user._id.toString(),
       name: user.name,
@@ -335,7 +335,7 @@ export const googleCallback = async (req, res) => {
     
   } catch (error) {
     console.error('Google OAuth callback error:', error);
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3002';
     const errorUrl = `${frontendUrl}/auth/callback?error=oauth_error`;
     return res.redirect(errorUrl);
   }
@@ -343,7 +343,7 @@ export const googleCallback = async (req, res) => {
 
 // Google OAuth failure handler
 export const googleFailure = (req, res) => {
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3002';
   const errorUrl = `${frontendUrl}/auth/callback?error=oauth_cancelled`;
   return res.redirect(errorUrl);
 };
