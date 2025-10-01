@@ -33,6 +33,7 @@ import appointmentRoutes from './routes/appointment.js';
 import forgotPasswordRoutes from './routes/forgotPassword.js';
 import reviewRoutes from './routes/review.js';
 import recommendationRoutes from './routes/recommendation.js';
+import clientProfileRoutes from './routes/clientProfile.js';
 
 // Create Express app
 const app = express();
@@ -119,10 +120,10 @@ app.options('*', cors(corsOptions));
 
 // Serve static files with proper CORS headers (handled below at the consolidated handler)
 
-// Rate limiting
+// Rate limiting with debugging
 const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 1000, // Increased limit for dashboard operations
+  windowMs: 15 * 60 * 1000, // 15 minutes - ignore env variable
+  max: 50000, // Very high limit - ignore env variable
   message: {
     success: false,
     message: 'Too many requests from this IP, please try again later.'
@@ -131,25 +132,56 @@ const limiter = rateLimit({
   legacyHeaders: false,
   skip: (req) => {
     const p = req.path || '';
-    if (req.method === 'OPTIONS') return true;
-    if (p.startsWith('/auth/login')) return true;
-    if (p.startsWith('/auth/register')) return true;
-    if (p.startsWith('/auth/refresh-token')) return true;
-    // Skip rate limiting for salon dashboard operations (with /api/ prefix)
-    if (p.startsWith('/api/salon/dashboard')) return true;
-    if (p.startsWith('/api/salon/appointments')) return true;
-    if (p.startsWith('/api/salon/staff')) return true;
-    if (p.startsWith('/api/salon/services')) return true;
-    if (p.startsWith('/api/recommendations')) return true;
-    // Skip for health checks and static files
-    if (p.startsWith('/health')) return true;
-    if (p.startsWith('/uploads')) return true;
-    if (p.startsWith('/api/reviews')) return true;
-    return false;
+    const shouldSkip = 
+      req.method === 'OPTIONS' ||
+      p.startsWith('/auth/login') ||
+      p.startsWith('/auth/register') ||
+      p.startsWith('/auth/refresh-token') ||
+      p.startsWith('/api/salon/') ||
+      p.startsWith('/api/client-profiles') ||
+      p.startsWith('/api/recommendations') ||
+      p.startsWith('/api/customer/') ||
+      p.startsWith('/api/appointment/') ||
+      p.startsWith('/api/service/') ||
+      p.startsWith('/health') ||
+      p.startsWith('/uploads') ||
+      p.startsWith('/api/reviews');
+    
+    if (!shouldSkip) {
+      console.log(`🚫 Rate limiting applied to: ${req.method} ${p}`);
+    }
+    
+    return shouldSkip;
+  },
+  onLimitReached: (req) => {
+    console.log(`🚨 Rate limit exceeded for: ${req.method} ${req.path} from IP: ${req.ip}`);
   }
 });
 
-app.use('/api/', limiter);
+// Environment and rate limiting setup
+console.log('🔧 Environment Configuration:', {
+  NODE_ENV: process.env.NODE_ENV,
+  RATE_LIMIT_WINDOW_MS: process.env.RATE_LIMIT_WINDOW_MS,
+  RATE_LIMIT_MAX_REQUESTS: process.env.RATE_LIMIT_MAX_REQUESTS
+});
+
+// Completely disable rate limiting for development
+if (process.env.NODE_ENV === 'production') {
+  console.log('🔒 Rate limiting enabled for production');
+  app.use('/api/', limiter);
+} else {
+  console.log('🔧 Rate limiting completely disabled in development mode');
+  // Add a middleware that always allows requests in development
+  app.use('/api/', (req, res, next) => {
+    // Add rate limit headers for consistency but don't actually limit
+    res.set({
+      'X-RateLimit-Limit': '10000',
+      'X-RateLimit-Remaining': '9999',
+      'X-RateLimit-Reset': new Date(Date.now() + 15 * 60 * 1000)
+    });
+    next();
+  });
+}
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
@@ -262,6 +294,7 @@ app.use('/api/appointment', appointmentRoutes);
 app.use('/api/forgot-password', forgotPasswordRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/recommendations', recommendationRoutes);
+app.use('/api/client-profiles', clientProfileRoutes);
 
 // Handle undefined routes
 app.all('*', (req, res) => {

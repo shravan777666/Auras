@@ -28,6 +28,8 @@ const AppointmentSchema = new mongoose.Schema(
     appointmentTime: { type: String, required: true },
     estimatedDuration: { type: Number, default: 0 },
     estimatedEndTime: { type: String },
+    actualStartTime: { type: String }, // When service actually started (In-Progress status)
+    actualEndTime: { type: String }, // When service actually ended (Completed status)
     totalAmount: { type: Number, default: 0 },
     finalAmount: { type: Number, default: 0 },
     status: {
@@ -116,6 +118,18 @@ AppointmentSchema.methods.updateStatus = async function (newStatus) {
   const oldStatus = this.status;
   this.status = newStatus;
 
+  // Set actual start time when status changes to In-Progress
+  if (newStatus === 'In-Progress' && oldStatus !== 'In-Progress') {
+    const now = new Date();
+    this.actualStartTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+  }
+
+  // Set actual end time when status changes to Completed
+  if (newStatus === 'Completed' && oldStatus !== 'Completed') {
+    const now = new Date();
+    this.actualEndTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+  }
+
   // Ensure appointmentDate is in correct format before saving
   this.appointmentDate = ensureCorrectDateFormat(this.appointmentDate);
 
@@ -165,6 +179,14 @@ AppointmentSchema.pre('save', function(next) {
   // Format appointmentDate to YYYY-MM-DDTHH:mm if it's a Date object or in wrong format
   this.appointmentDate = ensureCorrectDateFormat(this.appointmentDate);
   
+  // Calculate estimated duration from all services if not set
+  if (this.services && this.services.length > 0 && !this.estimatedDuration) {
+    this.estimatedDuration = this.services.reduce((total, service) => {
+      return total + (service.duration || 0);
+    }, 0);
+  }
+  
+  // Calculate estimated end time
   if (this.estimatedDuration && this.appointmentTime) {
     const [hours, minutes] = this.appointmentTime.split(':').map(Number);
     const totalMinutes = hours * 60 + minutes + this.estimatedDuration;

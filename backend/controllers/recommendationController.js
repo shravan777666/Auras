@@ -471,6 +471,7 @@ export const getCustomerRecommendations = async (req, res) => {
     // Format recommendations for frontend
     const formattedRecommendations = recommendations.map(rec => ({
       id: rec._id,
+      salonId: rec.salonId?._id || rec.salonId, // Include the salon ID for booking navigation
       salonName: rec.salonId?.salonName || 'Unknown Salon',
       salonAddress: rec.salonId?.salonAddress || '',
       salonContact: rec.salonId?.contactNumber || '',

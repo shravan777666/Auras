@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { salonService } from '../../services/salon';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import ClientProfileCard from '../../components/salon/ClientProfileCard';
 import { toast } from 'react-hot-toast';
 import {
   Calendar,
@@ -16,7 +17,8 @@ import {
   MapPin,
   Filter,
   Search,
-  Users
+  Users,
+  MessageCircle
 } from 'lucide-react';
 
 const SalonAppointments = () => {
@@ -30,6 +32,8 @@ const SalonAppointments = () => {
   const [updatingStatus, setUpdatingStatus] = useState(null);
   const [staffList, setStaffList] = useState([]);
   const [assigningStaff, setAssigningStaff] = useState(null);
+  const [selectedCustomerId, setSelectedCustomerId] = useState(null);
+  const [showClientProfile, setShowClientProfile] = useState(false);
 
   useEffect(() => {
     fetchAppointments();
@@ -125,6 +129,81 @@ const SalonAppointments = () => {
     return timeString;
   };
 
+  // Helper function to get the appropriate end time based on appointment status
+  const getEndTime = (appointment) => {
+    const status = appointment.status?.toLowerCase();
+    
+    // For In-Progress and Completed: use actual end time if available
+    if (status === 'completed' && appointment.actualEndTime) {
+      return appointment.actualEndTime;
+    }
+    
+    if (status === 'in-progress' && appointment.actualEndTime) {
+      return appointment.actualEndTime;
+    }
+    
+    // For all other statuses or when actual time is not available: use estimated end time
+    if (appointment.estimatedEndTime) {
+      return appointment.estimatedEndTime;
+    }
+    
+    // Fallback: calculate end time from start time and estimated duration
+    if (appointment.appointmentTime && appointment.estimatedDuration) {
+      const [hours, minutes] = appointment.appointmentTime.split(':').map(Number);
+      const totalMinutes = hours * 60 + minutes + appointment.estimatedDuration;
+      const endHours = Math.floor(totalMinutes / 60);
+      const endMinutes = totalMinutes % 60;
+      return `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
+    }
+    
+    return 'N/A';
+  };
+
+  // Helper function to get time display label
+  const getTimeLabel = (appointment) => {
+    const status = appointment.status?.toLowerCase();
+    
+    if (status === 'completed') {
+      return appointment.actualEndTime ? 'Actual Time' : 'Estimated Time';
+    }
+    
+    if (status === 'in-progress') {
+      return appointment.actualEndTime ? 'Current Time' : 'Estimated Time';
+    }
+    
+    return 'Estimated Time';
+  };
+
+  // Helper function to format duration
+  const formatDuration = (minutes) => {
+    if (!minutes) return '';
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    
+    if (hours > 0 && mins > 0) {
+      return `${hours}h ${mins}m`;
+    } else if (hours > 0) {
+      return `${hours}h`;
+    } else {
+      return `${mins}m`;
+    }
+  };
+
+  // Helper function to get total duration from services
+  const getTotalDuration = (appointment) => {
+    if (appointment.estimatedDuration) {
+      return appointment.estimatedDuration;
+    }
+    
+    if (appointment.services && appointment.services.length > 0) {
+      return appointment.services.reduce((total, service) => {
+        return total + (service.duration || service.serviceId?.duration || 0);
+      }, 0);
+    }
+    
+    return 0;
+  };
+
   const filteredAppointments = appointments.filter(appointment => {
     if (searchTerm) {
       const customerName = appointment.customerId?.name || '';
@@ -171,6 +250,16 @@ const SalonAppointments = () => {
     } finally {
       setAssigningStaff(null);
     }
+  };
+
+  const handleMessageClient = (customerId) => {
+    setSelectedCustomerId(customerId);
+    setShowClientProfile(true);
+  };
+
+  const handleCloseClientProfile = () => {
+    setShowClientProfile(false);
+    setSelectedCustomerId(null);
   };
 
   if (loading) {
@@ -284,7 +373,20 @@ const SalonAppointments = () => {
                         </div>
                         <div className="flex items-center text-sm text-gray-600">
                           <Clock className="h-4 w-4 mr-2" />
-                          <span>{formatTime(appointment.appointmentTime)}</span>
+                          <div className="flex flex-col">
+                            <span className="font-medium">
+                              {formatTime(appointment.appointmentTime)} - {getEndTime(appointment)}
+                            </span>
+                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                              <span>{getTimeLabel(appointment)}</span>
+                              {getTotalDuration(appointment) > 0 && (
+                                <>
+                                  <span>•</span>
+                                  <span>Duration: {formatDuration(getTotalDuration(appointment))}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
                         </div>
                         <div className="flex items-center text-sm text-gray-600">
                           <User className="h-4 w-4 mr-2" />
@@ -348,6 +450,13 @@ const SalonAppointments = () => {
                               </div>
                             )}
                           </div>
+                          <button 
+                            onClick={() => handleMessageClient(appointment.customerId?._id)}
+                            className="px-3 py-1 text-sm text-indigo-600 hover:text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-md hover:bg-indigo-100 flex items-center space-x-1"
+                          >
+                            <MessageCircle className="h-3 w-3" />
+                            <span>Message</span>
+                          </button>
                           <button className="px-3 py-1 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50">
                             View Details
                           </button>
@@ -446,6 +555,13 @@ const SalonAppointments = () => {
           </div>
         )}
       </div>
+
+      {/* Client Profile Card Modal */}
+      <ClientProfileCard
+        customerId={selectedCustomerId}
+        isOpen={showClientProfile}
+        onClose={handleCloseClientProfile}
+      />
     </div>
   );
 };

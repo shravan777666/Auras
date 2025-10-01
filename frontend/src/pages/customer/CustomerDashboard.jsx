@@ -18,7 +18,7 @@ import {
 import SalonMap from '../../components/customer/SalonMap'
 import RecommendationsSection from '../../components/customer/RecommendationsSection'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5006'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001'
 const IMAGE_BASE = (API_URL || '').replace(/\/+$/, '').replace(/\/api\/?$/, '')
 
 const CustomerDashboard = () => {

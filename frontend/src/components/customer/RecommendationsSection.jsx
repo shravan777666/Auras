@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { customerService } from '../../services/customer';
 import { useAuth } from '../../contexts/AuthContext';
 import toast from 'react-hot-toast';
@@ -18,6 +19,7 @@ import {
 
 const RecommendationsSection = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -82,6 +84,34 @@ const RecommendationsSection = () => {
 
   const handleRefresh = () => {
     fetchRecommendations(true);
+  };
+
+  const handleBookNow = (recommendation) => {
+    try {
+      console.log('Book Now clicked for recommendation:', recommendation);
+      
+      // Extract salon ID from the recommendation
+      const salonId = recommendation.salonId;
+      
+      console.log('Extracted salon ID:', salonId);
+      console.log('Salon name:', recommendation.salonName);
+      
+      if (!salonId) {
+        console.error('Salon ID not found in recommendation data:', recommendation);
+        toast.error('Unable to book appointment. Salon information not available.');
+        return;
+      }
+
+      // Navigate to booking page with salon ID
+      console.log(`Navigating to: /customer/book-appointment/${salonId}`);
+      navigate(`/customer/book-appointment/${salonId}`);
+      
+      // Show success message
+      toast.success(`Redirecting to book appointment with ${recommendation.salonName}...`);
+    } catch (error) {
+      console.error('Error navigating to booking page:', error);
+      toast.error('Failed to open booking page. Please try again.');
+    }
   };
 
   const getServiceIcon = (serviceName) => {
@@ -308,7 +338,10 @@ const RecommendationsSection = () => {
                 </div>
                 
                 <div className="flex items-center space-x-3">
-                  <button className="text-sm text-primary-600 hover:text-primary-700 font-medium flex items-center">
+                  <button 
+                    onClick={() => handleBookNow(recommendation)}
+                    className="text-sm text-primary-600 hover:text-primary-700 font-medium flex items-center transition-colors duration-200 hover:bg-primary-50 px-3 py-2 rounded-lg"
+                  >
                     <ExternalLink className="h-4 w-4 mr-1" />
                     Book Now
                   </button>
