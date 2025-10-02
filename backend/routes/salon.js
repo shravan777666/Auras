@@ -13,6 +13,7 @@ import {
   getAppointments,
   updateAppointmentStatus,
   getSalonStaff,
+  getGlobalStaffDirectory,
   getStaffAvailability,
   addService,
   getServices,
@@ -67,6 +68,7 @@ router.patch('/profile', upload.fields([
 
 // Staff Management
 router.get('/staff', requireSalonSetup, getSalonStaff);
+router.get('/staff/global-directory', requireSalonSetup, getGlobalStaffDirectory);
 router.get('/staff/availability', requireSalonSetup, getStaffAvailability);
 router.get('/staff/available', requireSalonSetup, validatePagination, getAvailableStaff);
 router.post('/staff/hire', requireSalonSetup, hireStaff);

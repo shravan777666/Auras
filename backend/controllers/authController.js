@@ -16,7 +16,6 @@ const signToken = (user) => {
     setupCompleted: !!user.setupCompleted,
     name: user.name,
     // Include approvalStatus for salon owners and staff
-    approvalStatus: (user.type === 'salon' || user.type === 'staff') ? user.approvalStatus : undefined,
   };
   return jwt.sign(payload, secret, { expiresIn });
 };
@@ -24,7 +23,34 @@ const signToken = (user) => {
 // Register new user with role
 export const register = async (req, res) => {
   try {
+    console.log('🔍 Registration request received:', {
+      body: req.body,
+      headers: req.headers['content-type']
+    });
+    
     const { email, password, name, userType } = req.body;
+
+    // Validate required fields
+    if (!email || !password || !name || !userType) {
+      return errorResponse(res, 'All fields are required: name, email, password, userType', 400);
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return errorResponse(res, 'Invalid email format', 400);
+    }
+
+    // Validate password length
+    if (password.length < 6) {
+      return errorResponse(res, 'Password must be at least 6 characters long', 400);
+    }
+
+    // Validate userType
+    const validUserTypes = ['customer', 'salon', 'staff', 'admin'];
+    if (!validUserTypes.includes(userType)) {
+      return errorResponse(res, 'Invalid user type', 400);
+    }
 
     const existing = await User.findOne({ email });
     if (existing) {
@@ -101,6 +127,19 @@ export const register = async (req, res) => {
     return successResponse(res, { token, user: safeUser }, 'Registered successfully');
   } catch (err) {
     console.error('Register error:', err);
+    
+    // Handle MongoDB validation errors
+    if (err.name === 'ValidationError') {
+      const validationErrors = Object.values(err.errors).map(e => e.message);
+      return errorResponse(res, `Validation error: ${validationErrors.join(', ')}`, 400);
+    }
+    
+    // Handle duplicate key errors
+    if (err.code === 11000) {
+      const field = Object.keys(err.keyPattern)[0];
+      return errorResponse(res, `${field} already exists`, 400);
+    }
+    
     return errorResponse(res, 'Registration failed', 500);
   }
 };

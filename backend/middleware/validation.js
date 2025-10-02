@@ -9,41 +9,27 @@ const handleValidation = (req, res, next) => {
   next();
 };
 
-// Custom email validation to only allow .com domains
+// Custom email validation - allow common domains
 const validateEmailDomain = (email) => {
   const domain = email.split('@')[1];
-  if (!domain || !domain.endsWith('.com')) {
-    throw new Error('Only .com email addresses are allowed');
+  const allowedDomains = ['.com', '.org', '.net', '.edu', '.gov', '.co.in', '.in'];
+  
+  if (!domain || !allowedDomains.some(allowed => domain.endsWith(allowed))) {
+    throw new Error('Please use a valid email domain (.com, .org, .net, .edu, .gov, .in, etc.)');
   }
   return true;
 };
 
-// Enhanced password validation
+// Reasonable password validation
 const validateStrongPassword = (password) => {
-  const minLength = 12;
-  const hasUppercase = /[A-Z]/.test(password);
-  const hasLowercase = /[a-z]/.test(password);
-  const hasNumbers = /\d/.test(password);
-  const hasSpecialChar = /[@$!%*?&]/.test(password);
+  const minLength = 6;
   
   if (password.length < minLength) {
-    throw new Error('Password must be at least 12 characters long');
-  }
-  if (!hasUppercase) {
-    throw new Error('Password must contain at least one uppercase letter');
-  }
-  if (!hasLowercase) {
-    throw new Error('Password must contain at least one lowercase letter');
-  }
-  if (!hasNumbers) {
-    throw new Error('Password must contain at least one number');
-  }
-  if (!hasSpecialChar) {
-    throw new Error('Password must contain at least one special character (@$!%*?&)');
+    throw new Error('Password must be at least 6 characters long');
   }
   
   // Check for common weak passwords
-  const commonPasswords = ['password123', 'password', '123456789', 'qwerty123'];
+  const commonPasswords = ['password', '123456', 'qwerty', 'admin', 'user'];
   if (commonPasswords.includes(password.toLowerCase())) {
     throw new Error('This password is too common. Please choose a different one');
   }

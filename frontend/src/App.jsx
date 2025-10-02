@@ -25,11 +25,12 @@ const WaitingApproval = React.lazy(() => import('./pages/salon/WaitingApproval')
 const EditSalonProfile = React.lazy(() => import('./pages/salon/EditSalonProfile'))
 const AddStaff = React.lazy(() => import('./pages/salon/AddStaff'))
 const ManageStaff = React.lazy(() => import('./pages/salon/ManageStaff'))
+const GlobalStaffDirectory = React.lazy(() => import('./pages/salon/GlobalStaffDirectory'))
 const ManageServices = React.lazy(() => import('./pages/salon/ManageServices'))
 const SalonAppointments = React.lazy(() => import('./pages/salon/SalonAppointments'))
 const StaffAvailability = React.lazy(() => import('./pages/salon/StaffAvailability'))
 const SalonRevenueDashboard = React.lazy(() => import('./pages/salon/RevenueDashboard'))
-const ExpenseTracking = React.lazy(() => import('./pages/salon/ExpenseTracking'))
+const FinancialDashboard = React.lazy(() => import('./pages/salon/FinancialDashboard'))
 const ClientRecommendationsPage = React.lazy(() => import('./pages/salon/ClientRecommendationsPage'))
 
 // Staff Pages
@@ -240,6 +241,16 @@ function App() {
             }
           />
           <Route
+            path="/salon/global-staff"
+            element={
+              <ProtectedRoute allowedRoles={['salon']}>
+                <SetupRequiredRoute setupPath="/salon/setup">
+                  <GlobalStaffDirectory />
+                </SetupRequiredRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/salon/services"
             element={
               <ProtectedRoute allowedRoles={['salon']}>
@@ -284,7 +295,7 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['salon']}>
                 <SetupRequiredRoute setupPath="/salon/setup">
-                  <ExpenseTracking />
+                  <FinancialDashboard />
                 </SetupRequiredRoute>
               </ProtectedRoute>
             }

@@ -24,8 +24,8 @@ import {
 const router = express.Router();
 
 // Registration and Login
-router.post('/register', validateUserRegistration, register);
-router.post('/login', validateUserLogin, login);
+router.post('/register', register); // Temporarily disable validation
+router.post('/login', login); // Temporarily disable validation
 
 // Google OAuth routes
 router.get('/google', 

@@ -8,7 +8,6 @@ import jwt from 'jsonwebtoken';
 import { sendAppointmentConfirmation } from '../utils/email.js';
 import { 
   successResponse, 
-  errorResponse, 
   paginatedResponse,
   notFoundResponse,
   asyncHandler 
@@ -17,7 +16,7 @@ import {
 // Helper function to convert file path to full URL
 const getFileUrl = (filePath) => {
   if (!filePath) return null;
-  const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 5005}`;
+  const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 5002}`;
   return `${baseUrl}/${filePath.replace(/\\/g, '/')}`;
 };
 
@@ -501,6 +500,124 @@ export const getSalonStaff = asyncHandler(async (req, res) => {
   });
 
   return successResponse(res, staff, 'Salon staff retrieved successfully');
+});
+
+// Get global staff directory for salon owners (all staff on platform)
+export const getGlobalStaffDirectory = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+  const { page = 1, limit = 20, search, location, salon, skills, experience } = req.query;
+
+  // Verify salon owner access
+  const User = (await import('../models/User.js')).default;
+  const user = await User.findById(userId);
+  if (!user || user.type !== 'salon') {
+    return errorResponse(res, 'Access denied: Only salon owners can view global staff directory', 403);
+  }
+
+  // Build filter query
+  let filter = { 
+    approvalStatus: 'approved',
+    isActive: true 
+  };
+
+  // Search by name, skills, or specialization
+  if (search) {
+    filter.$or = [
+      { name: { $regex: search, $options: 'i' } },
+      { skills: { $in: [new RegExp(search, 'i')] } },
+      { specialization: { $regex: search, $options: 'i' } }
+    ];
+  }
+
+  // Filter by location/city
+  if (location) {
+    filter['address.city'] = { $regex: location, $options: 'i' };
+  }
+
+  // Filter by specific salon
+  if (salon) {
+    filter.assignedSalon = salon;
+  }
+
+  // Filter by skills
+  if (skills) {
+    const skillsArray = skills.split(',').map(s => s.trim());
+    filter.skills = { $in: skillsArray };
+  }
+
+  // Filter by experience level
+  if (experience) {
+    const expLevel = parseInt(experience);
+    if (expLevel === 0) {
+      filter['experience.years'] = { $lte: 1 };
+    } else if (expLevel === 1) {
+      filter['experience.years'] = { $gte: 1, $lte: 3 };
+    } else if (expLevel === 2) {
+      filter['experience.years'] = { $gte: 3, $lte: 5 };
+    } else if (expLevel === 3) {
+      filter['experience.years'] = { $gt: 5 };
+    }
+  }
+
+  try {
+    // Get total count for pagination
+    const totalStaff = await Staff.countDocuments(filter);
+
+    // Fetch staff with pagination and populate salon info
+    const staffDocs = await Staff.find(filter)
+      .populate('assignedSalon', 'name address phone email')
+      .select(`
+        name email contactNumber position skills experience specialization 
+        gender address approvalStatus employmentStatus isActive createdAt 
+        profilePicture assignedSalon
+      `)
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit))
+      .lean();
+
+    // Format staff data for global directory (privacy-filtered)
+    const globalStaff = staffDocs.map(staff => ({
+      _id: staff._id,
+      name: staff.name,
+      email: staff.email,
+      contactNumber: staff.contactNumber,
+      position: staff.position,
+      skills: staff.skills || [],
+      experience: {
+        years: staff.experience?.years || 0,
+        description: staff.experience?.description || ''
+      },
+      specialization: staff.specialization,
+      profilePicture: staff.profilePicture ? getFileUrl(staff.profilePicture) : null,
+      status: staff.employmentStatus || 'Available',
+      location: {
+        city: staff.address?.city || '',
+        state: staff.address?.state || ''
+      },
+      salon: staff.assignedSalon ? {
+        _id: staff.assignedSalon._id,
+        name: staff.assignedSalon.name,
+        location: `${staff.assignedSalon.address?.city || ''}, ${staff.assignedSalon.address?.state || ''}`.replace(/^, |, $/, ''),
+        phone: staff.assignedSalon.phone
+      } : null,
+      joinedDate: staff.createdAt
+    }));
+
+    return successResponse(res, {
+      staff: globalStaff,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: totalStaff,
+        pages: Math.ceil(totalStaff / parseInt(limit))
+      }
+    }, 'Global staff directory retrieved successfully');
+
+  } catch (error) {
+    console.error('Error fetching global staff directory:', error);
+    return errorResponse(res, 'Failed to retrieve global staff directory', 500);
+  }
 });
 
 export const addService = asyncHandler(async (req, res) => {
@@ -1435,6 +1552,7 @@ export default {
   getAppointments,
   updateAppointmentStatus,
   getSalonStaff,
+  getGlobalStaffDirectory,
   addService,
   getServices,
   getServiceCategories,

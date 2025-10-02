@@ -73,7 +73,7 @@ const StaffSchedule = () => {
       if (!user) {
         try {
           console.log('🔍 Fetching current user info...');
-          const userResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/auth/me`, {
+          const userResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5002/api'}/auth/me`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
@@ -250,7 +250,7 @@ const StaffSchedule = () => {
       if (error.response?.status === 401) {
         setError('Authentication failed. Please login again.');
       } else if (error.response?.status === 500) {
-        setError('Server error. Please check if the backend server is running on port 5001.');
+        setError('Server error. Please check if the backend server is running on port 5002.');
       } else if (error.code === 'ECONNABORTED') {
         setError('Request timeout. Server is taking too long to respond.');
       } else if (error.message.includes('Network Error')) {
@@ -616,11 +616,11 @@ const StaffSchedule = () => {
               </div>
             </div>
             
-            {(error.includes('Server error') || error.includes('port 5001')) && (
+            {(error.includes('Server error') || error.includes('port 5002')) && (
               <div className="text-red-700 text-sm space-y-1 bg-red-100 p-3 rounded">
                 <p className="font-medium">Backend Server Issues:</p>
                 <ul className="list-disc list-inside space-y-1">
-                  <li>Make sure your backend server is running on port 5001</li>
+                  <li>Make sure your backend server is running on port 5002</li>
                   <li>Check your backend terminal for error messages</li>
                   <li>Verify database connection is working</li>
                   <li>Ensure the API route /api/staff/appointments exists</li>

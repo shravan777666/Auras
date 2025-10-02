@@ -35,6 +35,7 @@ import reviewRoutes from './routes/review.js';
 import recommendationRoutes from './routes/recommendation.js';
 import clientProfileRoutes from './routes/clientProfile.js';
 import customerMessageRoutes from './routes/customerMessage.js';
+import revenueRoutes from './routes/revenue.js';
 
 // Create Express app
 const app = express();
@@ -297,6 +298,7 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/recommendations', recommendationRoutes);
 app.use('/api/client-profiles', clientProfileRoutes);
 app.use('/api/customer/messages', customerMessageRoutes);
+app.use('/api/revenue', revenueRoutes);
 
 // Handle undefined routes
 app.all('*', (req, res) => {

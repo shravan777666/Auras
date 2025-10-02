@@ -22,7 +22,7 @@ import RecommendationsSection from '../../components/customer/RecommendationsSec
 import { customerMessageService } from '../../services/customerMessage'
 import MessageNotificationBadge from '../../components/customer/MessageNotificationBadge'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002'
 const IMAGE_BASE = (API_URL || '').replace(/\/+$/, '').replace(/\/api\/?$/, '')
 
 const CustomerDashboard = () => {

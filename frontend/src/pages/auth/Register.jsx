@@ -54,6 +54,7 @@ const Register = () => {
     setLoading(true);
 
     try {
+      console.log('🔍 Registration data being sent:', formData);
       const response = await register(formData);
       toast.success('Registration successful! Welcome to Auracare!');
 
@@ -66,6 +67,10 @@ const Register = () => {
       navigate(redirectPath, { replace: true });
     } catch (error) {
       console.error('Registration error:', error);
+      
+      // Show specific error message from backend
+      const errorMessage = error.response?.data?.message || error.message || 'Registration failed. Please try again.';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }

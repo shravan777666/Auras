@@ -2,15 +2,13 @@ import axios from 'axios'
 import toast from 'react-hot-toast'
 
 // Base API configuration - Using actual backend port
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002/api';
 console.log('🔧 API Configuration:', {
   VITE_API_URL: import.meta.env.VITE_API_URL,
-  API_BASE_URL: API_BASE_URL,
-  NODE_ENV: import.meta.env.NODE_ENV
 });
 // Create axios instance with base configuration
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: 'http://localhost:5002/api',
   timeout: 60000, // 60 seconds timeout
   headers: {
     'Content-Type': 'application/json',
@@ -20,6 +18,14 @@ const api = axios.create({
 // Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
+    console.log('🚀 Making API request:', {
+      method: config.method?.toUpperCase(),
+      url: config.url,
+      baseURL: config.baseURL,
+      fullURL: `${config.baseURL}${config.url}`,
+      data: config.data
+    });
+    
     const token = localStorage.getItem('auracare_token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
@@ -52,10 +58,12 @@ api.interceptors.response.use(
     console.error('❌ API Error:', {
       url: error.config?.url,
       status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
       message: error.message
     });
 
-    const message = error.response?.data?.message || 'An error occurred'
+    const message = error.response?.data?.message || error.response?.data?.error || 'An error occurred'
 
     if (error.response?.status === 401) {
       localStorage.removeItem('auracare_token')

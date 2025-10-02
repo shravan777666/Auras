@@ -1,11 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { salonService } from '../../services/salon';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { toast } from 'react-hot-toast';
-import { User, Mail, Phone, Briefcase, CalendarDays, MapPin, BadgeCheck } from 'lucide-react';
+import { User, Mail, Phone, Briefcase, CalendarDays, MapPin, BadgeCheck, Globe, ArrowRight } from 'lucide-react';
 
 const ManageStaff = () => {
+  const navigate = useNavigate();
   const [staffList, setStaffList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -40,7 +42,37 @@ const ManageStaff = () => {
 
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Manage Staff</h1>
+      {/* Header with Global Staff Directory link */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Manage Staff</h1>
+          <p className="text-gray-600 mt-1">Manage your salon's current staff members</p>
+        </div>
+        <button
+          onClick={() => navigate('/salon/global-staff')}
+          className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+        >
+          <Globe className="h-4 w-4 mr-2" />
+          Global Staff Directory
+          <ArrowRight className="h-4 w-4 ml-2" />
+        </button>
+      </div>
+
+      {/* Info card about Global Staff Directory */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <div className="flex items-start">
+          <Globe className="h-5 w-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
+          <div>
+            <h3 className="text-sm font-medium text-blue-900 mb-1">
+              Discover Talent Across the Platform
+            </h3>
+            <p className="text-sm text-blue-700">
+              Browse all staff members registered on AuraCares to find talent for networking, hiring, or business expansion. 
+              View their skills, experience, and current employment status while respecting privacy guidelines.
+            </p>
+          </div>
+        </div>
+      </div>
       {staffList.length === 0 ? (
         <div className="text-center text-gray-500">No staff members found.</div>
       ) : (
