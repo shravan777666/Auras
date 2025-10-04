@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { staffService } from '../../services/staff';
+import { staffNotificationService } from '../../services/staffNotification';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import UpcomingAppointmentsCard from '../../components/staff/UpcomingAppointmentsCard';
 import { toast } from 'react-hot-toast';
@@ -16,6 +17,9 @@ import {
   Edit2,
   Bell,
   Plus,
+  MessageSquare,
+  Mail,
+  AlertCircle,
 } from 'lucide-react';
 import { Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
@@ -50,6 +54,25 @@ const StaffDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Load notifications
+  const loadNotifications = async () => {
+    try {
+      const response = await staffNotificationService.getNotifications({ 
+        limit: 5, 
+        unreadOnly: false 
+      });
+      if (response.success) {
+        setNotifications(response.data.notifications || []);
+        setUnreadCount(response.data.unreadCount || 0);
+      }
+    } catch (error) {
+      console.error('Error loading notifications:', error);
+      // Don't show error toast for notifications as it's not critical
+    }
+  };
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -73,6 +96,7 @@ const StaffDashboard = () => {
     };
 
     fetchDashboardData();
+    loadNotifications();
   }, [refreshTrigger]);
 
   useEffect(() => {
@@ -175,6 +199,18 @@ const StaffDashboard = () => {
               <li className="mb-4">
                 <button onClick={() => navigate('/staff/report')} className="w-full text-left flex items-center gap-3 p-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
                   <BarChart size={20} /> Reports
+                </button>
+              </li>
+              <li className="mb-4">
+                <button onClick={() => navigate('/staff/broadcasts')} className="w-full text-left flex items-center justify-between p-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <MessageSquare size={20} /> Broadcasts
+                  </div>
+                  {unreadCount > 0 && (
+                    <span className="bg-red-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
+                      {unreadCount}
+                    </span>
+                  )}
                 </button>
               </li>
               <li className="mb-4">
@@ -296,6 +332,87 @@ const StaffDashboard = () => {
               </div>
             </DashboardCard>
           </div>
+        </div>
+
+        {/* Recent Broadcasts Section */}
+        <div className="mt-8">
+          <DashboardCard title="Recent Broadcasts & Notifications">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-2">
+                <Mail className="h-5 w-5 text-gray-500" />
+                <span className="text-sm text-gray-600">
+                  {unreadCount > 0 ? `${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}` : 'All caught up!'}
+                </span>
+              </div>
+              <button
+                onClick={() => navigate('/staff/broadcasts')}
+                className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+              >
+                View All
+              </button>
+            </div>
+            
+            {notifications.length > 0 ? (
+              <div className="space-y-3">
+                {notifications.slice(0, 3).map((notification) => {
+                  const formatted = staffNotificationService.formatNotificationData(notification);
+                  return (
+                    <div
+                      key={notification.id}
+                      className={`p-3 rounded-lg border transition-colors cursor-pointer hover:bg-gray-50 ${
+                        !notification.isRead ? 'bg-primary-50 border-primary-200' : 'bg-white border-gray-200'
+                      }`}
+                      onClick={() => navigate('/staff/broadcasts')}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-2 mb-1">
+                            {!notification.isRead && (
+                              <div className="w-2 h-2 bg-primary-500 rounded-full"></div>
+                            )}
+                            <h4 className="text-sm font-medium text-gray-900 truncate">
+                              {notification.subject}
+                            </h4>
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${formatted.categoryColor}`}>
+                              {staffNotificationService.getCategoryDisplayName(notification.category)}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-600 mb-1">
+                            From: {notification.sender.salonName}
+                          </p>
+                          <p className="text-sm text-gray-700 line-clamp-2">
+                            {notification.message}
+                          </p>
+                        </div>
+                        <div className="ml-4 text-xs text-gray-500">
+                          {formatted.timeAgo}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                
+                {notifications.length > 3 && (
+                  <div className="text-center pt-2">
+                    <button
+                      onClick={() => navigate('/staff/broadcasts')}
+                      className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                    >
+                      View {notifications.length - 3} more notification{notifications.length - 3 > 1 ? 's' : ''}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Mail className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500 text-sm">No broadcasts or notifications yet.</p>
+                <p className="text-gray-400 text-xs mt-1">
+                  Salon owners will send you messages and announcements here.
+                </p>
+              </div>
+            )}
+          </DashboardCard>
         </div>
 
         {/* Quick Actions and Upcoming Client Spotlight */}

@@ -36,6 +36,8 @@ import recommendationRoutes from './routes/recommendation.js';
 import clientProfileRoutes from './routes/clientProfile.js';
 import customerMessageRoutes from './routes/customerMessage.js';
 import revenueRoutes from './routes/revenue.js';
+import broadcastRoutes from './routes/broadcast.js';
+import staffNotificationRoutes from './routes/staffNotification.js';
 
 // Create Express app
 const app = express();
@@ -299,6 +301,7 @@ app.use('/api/recommendations', recommendationRoutes);
 app.use('/api/client-profiles', clientProfileRoutes);
 app.use('/api/customer/messages', customerMessageRoutes);
 app.use('/api/revenue', revenueRoutes);
+app.use('/api/broadcast', broadcastRoutes);
 
 // Handle undefined routes
 app.all('*', (req, res) => {
@@ -324,7 +327,7 @@ app.all('*', (req, res) => {
 app.use(globalErrorHandler);
 
 // Start server with graceful EADDRINUSE handling and port fallback
-const DEFAULT_PORT = parseInt(process.env.PORT, 10) || 5000;
+const DEFAULT_PORT = parseInt(process.env.PORT, 10) || 5005;
 
 const startServer = (port, attemptsLeft = 5) => {
   const server = app.listen(port, '0.0.0.0');

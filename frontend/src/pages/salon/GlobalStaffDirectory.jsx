@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { globalStaffService } from '../../services/globalStaff';
+import BroadcastModal from '../../components/salon/BroadcastModal';
 import { 
   Search, 
   Filter, 
@@ -16,7 +17,9 @@ import {
   ChevronLeft,
   ChevronRight,
   RefreshCw,
-  Users
+  Users,
+  Send,
+  MessageSquare
 } from 'lucide-react';
 
 const GlobalStaffDirectory = () => {
@@ -41,6 +44,7 @@ const GlobalStaffDirectory = () => {
   });
 
   const [showFilters, setShowFilters] = useState(false);
+  const [showBroadcastModal, setShowBroadcastModal] = useState(false);
 
   // Load staff directory
   const loadStaffDirectory = async (page = 1, newFilters = filters) => {
@@ -129,6 +133,12 @@ const GlobalStaffDirectory = () => {
   // Refresh data
   const handleRefresh = () => {
     loadStaffDirectory(pagination.page, filters);
+  };
+
+  // Handle broadcast success
+  const handleBroadcastSuccess = (broadcastData) => {
+    console.log('✅ Broadcast sent successfully:', broadcastData);
+    // Optionally refresh the directory or show additional success info
   };
 
   // Render staff card
@@ -305,6 +315,13 @@ const GlobalStaffDirectory = () => {
               <p className="text-gray-600">Browse all staff members registered on the AuraCares platform</p>
             </div>
             <div className="flex items-center space-x-3">
+              <button
+                onClick={() => setShowBroadcastModal(true)}
+                className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                <Send className="h-4 w-4 mr-2" />
+                Send Broadcast to Staff
+              </button>
               <button
                 onClick={handleRefresh}
                 disabled={searchLoading}
@@ -515,6 +532,13 @@ const GlobalStaffDirectory = () => {
             )}
           </>
         )}
+
+        {/* Broadcast Modal */}
+        <BroadcastModal
+          isOpen={showBroadcastModal}
+          onClose={() => setShowBroadcastModal(false)}
+          onSuccess={handleBroadcastSuccess}
+        />
       </div>
     </div>
   );

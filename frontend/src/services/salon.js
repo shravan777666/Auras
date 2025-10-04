@@ -186,4 +186,141 @@ export const salonService = {
     });
     return response.data;
   },
+
+  async getNotifications(options = {}) {
+    try {
+      const { 
+        page = 1, 
+        limit = 20, 
+        unreadOnly = false, 
+        category = null,
+        includeArchived = false,
+        type = null
+      } = options;
+
+      const params = new URLSearchParams();
+      params.append('page', page);
+      params.append('limit', limit);
+      if (unreadOnly) params.append('unreadOnly', 'true');
+      if (category) params.append('category', category);
+      if (includeArchived) params.append('includeArchived', 'true');
+      if (type) params.append('type', type);
+
+      console.log('📬 Fetching salon notifications with options:', options);
+      const response = await api.get(`/salon/notifications?${params}`);
+      
+      if (response.data.success) {
+        console.log(`✅ Retrieved ${response.data.data.notifications.length} notifications`);
+        return response.data;
+      } else {
+        throw new Error(response.data.message || 'Failed to fetch notifications');
+      }
+    } catch (error) {
+      console.error('❌ Error fetching notifications:', error);
+      throw error;
+    }
+  },
+
+  async markNotificationAsRead(notificationId) {
+    try {
+      if (!notificationId) {
+        throw new Error('Notification ID is required');
+      }
+
+      console.log(`📖 Marking notification as read: ${notificationId}`);
+      const response = await api.put(`/salon/notifications/${notificationId}/read`);
+      
+      if (response.data.success) {
+        console.log('✅ Notification marked as read successfully');
+        return response.data;
+      } else {
+        throw new Error(response.data.message || 'Failed to mark notification as read');
+      }
+    } catch (error) {
+      console.error('❌ Error marking notification as read:', error);
+      throw error;
+    }
+  },
+
+  // Send reply to staff notification
+  async sendReplyToStaff(notificationId, message) {
+    try {
+      if (!notificationId || !message) {
+        throw new Error('Notification ID and message are required');
+      }
+
+      console.log(`📤 Sending reply to staff notification: ${notificationId}`);
+      const response = await api.post(`/salon/notifications/${notificationId}/reply`, { message });
+      
+      if (response.data.success) {
+        console.log('✅ Reply sent successfully');
+        return response.data;
+      } else {
+        throw new Error(response.data.message || 'Failed to send reply');
+      }
+    } catch (error) {
+      console.error('❌ Error sending reply:', error);
+      throw error;
+    }
+  },
+
+  // Send job offer to staff
+  async sendJobOffer(offerData) {
+    try {
+      if (!offerData.staffId || !offerData.salary || !offerData.startDate) {
+        throw new Error('Staff ID, salary, and start date are required');
+      }
+
+      console.log(`📤 Sending job offer to staff:`, offerData);
+      const response = await api.post('/salon/job-offers', offerData);
+      
+      if (response.data.success) {
+        console.log('✅ Job offer sent successfully');
+        return response.data;
+      } else {
+        throw new Error(response.data.message || 'Failed to send job offer');
+      }
+    } catch (error) {
+      console.error('❌ Error sending job offer:', error);
+      throw error;
+    }
+  },
+
+  // Reject staff application
+  async rejectStaffApplication(notificationId) {
+    try {
+      if (!notificationId) {
+        throw new Error('Notification ID is required');
+      }
+
+      console.log(`❌ Rejecting staff application: ${notificationId}`);
+      const response = await api.put(`/salon/notifications/${notificationId}/reject`);
+      
+      if (response.data.success) {
+        console.log('✅ Application rejected successfully');
+        return response.data;
+      } else {
+        throw new Error(response.data.message || 'Failed to reject application');
+      }
+    } catch (error) {
+      console.error('❌ Error rejecting application:', error);
+      throw error;
+    }
+  },
+
+  // Helper method to filter notifications by search term
+  filterNotifications(notifications, searchTerm) {
+    if (!searchTerm || searchTerm.trim() === '') {
+      return notifications;
+    }
+
+    const term = searchTerm.toLowerCase().trim();
+    return notifications.filter(notification => 
+      notification.subject.toLowerCase().includes(term) ||
+      notification.message.toLowerCase().includes(term) ||
+      notification.staff?.name.toLowerCase().includes(term) ||
+      notification.targetSkill.toLowerCase().includes(term)
+    );
+  },
+
 };

@@ -32,6 +32,7 @@ const StaffAvailability = React.lazy(() => import('./pages/salon/StaffAvailabili
 const SalonRevenueDashboard = React.lazy(() => import('./pages/salon/RevenueDashboard'))
 const FinancialDashboard = React.lazy(() => import('./pages/salon/FinancialDashboard'))
 const ClientRecommendationsPage = React.lazy(() => import('./pages/salon/ClientRecommendationsPage'))
+const SalonNotifications = React.lazy(() => import('./pages/salon/SalonNotifications'))
 
 // Staff Pages
 const StaffDashboard = React.lazy(() => import('./pages/staff/StaffDashboard'))
@@ -42,6 +43,7 @@ const StaffEditProfile = React.lazy(() => import('./pages/staff/StaffEditProfile
 const StaffSchedule = React.lazy(() => import('./pages/staff/StaffSchedule'))
 const StaffServices = React.lazy(() => import('./pages/staff/StaffServices'))
 const StaffReport = React.lazy(() => import('./pages/staff/Report'))
+const StaffBroadcasts = React.lazy(() => import('./pages/staff/StaffBroadcasts'))
 
 // Customer Pages
 const CustomerDashboard = React.lazy(() => import('./pages/customer/CustomerDashboard'))
@@ -310,6 +312,16 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/salon/notifications"
+            element={
+              <ProtectedRoute allowedRoles={['salon']}>
+                <SetupRequiredRoute setupPath="/salon/setup">
+                  <SalonNotifications />
+                </SetupRequiredRoute>
+              </ProtectedRoute>
+            }
+          />
 
           {/* Staff Routes */}
           <Route
@@ -384,6 +396,16 @@ function App() {
               <ProtectedRoute allowedRoles={['staff']}>
                 <SetupRequiredRoute setupPath="/staff/setup">
                   <StaffReport />
+                </SetupRequiredRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/staff/broadcasts"
+            element={
+              <ProtectedRoute allowedRoles={['staff']}>
+                <SetupRequiredRoute setupPath="/staff/setup">
+                  <StaffBroadcasts />
                 </SetupRequiredRoute>
               </ProtectedRoute>
             }

@@ -23,7 +23,12 @@ import {
   getExpenses,
   getExpenseSummary,
   updateExpense,
-  deleteExpense
+  deleteExpense,
+  getSalonNotifications,
+  markSalonNotificationAsRead,
+  sendReplyToStaff,
+  sendJobOffer,
+  rejectStaffApplication
 } from '../controllers/salonController.js';
 import * as appointmentController from '../controllers/appointmentController.js';
 import { requireSalonOwner, requireSalonSetup } from '../middleware/roleAuth.js';
@@ -58,6 +63,13 @@ router.post('/setup', salonSetupUploads, uploadErrorHandler, validateSalonSetup,
 // Routes that require completed setup
 router.get('/dashboard', requireSalonSetup, getDashboard);
 router.get('/dashboard/:salonId', requireSalonSetup, getDashboardById);
+
+// Notification routes for salon owners
+router.get('/notifications', requireSalonSetup, validatePagination, getSalonNotifications);
+router.put('/notifications/:notificationId/read', requireSalonSetup, validateObjectId('notificationId'), markSalonNotificationAsRead);
+router.post('/notifications/:notificationId/reply', requireSalonSetup, validateObjectId('notificationId'), sendReplyToStaff);
+router.post('/job-offers', requireSalonSetup, sendJobOffer);
+router.put('/notifications/:notificationId/reject', requireSalonSetup, validateObjectId('notificationId'), rejectStaffApplication);
 
 // Profile routes with file upload support
 router.get('/profile', getProfile);

@@ -4,6 +4,7 @@ import Service from '../models/Service.js';
 import Appointment from '../models/Appointment.js';
 import Revenue from '../models/Revenue.js';
 import Expense from '../models/Expense.js';
+import StaffNotification from '../models/StaffNotification.js';
 import jwt from 'jsonwebtoken';
 import { sendAppointmentConfirmation } from '../utils/email.js';
 import { 
@@ -1538,6 +1539,510 @@ export const getSalonLocations = asyncHandler(async (req, res) => {
   return successResponse(res, locations, 'Salon locations retrieved');
 });
 
+// Get notifications for salon owner (replies from staff)
+export const getSalonNotifications = asyncHandler(async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { 
+      page = 1, 
+      limit = 20, 
+      unreadOnly = false, 
+      category = null,
+      includeArchived = false,
+      type = null
+    } = req.query;
+
+    // Get salon owner information
+    const User = (await import('../models/User.js')).default;
+    const user = await User.findById(userId);
+    if (!user) {
+      return errorResponse(res, 'User account not found. Please log in again.', 401);
+    }
+
+    if (user.type !== 'salon') {
+      return errorResponse(res, 'Access denied: Only salon owners can view notifications', 403);
+    }
+
+    // Try to find salon by email first (existing method)
+    let salon = await Salon.findOne({ email: user.email });
+    
+    // If not found, try to find by ownerId (more robust method)
+    if (!salon) {
+      salon = await Salon.findOne({ ownerId: userId });
+    }
+    
+    // If still not found, try to find by userId (another fallback)
+    if (!salon) {
+      salon = await Salon.findById(userId);
+    }
+    
+    if (!salon) {
+      console.warn('Salon profile missing for user', { userId, email: user.email });
+      return errorResponse(res, 'Salon profile not found.', 404);
+    }
+
+    console.log(`📬 Fetching notifications for salon owner: ${salon.salonName} (${salon.email})`);
+
+    // Get notifications using the static method
+    const options = {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      unreadOnly: unreadOnly === 'true',
+      category: category || null,
+      includeArchived: includeArchived === 'true',
+      type: type || null
+    };
+
+    const notifications = await StaffNotification.getForSalonOwner(salon._id, options);
+    
+    // Debug: Log the raw notifications to see what we're getting
+    console.log('Raw notifications count:', notifications.length);
+    if (notifications.length > 0) {
+      console.log('First notification raw data:', JSON.stringify(notifications[0].toObject(), null, 2));
+    }
+    
+    // Get total count for pagination
+    const totalFilter = { 
+      staffId: salon._id, // Salon owner is the recipient
+      ...(options.unreadOnly && { isRead: false }),
+      ...(options.category && { category: options.category }),
+      ...(!options.includeArchived && { isArchived: false }),
+      ...(options.type && { type: options.type })
+    };
+    
+    const totalNotifications = await StaffNotification.countDocuments(totalFilter);
+
+    // Get unread count
+    const unreadCount = await StaffNotification.getUnreadCountForSalonOwner(salon._id);
+
+    // Format notifications for response
+    const formattedNotifications = notifications.map(notification => {
+      // Debug: Log each notification being processed
+      console.log('Processing notification:', {
+        id: notification._id,
+        senderId: notification.senderId,
+        senderType: notification.senderType,
+        senderName: notification.senderName,
+        senderEmail: notification.senderEmail
+      });
+      
+      // Extract sender information from populated document or direct fields
+      let senderName = 'Staff Member';
+      let senderEmail = 'N/A';
+      let senderPosition = 'N/A';
+      let senderId = null;
+      
+      // Check if senderDocument is populated (object with data)
+      if (notification.senderId && typeof notification.senderId === 'object' && notification.senderId._id) {
+        // Populated document
+        senderName = notification.senderId.name || notification.senderName || 'Staff Member';
+        senderEmail = notification.senderId.email || notification.senderEmail || 'N/A';
+        senderPosition = notification.senderId.position || 'N/A';
+        senderId = notification.senderId._id.toString();
+        console.log('Using populated sender data:', { senderName, senderEmail, senderPosition });
+      } else if (notification.senderId) {
+        // SenderId exists but not populated, use direct fields
+        senderName = notification.senderName || 'Staff Member';
+        senderEmail = notification.senderEmail || 'N/A';
+        senderPosition = 'N/A'; // Position not available without population
+        senderId = notification.senderId.toString();
+        console.log('Using direct sender fields:', { senderName, senderEmail, senderPosition });
+      } else {
+        // Fallback to direct fields
+        senderName = notification.senderName || 'Staff Member';
+        senderEmail = notification.senderEmail || 'N/A';
+        senderPosition = 'N/A';
+        senderId = notification.senderId;
+        console.log('Using fallback sender fields:', { senderName, senderEmail, senderPosition });
+      }
+
+      return {
+        id: notification._id,
+        subject: notification.subject,
+        message: notification.message,
+        category: notification.category,
+        priority: notification.priority,
+        targetSkill: notification.targetSkill,
+        isRead: notification.isRead,
+        isArchived: notification.isArchived,
+        sentAt: notification.sentAt,
+        readAt: notification.readAt,
+        deliveredAt: notification.deliveredAt,
+        timeSinceSent: notification.timeSinceSent,
+        type: notification.type,
+        staff: {
+          name: senderName,
+          email: senderEmail,
+          position: senderPosition,
+          id: senderId
+        },
+        broadcast: notification.broadcastId ? {
+          id: notification.broadcastId._id,
+          subject: notification.broadcastId.subject,
+          targetSkill: notification.broadcastId.targetSkill,
+          sentAt: notification.broadcastId.sentAt
+        } : null
+      };
+    });
+
+    console.log(`✅ Retrieved ${formattedNotifications.length} notifications for ${salon.salonName}`);
+
+    const pagination = {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      total: totalNotifications,
+      pages: Math.ceil(totalNotifications / parseInt(limit))
+    };
+
+    paginatedResponse(res, {
+      notifications: formattedNotifications,
+      pagination,
+      unreadCount,
+      salonInfo: {
+        name: salon.salonName,
+        email: salon.email
+      }
+    }, 'Notifications retrieved successfully');
+
+  } catch (error) {
+    console.error('Error fetching salon notifications:', error);
+    errorResponse(res, 'Failed to fetch notifications', 500);
+  }
+});
+
+// Mark notification as read (for salon owner)
+export const markSalonNotificationAsRead = asyncHandler(async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { notificationId } = req.params;
+
+    // Get salon owner information
+    const User = (await import('../models/User.js')).default;
+    const user = await User.findById(userId);
+    if (!user || user.type !== 'salon') {
+      return errorResponse(res, 'Access denied: Only salon owners can mark notifications as read', 403);
+    }
+
+    // Try to find salon by email first (existing method)
+    let salon = await Salon.findOne({ email: user.email });
+    
+    // If not found, try to find by ownerId (more robust method)
+    if (!salon) {
+      salon = await Salon.findOne({ ownerId: userId });
+    }
+    
+    // If still not found, try to find by userId (another fallback)
+    if (!salon) {
+      salon = await Salon.findById(userId);
+    }
+    
+    if (!salon) {
+      return errorResponse(res, 'Salon profile not found', 404);
+    }
+
+    // Find the notification (must be sent to this salon owner)
+    const notification = await StaffNotification.findOne({
+      _id: notificationId,
+      staffId: salon._id // Salon owner is the recipient
+    });
+
+    if (!notification) {
+      return errorResponse(res, 'Notification not found', 404);
+    }
+
+    // Mark as read if not already read
+    if (!notification.isRead) {
+      const metadata = {
+        readAt: new Date(),
+        userAgent: req.get('User-Agent'),
+        ipAddress: req.ip
+      };
+
+      await notification.markAsRead(metadata);
+      console.log(`📖 Notification marked as read: ${notification.subject} for ${salon.salonName}`);
+    }
+
+    successResponse(res, {
+      notificationId: notification._id,
+      isRead: true,
+      readAt: notification.readAt
+    }, 'Notification marked as read');
+
+  } catch (error) {
+    console.error('Error marking notification as read:', error);
+    errorResponse(res, 'Failed to mark notification as read', 500);
+  }
+});
+
+// Send reply to staff notification
+export const sendReplyToStaff = asyncHandler(async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { notificationId } = req.params;
+    const { message } = req.body;
+
+    // Validate input
+    if (!message || message.trim().length === 0) {
+      return errorResponse(res, 'Message is required', 400);
+    }
+
+    // Get salon owner information
+    const User = (await import('../models/User.js')).default;
+    const user = await User.findById(userId);
+    if (!user || user.type !== 'salon') {
+      return errorResponse(res, 'Access denied: Only salon owners can send replies', 403);
+    }
+
+    const salon = await Salon.findOne({ email: user.email });
+    if (!salon) {
+      return errorResponse(res, 'Salon profile not found', 404);
+    }
+
+    // Find the notification (must be sent to this salon owner)
+    const notification = await StaffNotification.findOne({
+      _id: notificationId,
+      staffId: salon._id // Salon owner is the recipient
+    });
+
+    if (!notification) {
+      return errorResponse(res, 'Notification not found', 404);
+    }
+
+    // Create a reply notification for the staff member
+    const replyNotification = new StaffNotification({
+      staffId: notification.senderId, // Original sender (staff) becomes recipient of reply
+      staffName: notification.senderName,
+      staffEmail: notification.senderEmail,
+      senderId: salon._id, // Current salon becomes sender
+      senderType: 'Salon', // Specify that the sender is a salon
+      senderName: salon.salonName,
+      senderEmail: salon.email,
+      senderSalonName: salon.salonName,
+      broadcastId: notification.broadcastId,
+      type: 'direct_message',
+      subject: `Re: ${notification.subject}`,
+      message: message,
+      targetSkill: notification.targetSkill,
+      status: 'sent',
+      priority: 'medium',
+      category: notification.category
+    });
+
+    await replyNotification.save();
+
+    console.log(`✅ Reply sent from ${salon.salonName} to ${notification.senderName}`);
+
+    successResponse(res, {
+      replyId: replyNotification._id,
+      message: 'Reply sent successfully'
+    }, 'Reply sent successfully');
+
+  } catch (error) {
+    console.error('Error sending reply to staff:', error);
+    errorResponse(res, 'Failed to send reply', 500);
+  }
+});
+
+// Send job offer to staff
+export const sendJobOffer = asyncHandler(async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { 
+      staffId, 
+      salary, 
+      commissionRate, 
+      startDate, 
+      position, 
+      notes 
+    } = req.body;
+
+    // Validate required fields
+    if (!staffId || !salary || !startDate || !position) {
+      return errorResponse(res, 'Staff ID, salary, start date, and position are required', 400);
+    }
+
+    // Get salon owner information
+    const User = (await import('../models/User.js')).default;
+    const user = await User.findById(userId);
+    if (!user || user.type !== 'salon') {
+      return errorResponse(res, 'Access denied: Only salon owners can send job offers', 403);
+    }
+
+    const salon = await Salon.findOne({ email: user.email });
+    if (!salon) {
+      return errorResponse(res, 'Salon profile not found', 404);
+    }
+
+    // Find the staff member
+    const staff = await Staff.findById(staffId);
+    if (!staff) {
+      return errorResponse(res, 'Staff member not found', 404);
+    }
+
+    // Create a job offer notification for the staff member
+    const offerDetails = {
+      salary,
+      commissionRate: commissionRate || null,
+      startDate,
+      position,
+      notes: notes || '',
+      offeredBy: {
+        salonId: salon._id,
+        salonName: salon.salonName,
+        contactEmail: salon.email,
+        contactPhone: salon.contactNumber
+      }
+    };
+
+    const jobOfferNotification = new StaffNotification({
+      staffId: staff._id,
+      staffName: staff.name,
+      staffEmail: staff.email,
+      senderId: salon._id,
+      senderType: 'Salon', // Specify that the sender is a salon
+      senderName: salon.salonName,
+      senderEmail: salon.email,
+      senderSalonName: salon.salonName,
+      broadcastId: null, // This is a direct job offer, not related to a broadcast
+      type: 'direct_message',
+      subject: `Job Offer: ${position} at ${salon.salonName}`,
+      message: `You have received a job offer for the position of ${position} at ${salon.salonName}.
+
+Offer Details:
+- Salary: ₹${salary}
+${commissionRate ? `- Commission: ${commissionRate}%
+` : ''}- Start Date: ${new Date(startDate).toLocaleDateString()}
+${notes ? `
+Additional Notes:
+${notes}
+` : ''}
+Please respond to this offer at your earliest convenience.`,
+      targetSkill: position, // Using position as target skill for categorization
+      status: 'sent',
+      priority: 'high',
+      category: 'opportunity',
+      metadata: {
+        jobOffer: offerDetails
+      }
+    });
+
+    await jobOfferNotification.save();
+
+    console.log(`✅ Job offer sent from ${salon.salonName} to ${staff.name}`);
+
+    successResponse(res, {
+      offerId: jobOfferNotification._id,
+      message: 'Job offer sent successfully'
+    }, 'Job offer sent successfully');
+
+  } catch (error) {
+    console.error('Error sending job offer:', error);
+    errorResponse(res, 'Failed to send job offer', 500);
+  }
+});
+
+// Reject staff application
+export const rejectStaffApplication = asyncHandler(async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { notificationId } = req.params;
+
+    // Get salon owner information
+    const User = (await import('../models/User.js')).default;
+    const user = await User.findById(userId);
+    if (!user || user.type !== 'salon') {
+      return errorResponse(res, 'Access denied: Only salon owners can reject applications', 403);
+    }
+
+    const salon = await Salon.findOne({ email: user.email });
+    if (!salon) {
+      return errorResponse(res, 'Salon profile not found', 404);
+    }
+
+    // Find the notification (must be sent to this salon owner)
+    const notification = await StaffNotification.findOne({
+      _id: notificationId,
+      staffId: salon._id // Salon owner is the recipient
+    });
+
+    if (!notification) {
+      return errorResponse(res, 'Notification not found', 404);
+    }
+
+    // Update the notification status to indicate rejection
+    notification.metadata = {
+      ...notification.metadata,
+      rejected: true,
+      rejectedAt: new Date(),
+      rejectedBy: {
+        salonId: salon._id,
+        salonName: salon.salonName
+      }
+    };
+
+    await notification.save();
+
+    console.log(`❌ Staff application rejected by ${salon.salonName} for ${notification.senderName}`);
+
+    successResponse(res, {
+      notificationId: notification._id,
+      message: 'Application marked as unsuitable'
+    }, 'Application marked as unsuitable');
+
+  } catch (error) {
+    console.error('Error rejecting staff application:', error);
+    errorResponse(res, 'Failed to reject application', 500);
+  }
+});
+
+// DEBUG: Check specific notification
+export const debugNotification = asyncHandler(async (req, res) => {
+  try {
+    const { notificationId } = req.params;
+    
+    // Find the specific notification
+    const notification = await StaffNotification.findById(notificationId);
+    
+    if (!notification) {
+      return errorResponse(res, 'Notification not found', 404);
+    }
+    
+    // Get salon owner information
+    const User = (await import('../models/User.js')).default;
+    const user = await User.findById(req.user.id);
+    const salon = await Salon.findOne({ email: user.email });
+    
+    // Test different query approaches
+    const directQuery = await StaffNotification.find({ 
+      staffId: salon._id,
+      type: 'direct_message'
+    });
+    
+    const methodQuery = await StaffNotification.getForSalonOwner(salon._id, { type: 'direct_message' });
+    
+    const count = await StaffNotification.countDocuments({ 
+      staffId: salon._id,
+      type: 'direct_message'
+    });
+    
+    const notificationInDirectQuery = directQuery.some(n => n._id.toString() === notificationId);
+    const notificationInMethodQuery = methodQuery.some(n => n._id.toString() === notificationId);
+    
+    successResponse(res, {
+      notification,
+      salonId: salon._id,
+      directQueryCount: directQuery.length,
+      methodQueryCount: methodQuery.length,
+      totalCount: count,
+      notificationInDirectQuery,
+      notificationInMethodQuery
+    }, 'Debug info retrieved');
+  } catch (error) {
+    console.error('Debug error:', error);
+    errorResponse(res, 'Debug failed', 500);
+  }
+});
+
 export default {
   register,
   updateDetails,
@@ -1562,5 +2067,10 @@ export default {
   getExpenseSummary,
   updateExpense,
   deleteExpense,
-  getSalonLocations
+  getSalonLocations,
+  getSalonNotifications,
+  markSalonNotificationAsRead,
+  sendReplyToStaff,
+  sendJobOffer,
+  rejectStaffApplication
 };

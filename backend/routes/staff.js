@@ -20,6 +20,7 @@ import {
 import { requireStaff, requireStaffSetup, requireSalonOwner } from '../middleware/roleAuth.js';
 import { validateStaffSetup, validatePagination, validateObjectId } from '../middleware/validation.js';
 import { upload } from '../middleware/upload.js';
+import staffNotificationRoutes from './staffNotification.js';
 
 const router = express.Router();
 
@@ -38,6 +39,9 @@ router.post(
 
 // All routes below require staff authentication
 router.use(requireStaff);
+
+// Notification Routes
+router.use('/notifications', staffNotificationRoutes);
 
 
 // Setup (no setup completion required)
