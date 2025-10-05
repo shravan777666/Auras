@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { staffService } from '../../services/staff';
 import { staffNotificationService } from '../../services/staffNotification';
+import { staffInvitationService } from '../../services/staffInvitation';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import UpcomingAppointmentsCard from '../../components/staff/UpcomingAppointmentsCard';
 import { toast } from 'react-hot-toast';
@@ -20,6 +21,7 @@ import {
   MessageSquare,
   Mail,
   AlertCircle,
+  UserPlus,
 } from 'lucide-react';
 import { Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
@@ -56,10 +58,12 @@ const StaffDashboard = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [pendingInvitations, setPendingInvitations] = useState(0);
 
-  // Load notifications
+  // Load notifications and invitations
   const loadNotifications = async () => {
     try {
+      // Load notifications
       const response = await staffNotificationService.getNotifications({ 
         limit: 5, 
         unreadOnly: false 
@@ -68,6 +72,10 @@ const StaffDashboard = () => {
         setNotifications(response.data.notifications || []);
         setUnreadCount(response.data.unreadCount || 0);
       }
+      
+      // Check for pending invitations
+      const invitationResponse = await staffInvitationService.getPendingInvitations();
+      setPendingInvitations(invitationResponse.length || 0);
     } catch (error) {
       console.error('Error loading notifications:', error);
       // Don't show error toast for notifications as it's not critical
@@ -209,6 +217,18 @@ const StaffDashboard = () => {
                   {unreadCount > 0 && (
                     <span className="bg-red-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
                       {unreadCount}
+                    </span>
+                  )}
+                </button>
+              </li>
+              <li className="mb-4">
+                <button onClick={() => navigate('/staff/invitations')} className="w-full text-left flex items-center justify-between p-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <UserPlus size={20} /> Invitations
+                  </div>
+                  {pendingInvitations > 0 && (
+                    <span className="bg-green-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
+                      {pendingInvitations}
                     </span>
                   )}
                 </button>

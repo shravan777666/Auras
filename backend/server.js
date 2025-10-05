@@ -38,6 +38,8 @@ import customerMessageRoutes from './routes/customerMessage.js';
 import revenueRoutes from './routes/revenue.js';
 import broadcastRoutes from './routes/broadcast.js';
 import staffNotificationRoutes from './routes/staffNotification.js';
+import staffInvitationRoutes from './routes/staffInvitation.js';
+import userRoutes from './routes/user.js';
 
 // Create Express app
 const app = express();
@@ -302,6 +304,8 @@ app.use('/api/client-profiles', clientProfileRoutes);
 app.use('/api/customer/messages', customerMessageRoutes);
 app.use('/api/revenue', revenueRoutes);
 app.use('/api/broadcast', broadcastRoutes);
+app.use('/api/staff-invitations', staffInvitationRoutes);
+app.use('/api/users', userRoutes);
 
 // Handle undefined routes
 app.all('*', (req, res) => {
@@ -318,7 +322,9 @@ app.all('*', (req, res) => {
       appointment: '/api/appointment',
       forgotPassword: '/api/forgot-password',
       reviews: '/api/reviews',
-      recommendations: '/api/recommendations'
+      recommendations: '/api/recommendations',
+      users: '/api/users',
+      staffInvitations: '/api/staff-invitations'
     }
   });
 });
@@ -327,9 +333,12 @@ app.all('*', (req, res) => {
 app.use(globalErrorHandler);
 
 // Start server with graceful EADDRINUSE handling and port fallback
+console.log('🔧 PORT from environment:', process.env.PORT);
 const DEFAULT_PORT = parseInt(process.env.PORT, 10) || 5005;
+console.log('🔧 DEFAULT_PORT calculated:', DEFAULT_PORT);
 
 const startServer = (port, attemptsLeft = 5) => {
+  console.log(`🔧 Attempting to start server on port ${port}`);
   const server = app.listen(port, '0.0.0.0');
 
   server.on('listening', () => {

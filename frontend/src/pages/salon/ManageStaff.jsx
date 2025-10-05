@@ -4,20 +4,27 @@ import { useNavigate } from 'react-router-dom';
 import { salonService } from '../../services/salon';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { toast } from 'react-hot-toast';
-import { User, Mail, Phone, Briefcase, CalendarDays, MapPin, BadgeCheck, Globe, ArrowRight } from 'lucide-react';
+import { User, Mail, Phone, Briefcase, CalendarDays, MapPin, BadgeCheck, Globe, ArrowRight, RefreshCw, UserPlus } from 'lucide-react';
 
 const ManageStaff = () => {
   const navigate = useNavigate();
   const [staffList, setStaffList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [previousStaffCount, setPreviousStaffCount] = useState(0);
 
   useEffect(() => {
     const fetchStaff = async () => {
       try {
         const response = await salonService.getSalonStaff();
         if (response.success) {
+          // Check if a new staff member was added
+          if (response.data.length > previousStaffCount && previousStaffCount > 0) {
+            toast.success(`New staff member added to your team!`);
+          }
           setStaffList(response.data);
+          setPreviousStaffCount(response.data.length);
         } else {
           toast.error(response.message || 'Failed to fetch staff list.');
         }
@@ -30,7 +37,7 @@ const ManageStaff = () => {
     };
 
     fetchStaff();
-  }, []);
+  }, [refreshTrigger, previousStaffCount]);
 
   if (loading) {
     return <LoadingSpinner />;
@@ -48,14 +55,30 @@ const ManageStaff = () => {
           <h1 className="text-2xl font-bold text-gray-900">Manage Staff</h1>
           <p className="text-gray-600 mt-1">Manage your salon's current staff members</p>
         </div>
-        <button
-          onClick={() => navigate('/salon/global-staff')}
-          className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-        >
-          <Globe className="h-4 w-4 mr-2" />
-          Global Staff Directory
-          <ArrowRight className="h-4 w-4 ml-2" />
-        </button>
+        <div className="flex space-x-3">
+          <button
+            onClick={() => navigate('/salon/staff/new')}
+            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            <UserPlus className="h-4 w-4 mr-2" />
+            Add Staff
+          </button>
+          <button
+            onClick={() => setRefreshTrigger(prev => prev + 1)}
+            className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </button>
+          <button
+            onClick={() => navigate('/salon/global-staff')}
+            className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+          >
+            <Globe className="h-4 w-4 mr-2" />
+            Global Staff Directory
+            <ArrowRight className="h-4 w-4 ml-2" />
+          </button>
+        </div>
       </div>
 
       {/* Info card about Global Staff Directory */}

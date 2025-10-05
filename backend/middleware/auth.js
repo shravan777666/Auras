@@ -21,10 +21,13 @@ export const authenticateToken = async (req, res, next) => {
 };
 
 // Role-based access control middleware
-export const requireRole = (role) => {
+export const requireRole = (roles) => {
+  // Convert single role to array for consistent handling
+  const allowedRoles = Array.isArray(roles) ? roles : [roles];
+  
   return (req, res, next) => {
-    if (!req.user || req.user.type !== role) {
-      return res.status(403).json({ success: false, message: `Access denied: ${role} only.` });
+    if (!req.user || !allowedRoles.includes(req.user.type)) {
+      return res.status(403).json({ success: false, message: `Access denied. Required role: ${allowedRoles.join(' or ')}.` });
     }
     next();
   };

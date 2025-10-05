@@ -24,6 +24,7 @@ const SalonSetup = React.lazy(() => import('./pages/salon/SalonSetup'))
 const WaitingApproval = React.lazy(() => import('./pages/salon/WaitingApproval'))
 const EditSalonProfile = React.lazy(() => import('./pages/salon/EditSalonProfile'))
 const AddStaff = React.lazy(() => import('./pages/salon/AddStaff'))
+const SearchInviteStaff = React.lazy(() => import('./pages/salon/SearchInviteStaff'))
 const ManageStaff = React.lazy(() => import('./pages/salon/ManageStaff'))
 const GlobalStaffDirectory = React.lazy(() => import('./pages/salon/GlobalStaffDirectory'))
 const ManageServices = React.lazy(() => import('./pages/salon/ManageServices'))
@@ -44,6 +45,7 @@ const StaffSchedule = React.lazy(() => import('./pages/staff/StaffSchedule'))
 const StaffServices = React.lazy(() => import('./pages/staff/StaffServices'))
 const StaffReport = React.lazy(() => import('./pages/staff/Report'))
 const StaffBroadcasts = React.lazy(() => import('./pages/staff/StaffBroadcasts'))
+const StaffInvitations = React.lazy(() => import('./pages/staff/StaffInvitations'))
 
 // Customer Pages
 const CustomerDashboard = React.lazy(() => import('./pages/customer/CustomerDashboard'))
@@ -227,6 +229,16 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['salon']}>
                 <SetupRequiredRoute setupPath="/salon/setup">
+                  <SearchInviteStaff />
+                </SetupRequiredRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/salon/staff/add"
+            element={
+              <ProtectedRoute allowedRoles={['salon']}>
+                <SetupRequiredRoute setupPath="/salon/setup">
                   <AddStaff />
                 </SetupRequiredRoute>
               </ProtectedRoute>
@@ -407,6 +419,14 @@ function App() {
                 <SetupRequiredRoute setupPath="/staff/setup">
                   <StaffBroadcasts />
                 </SetupRequiredRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/staff/invitations"
+            element={
+              <ProtectedRoute allowedRoles={['staff']}>
+                <StaffInvitations />
               </ProtectedRoute>
             }
           />
