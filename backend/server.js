@@ -40,6 +40,7 @@ import broadcastRoutes from './routes/broadcast.js';
 import staffNotificationRoutes from './routes/staffNotification.js';
 import staffInvitationRoutes from './routes/staffInvitation.js';
 import userRoutes from './routes/user.js';
+import alertsRoutes from './routes/alerts.js';
 
 // Create Express app
 const app = express();
@@ -306,6 +307,7 @@ app.use('/api/revenue', revenueRoutes);
 app.use('/api/broadcast', broadcastRoutes);
 app.use('/api/staff-invitations', staffInvitationRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/alerts', alertsRoutes);
 
 // Handle undefined routes
 app.all('*', (req, res) => {

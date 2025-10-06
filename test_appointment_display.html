@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Appointment Display</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .countdown-card { 
+            border: 1px solid #ddd; 
+            border-radius: 8px; 
+            padding: 20px; 
+            margin: 20px 0; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            max-width: 500px;
+        }
+        .countdown-header { 
+            background-color: #10B981; 
+            color: white; 
+            padding: 15px; 
+            text-align: center; 
+            font-weight: bold; 
+            border-radius: 4px;
+            margin: -20px -20px 20px -20px;
+        }
+        .countdown-header.yellow { background-color: #F59E0B; }
+        .countdown-header.red { background-color: #EF4444; }
+        .client-info { margin: 15px 0; }
+        .service-info { margin: 15px 0; }
+        .notes { 
+            background-color: #DBEAFE; 
+            border-left: 4px solid #3B82F6; 
+            padding: 10px; 
+            margin: 15px 0; 
+            border-radius: 4px;
+        }
+        .start-button { 
+            background-color: #7C3AED; 
+            color: white; 
+            border: none; 
+            padding: 12px 20px; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            width: 100%; 
+            font-weight: bold;
+        }
+        .start-button:hover { background-color: #6D28D9; }
+    </style>
+</head>
+<body>
+    <h1>Test Appointment Display</h1>
+    
+    <div class="countdown-card">
+        <div class="countdown-header">
+            ⏰ Next Up in 2 hours
+        </div>
+        
+        <div style="display: flex; align-items: flex-start; gap: 20px;">
+            <div style="flex-shrink: 0;">
+                <div style="width: 64px; height: 64px; background-color: #E5E7EB; border: 2px dashed #9CA3AF; border-radius: 8px;"></div>
+            </div>
+            
+            <div style="flex: 1;">
+                <div class="client-info">
+                    <strong>Client:</strong> Sarah J.
+                </div>
+                
+                <div class="service-info">
+                    <strong>Service:</strong> Deep Conditioning Treatment
+                </div>
+                
+                <div class="notes">
+                    <strong>Note:</strong> Check for scalp sensitivity (from last visit)
+                </div>
+            </div>
+        </div>
+        
+        <div style="margin-top: 20px;">
+            <button class="start-button">Start Service</button>
+        </div>
+    </div>
+    
+    <div class="countdown-card">
+        <div class="countdown-header yellow">
+            ⏰ Next Up in 15 mins
+        </div>
+        
+        <div style="display: flex; align-items: flex-start; gap: 20px;">
+            <div style="flex-shrink: 0;">
+                <div style="width: 64px; height: 64px; background-color: #E5E7EB; border: 2px dashed #9CA3AF; border-radius: 8px;"></div>
+            </div>
+            
+            <div style="flex: 1;">
+                <div class="client-info">
+                    <strong>Client:</strong> John Smith
+                </div>
+                
+                <div class="service-info">
+                    <strong>Service:</strong> Haircut & Style
+                </div>
+            </div>
+        </div>
+        
+        <div style="margin-top: 20px;">
+            <button class="start-button">Start Service</button>
+        </div>
+    </div>
+    
+    <div class="countdown-card">
+        <div style="text-align: center; color: #6B7280; padding: 40px 20px;">
+            No upcoming appointments found for today
+        </div>
+    </div>
+</body>
+</html>

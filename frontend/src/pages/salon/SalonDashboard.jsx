@@ -43,6 +43,7 @@ import LogoutButton from '../../components/auth/LogoutButton';
 import AddServiceModal from '../../components/salon/AddServiceModal';
 import AssignStaffModal from '../../components/salon/AssignStaffModal';
 import ClientRecommendations from '../../components/salon/ClientRecommendations';
+import NeedsAttentionAlerts from '../../components/salon/NeedsAttentionAlerts';
 
 // A reusable card for displaying statistics
 const StatCard = ({ icon, title, value, color, onClick }) => (
@@ -502,7 +503,10 @@ const SalonDashboard = () => {
           </div>
         )}
 
-        {/* Client Recommendations Section - Added after Welcome Banner */}
+        {/* Needs Attention Alerts - Added immediately after Welcome Banner */}
+        <NeedsAttentionAlerts />
+
+        {/* Client Recommendations Section - Added after Needs Attention Alerts */}
         <div className="mb-8">
           <ClientRecommendations />
         </div>

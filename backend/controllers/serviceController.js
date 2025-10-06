@@ -76,6 +76,11 @@ export const getSalonServices = asyncHandler(async (req, res) => {
     filter.isActive = req.query.active === 'true';
   }
 
+  // Handle low bookings filter
+  if (req.query.filter === 'low_bookings') {
+    filter.totalBookings = { $lt: 5 }; // Services with less than 5 bookings
+  }
+
   const [services, totalServices] = await Promise.all([
     Service.find(filter)
       .populate('availableStaff', 'name skills')

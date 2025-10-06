@@ -173,6 +173,17 @@ export const staffService = {
     return response.data;
   },
 
+  // New service for next appointment countdown
+  async getNextAppointment() {
+    try {
+      const response = await api.get('/staff/next-appointment');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching next appointment:', error);
+      throw error;
+    }
+  },
+
   // Keep the individual export as well
   getAppointmentsByStaffId,
 };

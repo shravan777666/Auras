@@ -135,14 +135,21 @@ export const salonService = {
     return response.data;
   },
 
-  async getServices({ page = 1, limit = 20, category, active } = {}) {
-    const params = new URLSearchParams();
-    params.set('page', page);
-    params.set('limit', limit);
-    if (category) params.set('category', category);
-    if (active !== undefined) params.set('active', active);
-    const response = await api.get(`/service/my/services?${params.toString()}`);
-    return response.data;
+  async getServices({ page = 1, limit = 20, category, active, filter } = {}) {
+    try {
+      const params = new URLSearchParams();
+      params.set('page', page);
+      params.set('limit', limit);
+      if (category) params.set('category', category);
+      if (active !== undefined) params.set('active', active);
+      if (filter) params.set('filter', filter);
+      const response = await api.get(`/service/my/services?${params.toString()}`);
+      // Return the full response object, not just response.data
+      return response;
+    } catch (error) {
+      console.error('Error fetching services:', error);
+      throw error;
+    }
   },
 
   async getServiceCatalog(params = {}) {

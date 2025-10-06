@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { salonService } from '../../services/salon';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import AddServiceModal from '../../components/salon/AddServiceModal';
@@ -21,11 +21,14 @@ import {
   Flower2,
   Sparkles,
   Heart,
-  User
+  User,
+  AlertTriangle,
+  TrendingDown
 } from 'lucide-react';
 
 const ManageServices = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -34,6 +37,8 @@ const ManageServices = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [isAddServiceModalOpen, setIsAddServiceModalOpen] = useState(false);
   const [serviceToEdit, setServiceToEdit] = useState(null);
+  const [showAlertServicesOnly, setShowAlertServicesOnly] = useState(false);
+  const [lowBookingsThreshold] = useState(5); // Threshold for low bookings
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
@@ -41,85 +46,43 @@ const ManageServices = () => {
     totalItems: 0
   });
 
-  // Default services data
-  const defaultServices = [
-    // Hair Services
-    { _id: '1', name: 'Haircut - Men', category: 'Hair', price: 500, duration: 30, description: 'Professional haircut for men', isActive: true },
-    { _id: '2', name: 'Haircut - Women', category: 'Hair', price: 800, duration: 45, description: 'Professional haircut for women', isActive: true },
-    { _id: '3', name: 'Haircut - Kids', category: 'Hair', price: 400, duration: 25, description: 'Haircut for children', isActive: true },
-    { _id: '4', name: 'Blow Dry Styling', category: 'Hair', price: 600, duration: 30, description: 'Professional blow dry styling', isActive: true },
-    { _id: '5', name: 'Hair Straightening', category: 'Hair', price: 1500, duration: 90, description: 'Hair straightening treatment', isActive: true },
-    { _id: '6', name: 'Hair Curling', category: 'Hair', price: 700, duration: 45, description: 'Professional hair curling', isActive: true },
-    { _id: '7', name: 'Full Hair Color', category: 'Hair', price: 2000, duration: 120, description: 'Full hair coloring service', isActive: true },
-    { _id: '8', name: 'Highlights', category: 'Hair', price: 2500, duration: 150, description: 'Hair highlighting service', isActive: true },
-    { _id: '9', name: 'Root Touch-Up', category: 'Hair', price: 1200, duration: 60, description: 'Root touch-up coloring', isActive: true },
-    { _id: '10', name: 'Keratin Treatment', category: 'Hair', price: 3500, duration: 180, description: 'Keratin smoothing treatment', isActive: true },
-    { _id: '11', name: 'Deep Conditioning', category: 'Hair', price: 800, duration: 45, description: 'Deep conditioning treatment', isActive: true },
-    { _id: '12', name: 'Scalp Treatment', category: 'Hair', price: 1000, duration: 60, description: 'Therapeutic scalp treatment', isActive: true },
+  // Parse URL parameters
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const filterParam = params.get('filter');
+    
+    if (filterParam === 'low_bookings') {
+      setShowAlertServicesOnly(true);
+    }
+  }, [location.search]);
 
-    // Skin Services
-    { _id: '13', name: 'Basic Facial', category: 'Skin', price: 1200, duration: 60, description: 'Basic cleansing and moisturizing facial', isActive: true },
-    { _id: '14', name: 'Anti-Aging Facial', category: 'Skin', price: 2000, duration: 75, description: 'Anti-aging and rejuvenating facial', isActive: true },
-    { _id: '15', name: 'Brightening Facial', category: 'Skin', price: 1800, duration: 70, description: 'Skin brightening and glow facial', isActive: true },
-    { _id: '16', name: 'Acne Treatment', category: 'Skin', price: 1500, duration: 65, description: 'Specialized acne treatment', isActive: true },
-    { _id: '17', name: 'Chemical Peel', category: 'Skin', price: 2500, duration: 90, description: 'Chemical peel treatment', isActive: true },
-    { _id: '18', name: 'Microdermabrasion', category: 'Skin', price: 2200, duration: 80, description: 'Microdermabrasion exfoliation', isActive: true },
-    { _id: '19', name: 'Full Body Waxing', category: 'Skin', price: 1800, duration: 90, description: 'Complete body waxing service', isActive: true },
-    { _id: '20', name: 'Eyebrow Waxing', category: 'Skin', price: 300, duration: 15, description: 'Eyebrow shaping and waxing', isActive: true },
-
-    // Nails Services
-    { _id: '21', name: 'Basic Manicure', category: 'Nails', price: 400, duration: 30, description: 'Basic manicure service', isActive: true },
-    { _id: '22', name: 'Gel Manicure', category: 'Nails', price: 800, duration: 45, description: 'Gel polish manicure', isActive: true },
-    { _id: '23', name: 'Spa Manicure', category: 'Nails', price: 600, duration: 40, description: 'Spa manicure with massage', isActive: true },
-    { _id: '24', name: 'Basic Pedicure', category: 'Nails', price: 500, duration: 35, description: 'Basic pedicure service', isActive: true },
-    { _id: '25', name: 'Spa Pedicure', category: 'Nails', price: 900, duration: 50, description: 'Spa pedicure with massage', isActive: true },
-    { _id: '26', name: 'Gel Pedicure', category: 'Nails', price: 1000, duration: 55, description: 'Gel polish pedicure', isActive: true },
-    { _id: '27', name: 'Nail Art Design', category: 'Nails', price: 200, duration: 20, description: 'Custom nail art design', isActive: true },
-
-    // Makeup Services
-    { _id: '28', name: 'Bridal Makeup - Classic', category: 'Makeup', price: 3500, duration: 90, description: 'Classic bridal makeup', isActive: true },
-    { _id: '29', name: 'Bridal Makeup - Glam', category: 'Makeup', price: 4500, duration: 120, description: 'Glamorous bridal makeup', isActive: true },
-    { _id: '30', name: 'Party Makeup - Evening', category: 'Makeup', price: 1500, duration: 60, description: 'Evening party makeup', isActive: true },
-    { _id: '31', name: 'Party Makeup - Themed', category: 'Makeup', price: 2000, duration: 75, description: 'Themed party makeup', isActive: true },
-    { _id: '32', name: 'Airbrush Makeup - Full Face', category: 'Makeup', price: 2500, duration: 80, description: 'Airbrush makeup application', isActive: true },
-
-    // Massage Services
-    { _id: '33', name: 'Swedish Massage - 60 min', category: 'Massage', price: 1500, duration: 60, description: 'Swedish relaxation massage', isActive: true },
-    { _id: '34', name: 'Swedish Massage - 90 min', category: 'Massage', price: 2000, duration: 90, description: 'Extended Swedish massage', isActive: true },
-    { _id: '35', name: 'Deep Tissue Massage - 60 min', category: 'Massage', price: 1800, duration: 60, description: 'Deep tissue therapeutic massage', isActive: true },
-    { _id: '36', name: 'Deep Tissue Massage - 90 min', category: 'Massage', price: 2500, duration: 90, description: 'Extended deep tissue massage', isActive: true },
-    { _id: '37', name: 'Aromatherapy Massage - Lavender', category: 'Massage', price: 2000, duration: 60, description: 'Aromatherapy relaxation massage', isActive: true },
-    { _id: '38', name: 'Hot Stone Massage', category: 'Massage', price: 2200, duration: 75, description: 'Hot stone therapeutic massage', isActive: true },
-    { _id: '39', name: 'Reflexology - Foot', category: 'Massage', price: 1200, duration: 45, description: 'Foot reflexology massage', isActive: true },
-
-    // Grooming Services
-    { _id: '40', name: 'Beard Trim - Basic', category: 'Grooming', price: 200, duration: 15, description: 'Basic beard trimming', isActive: true },
-    { _id: '41', name: 'Beard Trim - Detailed', category: 'Grooming', price: 400, duration: 30, description: 'Detailed beard styling', isActive: true },
-    { _id: '42', name: 'Hot Shave', category: 'Grooming', price: 500, duration: 30, description: 'Traditional hot shave', isActive: true },
-    { _id: '43', name: 'Eyebrow Threading', category: 'Grooming', price: 150, duration: 10, description: 'Eyebrow threading service', isActive: true },
-    { _id: '44', name: 'Eyelash Extensions - Classic', category: 'Grooming', price: 2000, duration: 120, description: 'Classic eyelash extensions', isActive: true },
-
-    // Packages
-    { _id: '45', name: 'Bridal Package', category: 'Packages', price: 8000, duration: 240, description: 'Complete bridal package - Hair + Makeup + Nails', isActive: true },
-    { _id: '46', name: 'Spa Package', category: 'Packages', price: 5000, duration: 180, description: 'Relaxing spa package - Massage + Facial + Scrub', isActive: true },
-    { _id: '47', name: 'Hair & Skin Combo', category: 'Packages', price: 3000, duration: 120, description: 'Haircut + Facial combination', isActive: true },
-    { _id: '48', name: 'Winter Skin Care Package', category: 'Packages', price: 3500, duration: 150, description: 'Winter skin care treatment package', isActive: true },
-    { _id: '49', name: 'Summer Hair Care Package', category: 'Packages', price: 2800, duration: 135, description: 'Summer hair care treatment package', isActive: true }
-  ];
-
+  // Fetch services
   const fetchServices = async (page = 1) => {
     try {
       setLoading(true);
       setError(null);
       
-      // For demonstration, use default services
-      // In real implementation, you would call your API
-      setServices(defaultServices);
+      const response = await salonService.getServices({
+        page,
+        limit: pagination.limit,
+        category: categoryFilter || undefined,
+        active: statusFilter ? statusFilter === 'true' : undefined,
+        filter: showAlertServicesOnly ? 'low_bookings' : undefined
+      });
+      
+      // DEBUG: Log the actual response structure
+      console.log('API Response:', response);
+      
+      // FIX: Correctly access the data structure { success: true, data: [...], meta: {...} }
+      const servicesData = response?.data?.data ?? [];
+      const metaData = response?.data?.meta ?? {};
+      
+      setServices(servicesData);
       setPagination({
-        page: 1,
-        limit: 20,
-        totalPages: 1,
-        totalItems: defaultServices.length
+        page: metaData?.page ?? 1,
+        limit: metaData?.limit ?? 20,
+        totalPages: metaData?.totalPages ?? 1,
+        totalItems: metaData?.totalItems ?? (servicesData ? servicesData.length : 0)
       });
       
     } catch (error) {
@@ -133,7 +96,43 @@ const ManageServices = () => {
 
   useEffect(() => {
     fetchServices();
-  }, [categoryFilter, statusFilter]);
+  }, [categoryFilter, statusFilter, showAlertServicesOnly, pagination.page, location.search]);
+
+  // Get count of services with low bookings
+  const getLowBookingsCount = () => {
+    return services.filter(service => (service?.totalBookings ?? 0) < lowBookingsThreshold).length;
+  };
+
+  // Filter services based on all criteria
+  const getFilteredServices = () => {
+    let filtered = services;
+    
+    // Apply search filter
+    if (searchQuery) {
+      filtered = filtered.filter(service =>
+        (service?.name ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (service?.description ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (service?.category ?? '').toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+    
+    // Apply category filter
+    if (categoryFilter) {
+      filtered = filtered.filter(service => (service?.category ?? '') === categoryFilter);
+    }
+    
+    // Apply status filter
+    if (statusFilter) {
+      filtered = filtered.filter(service => (service?.isActive ?? false) === (statusFilter === 'true'));
+    }
+    
+    // Apply alert services filter
+    if (showAlertServicesOnly) {
+      filtered = filtered.filter(service => (service?.totalBookings ?? 0) < lowBookingsThreshold);
+    }
+    
+    return filtered;
+  };
 
   const handleServiceAdded = () => {
     fetchServices(pagination.page);
@@ -154,9 +153,8 @@ const ManageServices = () => {
   const handleDelete = async (serviceId) => {
     if (window.confirm('Are you sure you want to delete this service?')) {
       try {
-        // In real implementation, call your API
-        // await salonService.deleteService(serviceId);
-        setServices(prev => prev.filter(service => service._id !== serviceId));
+        await salonService.deleteService(serviceId);
+        fetchServices(pagination.page);
         toast.success('Service deleted successfully');
       } catch (error) {
         toast.error('Failed to delete service');
@@ -165,18 +163,22 @@ const ManageServices = () => {
   };
 
   const handlePageChange = (page) => {
-    fetchServices(page);
+    setPagination(prev => ({ ...prev, page }));
   };
 
-  const filteredServices = services.filter(service =>
-    service.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    service.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    service.category?.toLowerCase().includes(searchQuery.toLowerCase())
-  ).filter(service => 
-    !categoryFilter || service.category === categoryFilter
-  ).filter(service =>
-    !statusFilter || service.isActive === (statusFilter === 'true')
-  );
+  const handleAlertFilterToggle = () => {
+    const newShowAlertServicesOnly = !showAlertServicesOnly;
+    setShowAlertServicesOnly(newShowAlertServicesOnly);
+    
+    // Update URL to reflect the filter state
+    const params = new URLSearchParams(location.search);
+    if (newShowAlertServicesOnly) {
+      params.set('filter', 'low_bookings');
+    } else {
+      params.delete('filter');
+    }
+    navigate(`${location.pathname}?${params.toString()}`, { replace: true });
+  };
 
   const getStatusBadge = (isActive) => {
     return isActive ? (
@@ -187,7 +189,10 @@ const ManageServices = () => {
   };
 
   const getCategoryIcon = (category) => {
-    switch (category) {
+    // Safely handle undefined category
+    const safeCategory = category ?? '';
+    
+    switch (safeCategory) {
       case 'Hair':
         return <Scissors className="h-4 w-4" />;
       case 'Skin':
@@ -209,13 +214,34 @@ const ManageServices = () => {
   };
 
   const formatDuration = (duration) => {
-    if (duration >= 60) {
-      const hours = Math.floor(duration / 60);
-      const minutes = duration % 60;
+    // Safely handle undefined or null duration
+    const safeDuration = duration ?? 0;
+    
+    if (safeDuration >= 60) {
+      const hours = Math.floor(safeDuration / 60);
+      const minutes = safeDuration % 60;
       return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
     }
-    return `${duration}m`;
+    return `${safeDuration}m`;
   };
+
+  // Get low bookings alert info for a service
+  const getServiceAlertInfo = (service) => {
+    // Safely access service properties
+    const totalBookings = service?.totalBookings ?? 0;
+    
+    if (totalBookings < lowBookingsThreshold) {
+      const targetBookings = lowBookingsThreshold * 4; // Monthly target is 4 times the threshold
+      return {
+        isLowBooking: true,
+        message: `Bookings: ${totalBookings}/Month (Target: ${targetBookings})`
+      };
+    }
+    return { isLowBooking: false };
+  };
+
+  const filteredServices = getFilteredServices();
+  const lowBookingsCount = getLowBookingsCount();
 
   if (loading) {
     return <LoadingSpinner />;
@@ -235,7 +261,11 @@ const ManageServices = () => {
             </button>
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Manage Services</h1>
-              <p className="text-gray-600">Add, edit, and manage your salon services</p>
+              {showAlertServicesOnly ? (
+                <p className="text-gray-600">Showing {services?.length ?? 0} Services with Low Bookings</p>
+              ) : (
+                <p className="text-gray-600">Add, edit, and manage your salon services</p>
+              )}
             </div>
           </div>
           <button
@@ -253,7 +283,7 @@ const ManageServices = () => {
 
       {/* Filters and Search */}
       <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
             <input
@@ -290,68 +320,120 @@ const ManageServices = () => {
             <option value="false">Inactive</option>
           </select>
 
-          <div className="flex items-center space-x-2 text-sm text-gray-600">
-            <Filter size={16} />
-            <span>Total: {pagination.totalItems} services</span>
-          </div>
+          <button
+            onClick={handleAlertFilterToggle}
+            className={`px-4 py-2 rounded-lg flex items-center space-x-2 transition-all font-medium ${
+              showAlertServicesOnly
+                ? 'bg-red-600 hover:bg-red-700 text-white shadow-md transform hover:scale-105'
+                : 'bg-orange-100 hover:bg-orange-200 text-orange-800 border border-orange-300'
+            }`}
+          >
+            <AlertTriangle size={16} />
+            <span>
+              {showAlertServicesOnly 
+                ? '[Clear Alert Filter]' 
+                : `Show Alert Services Only (${pagination?.totalItems ?? 0})`}
+            </span>
+          </button>
+        </div>
+
+        <div className="flex items-center space-x-2 text-sm text-gray-600">
+          <Filter size={16} />
+          <span>Total: {services?.length ?? 0} services</span>
+          {showAlertServicesOnly && (
+            <span className="ml-2 px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs">
+              Showing only alert services
+            </span>
+          )}
         </div>
       </div>
 
       {/* Services Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        {filteredServices.map((service) => (
-          <div key={service._id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
-            <div className="p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{service.name}</h3>
-                  <p className="text-gray-600 text-sm line-clamp-2">{service.description}</p>
+        {filteredServices.map((service) => {
+          const alertInfo = getServiceAlertInfo(service);
+          
+          return (
+            <div key={service?._id ?? Math.random()} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+              <div className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{service?.name ?? 'Unnamed Service'}</h3>
+                    <p className="text-gray-600 text-sm line-clamp-2">{service?.description ?? ''}</p>
+                  </div>
+                  <div className="relative">
+                    <button className="p-1 text-gray-400 hover:text-gray-600">
+                      <MoreVertical size={20} />
+                    </button>
+                  </div>
                 </div>
-                <div className="relative">
-                  <button className="p-1 text-gray-400 hover:text-gray-600">
-                    <MoreVertical size={20} />
+
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-4 text-sm">
+                    <div className="flex items-center text-gray-600">
+                      {getCategoryIcon(service?.category)}
+                      <span className="ml-1">{service?.category ?? 'Uncategorized'}</span>
+                    </div>
+                    <div className="flex items-center text-gray-600">
+                      <Clock size={16} className="mr-1" />
+                      <span>{formatDuration(service?.duration)}</span>
+                    </div>
+                  </div>
+
+                  {/* Alert Badge for Low Bookings */}
+                  {alertInfo.isLowBooking && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                      <div className="flex items-start">
+                        <AlertTriangle className="h-5 w-5 text-red-500 mr-2 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-medium text-red-800">LOW BOOKING ALERT</p>
+                          <p className="text-xs text-red-700 mt-1">{alertInfo.message}</p>
+                        </div>
+                      </div>
+                      <div className="flex space-x-2 mt-3">
+                        <button 
+                          onClick={() => navigate('/salon/marketing?promo_service=' + (service?._id ?? ''))}
+                          className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                        >
+                          Run 10% Promo
+                        </button>
+                        <button 
+                          onClick={() => navigate('/salon/analytics?service=' + (service?._id ?? ''))}
+                          className="text-xs px-2 py-1 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 transition-colors"
+                        >
+                          View Analytics
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center text-green-600 font-semibold">
+                      <DollarSign size={16} />
+                      <span>₹{service?.price ?? 0}</span>
+                    </div>
+                    {getStatusBadge(service?.isActive)}
+                  </div>
+                </div>
+
+                <div className="flex space-x-2 mt-4 pt-4 border-t border-gray-200">
+                  <button className="flex-1 flex items-center justify-center space-x-2 px-3 py-2 text-sm text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors">
+                    <Eye size={16} />
+                    <span>View</span>
+                  </button>
+                  <button onClick={() => handleEdit(service)} className="flex-1 flex items-center justify-center space-x-2 px-3 py-2 text-sm text-emerald-600 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition-colors">
+                    <Edit size={16} />
+                    <span>Edit</span>
+                  </button>
+                  <button onClick={() => handleDelete(service?._id)} className="flex-1 flex items-center justify-center space-x-2 px-3 py-2 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
+                    <Trash2 size={16} />
+                    <span>Delete</span>
                   </button>
                 </div>
               </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center space-x-4 text-sm">
-                  <div className="flex items-center text-gray-600">
-                    {getCategoryIcon(service.category)}
-                    <span className="ml-1">{service.category}</span>
-                  </div>
-                  <div className="flex items-center text-gray-600">
-                    <Clock size={16} className="mr-1" />
-                    <span>{formatDuration(service.duration)}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center text-green-600 font-semibold">
-                    <DollarSign size={16} />
-                    <span>₹{service.price}</span>
-                  </div>
-                  {getStatusBadge(service.isActive)}
-                </div>
-              </div>
-
-              <div className="flex space-x-2 mt-4 pt-4 border-t border-gray-200">
-                <button className="flex-1 flex items-center justify-center space-x-2 px-3 py-2 text-sm text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors">
-                  <Eye size={16} />
-                  <span>View</span>
-                </button>
-                <button onClick={() => handleEdit(service)} className="flex-1 flex items-center justify-center space-x-2 px-3 py-2 text-sm text-emerald-600 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition-colors">
-                  <Edit size={16} />
-                  <span>Edit</span>
-                </button>
-                <button onClick={() => handleDelete(service._id)} className="flex-1 flex items-center justify-center space-x-2 px-3 py-2 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
-                  <Trash2 size={16} />
-                  <span>Delete</span>
-                </button>
-              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {filteredServices.length === 0 && (
           <div className="col-span-full text-center py-12">
@@ -360,11 +442,11 @@ const ManageServices = () => {
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">No services found</h3>
             <p className="text-gray-600 mb-4">
-              {searchQuery || categoryFilter || statusFilter 
+              {searchQuery || categoryFilter || statusFilter || showAlertServicesOnly
                 ? "Try adjusting your search or filters" 
                 : "Get started by adding your first service"}
             </p>
-            {!searchQuery && !categoryFilter && !statusFilter && (
+            {!searchQuery && !categoryFilter && !statusFilter && !showAlertServicesOnly && (
               <button
                 onClick={() => setIsAddServiceModalOpen(true)}
                 className="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-4 py-2 rounded-lg hover:from-pink-600 hover:to-purple-700 transition-all"
@@ -377,8 +459,8 @@ const ManageServices = () => {
       </div>
 
       {/* Pagination */}
-      {pagination.totalPages > 1 && (
-        <div className="flex justify-center items-center space-x-2">
+      {pagination?.totalPages > 1 && (
+        <div className="flex items-center justify-between bg-white p-4 rounded-lg shadow-md">
           <button
             onClick={() => handlePageChange(pagination.page - 1)}
             disabled={pagination.page === 1}
@@ -388,12 +470,12 @@ const ManageServices = () => {
           </button>
           
           <div className="flex space-x-1">
-            {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((page) => (
+            {Array.from({ length: pagination?.totalPages ?? 1 }, (_, i) => i + 1).map((page) => (
               <button
                 key={page}
                 onClick={() => handlePageChange(page)}
                 className={`px-3 py-2 text-sm rounded-lg ${
-                  page === pagination.page
+                  page === pagination?.page
                     ? 'bg-pink-500 text-white'
                     : 'border border-gray-300 hover:bg-gray-50'
                 }`}
@@ -404,8 +486,8 @@ const ManageServices = () => {
           </div>
           
           <button
-            onClick={() => handlePageChange(pagination.page + 1)}
-            disabled={pagination.page === pagination.totalPages}
+            onClick={() => handlePageChange((pagination?.page ?? 1) + 1)}
+            disabled={pagination?.page === pagination?.totalPages}
             className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Next

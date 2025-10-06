@@ -5,6 +5,7 @@ import { staffNotificationService } from '../../services/staffNotification';
 import { staffInvitationService } from '../../services/staffInvitation';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import UpcomingAppointmentsCard from '../../components/staff/UpcomingAppointmentsCard';
+import NextClientCountdown from '../../components/staff/NextClientCountdown';
 import { toast } from 'react-hot-toast';
 import {
   Calendar,
@@ -268,6 +269,9 @@ const StaffDashboard = () => {
             </div>
           </div>
         </header>
+
+        {/* Next Client Countdown - MOST PROMINENT POSITION */}
+        <NextClientCountdown />
 
         {/* Statistics Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

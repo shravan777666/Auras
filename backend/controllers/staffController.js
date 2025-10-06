@@ -529,7 +529,7 @@ export const getProfile = asyncHandler(async (req, res) => {
   const userId = req.user.id;
 
   let staff = await Staff.findOne({ user: userId })
-    .populate('assignedSalon', 'salonName ownerName contactNumber');
+    .populate('assignedSalon', 'salonName ownerName');
 
   // If no staff profile exists, create one
   if (!staff) {
@@ -546,7 +546,7 @@ export const getProfile = asyncHandler(async (req, res) => {
     
     // Re-fetch with population
     staff = await Staff.findById(staff._id)
-      .populate('assignedSalon', 'salonName ownerName contactNumber');
+      .populate('assignedSalon', 'salonName ownerName');
   }
 
   // Convert profile picture path to URL if it exists
@@ -1197,6 +1197,125 @@ export const getStaffReport = asyncHandler(async (req, res) => {
   }, 'Staff report retrieved successfully');
 });
 
+// Get next appointment for staff with countdown and client notes
+export const getNextAppointment = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+  
+  // First find the staff record to get the staff ID
+  const staff = await Staff.findOne({ user: userId });
+  if (!staff) {
+    return notFoundResponse(res, 'Staff profile');
+  }
+
+  // Get today's date in the correct format
+  const today = new Date();
+  const todayString = today.toISOString().split('T')[0];
+  
+  // Find the next confirmed/approved appointment for today
+  const appointments = await Appointment.find({
+    staffId: staff._id,
+    appointmentDate: {
+      $gte: `${todayString}T00:00`,
+      $lt: `${todayString}T23:59`
+    },
+    status: { $in: ['Confirmed', 'Approved'] }  // Include both Confirmed and Approved appointments
+  })
+  .populate('customerId', 'name')
+  .populate('services.serviceId', 'name')
+  .sort({ appointmentTime: 1 });
+
+  // Find the first appointment that hasn't started yet
+  const now = new Date();
+  
+  // More accurate time comparison
+  const nextAppointment = appointments.find(apt => {
+    // Create a full date object for the appointment time
+    const [aptHours, aptMinutes] = apt.appointmentDate.split('T')[1].split(':').map(Number);
+    const aptDateTime = new Date(today);
+    aptDateTime.setHours(aptHours, aptMinutes, 0, 0);
+    
+    // Compare with current time
+    return aptDateTime > now;
+  });
+
+  if (!nextAppointment) {
+    return successResponse(res, null, 'No upcoming appointments found');
+  }
+
+  // Get client profile for notes
+  let clientNotes = null;
+  try {
+    const ClientProfile = (await import('../models/ClientProfile.js')).default;
+    const clientProfile = await ClientProfile.findOne({
+      customerId: nextAppointment.customerId._id,
+      salonId: nextAppointment.salonId
+    });
+    
+    if (clientProfile) {
+      // Get the most relevant note (allergies, preferences, or general notes)
+      if (clientProfile.internalNotes.allergies && clientProfile.internalNotes.allergies.length > 0) {
+        clientNotes = clientProfile.internalNotes.allergies[0].notes || 
+                      clientProfile.internalNotes.allergies[0].type;
+      } else if (clientProfile.internalNotes.personalPreferences && 
+                 clientProfile.internalNotes.personalPreferences.length > 0) {
+        clientNotes = clientProfile.internalNotes.personalPreferences[0].notes || 
+                      clientProfile.internalNotes.personalPreferences[0].preference;
+      } else if (clientProfile.internalNotes.generalNotes && 
+                 clientProfile.internalNotes.generalNotes.length > 0) {
+        clientNotes = clientProfile.internalNotes.generalNotes[0].note;
+      }
+    }
+  } catch (error) {
+    console.warn('Could not fetch client profile:', error.message);
+  }
+
+  // Calculate countdown
+  const [aptHours, aptMinutes] = nextAppointment.appointmentDate.split('T')[1].split(':').map(Number);
+  const appointmentDateTime = new Date(today);
+  appointmentDateTime.setHours(aptHours, aptMinutes, 0, 0);
+  
+  const timeDiff = appointmentDateTime - now;
+  const minutesUntil = Math.max(0, Math.floor(timeDiff / (1000 * 60)));
+  
+  let countdownText;
+  let countdownColor;
+  
+  if (minutesUntil <= 0) {
+    countdownText = "Starting Now";
+    countdownColor = "red";
+  } else if (minutesUntil < 5) {
+    countdownText = `Next Up in ${minutesUntil} min${minutesUntil === 1 ? '' : 's'}`;
+    countdownColor = "red";
+  } else if (minutesUntil < 30) {
+    countdownText = `Next Up in ${minutesUntil} min${minutesUntil === 1 ? '' : 's'}`;
+    countdownColor = "yellow";
+  } else {
+    const hoursUntil = Math.floor(minutesUntil / 60);
+    const remainingMinutes = minutesUntil % 60;
+    if (hoursUntil > 0) {
+      countdownText = `Next Up in ${hoursUntil} hour${hoursUntil === 1 ? '' : 's'}`;
+      if (remainingMinutes > 0) {
+        countdownText += ` and ${remainingMinutes} min${remainingMinutes === 1 ? '' : 's'}`;
+      }
+    } else {
+      countdownText = `Next Up in ${minutesUntil} min${minutesUntil === 1 ? '' : 's'}`;
+    }
+    countdownColor = "green";
+  }
+
+  const responseData = {
+    clientName: nextAppointment.customerId?.name || 'Unknown Client',
+    serviceName: nextAppointment.services?.[0]?.serviceId?.name || 'Service',
+    startTime: nextAppointment.appointmentTime,
+    clientId: nextAppointment.customerId?._id,
+    countdownText,
+    countdownColor,
+    clientNotes
+  };
+
+  return successResponse(res, responseData, 'Next appointment retrieved successfully');
+});
+
 export default {
   register,
   createStaff,
@@ -1212,5 +1331,6 @@ export default {
   getCompletedAppointments,
   getStaffById,
   updateStaffById,
-  getStaffReport
+  getStaffReport,
+  getNextAppointment
 };

@@ -15,7 +15,8 @@ import {
   getStaffById,
   updateStaffById,
   getAppointmentsByStaffId,
-  getStaffReport
+  getStaffReport,
+  getNextAppointment
 } from '../controllers/staffController.js';
 import { requireStaff, requireStaffSetup, requireSalonOwner } from '../middleware/roleAuth.js';
 import { validateStaffSetup, validatePagination, validateObjectId } from '../middleware/validation.js';
@@ -58,6 +59,9 @@ router.put('/profile', upload.fields([
   { name: 'profilePicture', maxCount: 1 }
 ]), updateProfile);
 router.patch('/availability', requireStaffSetup, updateAvailability);
+
+// New route for next appointment countdown
+router.get('/next-appointment', requireStaffSetup, getNextAppointment);
 
 // Appointment Management
 router.get('/appointments', requireStaffSetup, validatePagination, getAppointments);

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Next Appointment Endpoint</title>
+</head>
+<body>
+    <h1>Test Next Appointment Endpoint</h1>
+    <button onclick="testEndpoint()">Test Endpoint</button>
+    <div id="result"></div>
+
+    <script>
+        async function testEndpoint() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testing...';
+            
+            try {
+                const response = await fetch('http://localhost:5003/api/staff/next-appointment', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer test-token'
+                    }
+                });
+                
+                const data = await response.json();
+                resultDiv.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                resultDiv.innerHTML = `<p>Error: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
