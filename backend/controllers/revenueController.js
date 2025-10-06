@@ -5,7 +5,7 @@ import Salon from '../models/Salon.js';
 import User from '../models/User.js';
 import Customer from '../models/Customer.js';
 
-// Get comprehensive revenue data for financial dashboard
+// Get comprehensive revenue data for financial dashboard with trend analysis
 export const getRevenueData = async (req, res) => {
   try {
     const userId = req.user?.id;
@@ -24,6 +24,10 @@ export const getRevenueData = async (req, res) => {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    
+    // Previous month dates for comparison
+    const startOfPreviousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const endOfPreviousMonth = startOfMonth;
 
     // Get total revenue (all time)
     const totalRevenueResult = await Revenue.aggregate([
@@ -42,9 +46,21 @@ export const getRevenueData = async (req, res) => {
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ]);
 
+    // Get previous month's revenue for comparison
+    const previousMonthlyRevenueResult = await Revenue.aggregate([
+      { 
+        $match: { 
+          salonId: salonId, 
+          date: { $gte: startOfPreviousMonth, $lt: endOfPreviousMonth } 
+        } 
+      },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+
     // If no Revenue records exist, calculate from completed appointments
     let totalRevenue = totalRevenueResult.length > 0 ? totalRevenueResult[0].total : 0;
     let monthlyRevenue = monthlyRevenueResult.length > 0 ? monthlyRevenueResult[0].total : 0;
+    let previousMonthlyRevenue = previousMonthlyRevenueResult.length > 0 ? previousMonthlyRevenueResult[0].total : 0;
 
     // Fallback to appointments if no revenue records
     if (totalRevenue === 0) {
@@ -74,9 +90,62 @@ export const getRevenueData = async (req, res) => {
       monthlyRevenue = appointmentMonthlyResult.length > 0 ? appointmentMonthlyResult[0].total : 0;
     }
 
+    if (previousMonthlyRevenue === 0) {
+      const appointmentPreviousMonthlyResult = await Appointment.aggregate([
+        { 
+          $match: { 
+            salonId: salonId, 
+            status: 'Completed',
+            createdAt: { $gte: startOfPreviousMonth, $lt: endOfPreviousMonth }
+          } 
+        },
+        { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+      ]);
+      previousMonthlyRevenue = appointmentPreviousMonthlyResult.length > 0 ? appointmentPreviousMonthlyResult[0].total : 0;
+    }
+
+    // Calculate percentage change for monthly revenue
+    let monthlyRevenueChange = 0;
+    let monthlyRevenueChangeStatus = "N/A";
+    if (previousMonthlyRevenue > 0) {
+      monthlyRevenueChange = ((monthlyRevenue - previousMonthlyRevenue) / previousMonthlyRevenue) * 100;
+      monthlyRevenueChangeStatus = monthlyRevenueChange >= 0 ? "positive" : "negative";
+    } else if (previousMonthlyRevenue === 0 && monthlyRevenue > 0) {
+      monthlyRevenueChange = "N/A"; // No previous data to compare
+      monthlyRevenueChangeStatus = "positive";
+    }
+
+    // Get 12-month historical trend data for total revenue
+    const twelveMonthsAgo = new Date(now.getFullYear() - 1, now.getMonth(), 1);
+    const revenueTrendData = await Revenue.aggregate([
+      { 
+        $match: { 
+          salonId: salonId, 
+          date: { $gte: twelveMonthsAgo } 
+        } 
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: "$date" },
+            month: { $month: "$date" }
+          },
+          total: { $sum: '$amount' }
+        }
+      },
+      { $sort: { "_id.year": 1, "_id.month": 1 } }
+    ]);
+
+    // Format trend data for sparkline
+    const revenueTrend = revenueTrendData.map(item => item.total);
+
     return successResponse(res, {
       totalRevenue,
       monthlyRevenue,
+      previousMonthlyRevenue,
+      monthlyRevenueChange,
+      monthlyRevenueChangeStatus,
+      revenueTrend,
       period: {
         month: now.getMonth() + 1,
         year: now.getFullYear(),

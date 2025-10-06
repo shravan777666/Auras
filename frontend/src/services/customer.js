@@ -27,6 +27,10 @@ export const customerService = {
     const response = await api.get(`/customer/bookings${query ? `?${query}` : ''}`);
     return response.data;
   },
+  async getBookingHistory(limit = 10) {
+    const response = await api.get(`/customer/bookings?limit=${limit}&sort=-createdAt`);
+    return response.data;
+  },
   async getPendingAppointments(params = {}) {
     const queryParams = new URLSearchParams({ ...params, status: 'Pending' }).toString();
     const response = await api.get(`/customer/bookings${queryParams ? `?${queryParams}` : ''}`);
@@ -69,4 +73,16 @@ export const customerService = {
     const response = await api.get(`/recommendations/customer/${customerId}`);
     return response.data;
   },
+  
+  // New function to get one-click booking preference
+  async getOneClickBookingPreference(customerId) {
+    const response = await api.get(`/recommendations/one-click-preference/${customerId}`);
+    return response.data;
+  },
+  
+  // New function to get salon availability for a specific date
+  async getSalonAvailability(salonId, date) {
+    const response = await api.get(`/appointment/slots/available?salonId=${salonId}&date=${date}`);
+    return response.data;
+  }
 };

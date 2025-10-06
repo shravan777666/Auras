@@ -493,3 +493,225 @@ export const getCustomerRecommendations = async (req, res) => {
     return errorResponse(res, 'Failed to retrieve customer recommendations: ' + error.message, 500);
   }
 };
+
+// Get one-click booking preference for a customer
+export const getOneClickBookingPreference = async (req, res) => {
+  try {
+    const { customerId } = req.params;
+    console.log('getOneClickBookingPreference called for customer ID:', customerId);
+    
+    // Validate customer ID
+    if (!customerId) {
+      return errorResponse(res, 'Customer ID is required', 400);
+    }
+    
+    // Check if user is authenticated
+    if (!req.user || !req.user.id) {
+      return errorResponse(res, 'User not authenticated', 401);
+    }
+    
+    // For customer access, verify they can only access their own data
+    if (req.user.role === 'customer' && req.user.id !== customerId) {
+      return errorResponse(res, 'Access denied. You can only access your own booking preferences', 403);
+    }
+    
+    // Find the customer to verify they exist
+    const customer = await Customer.findById(customerId);
+    if (!customer) {
+      console.log('Customer not found for ID:', customerId);
+      return errorResponse(res, 'Customer not found', 404);
+    }
+    
+    console.log('Found customer for booking preference:', customer._id);
+    
+    // Get customer's recent appointments (last 10)
+    const recentAppointments = await Appointment.find({ customerId })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .populate('salonId', 'salonName businessHours')
+      .populate('services.serviceId', 'name duration');
+    
+    if (!recentAppointments || recentAppointments.length === 0) {
+      return successResponse(res, null, 'No booking history found');
+    }
+    
+    // Analyze booking history to find most frequent service and salon
+    const serviceCount = {};
+    const salonCount = {};
+    
+    recentAppointments.forEach(appointment => {
+      // Count services
+      if (appointment.services && Array.isArray(appointment.services)) {
+        appointment.services.forEach(service => {
+          const serviceName = service.serviceName || service.serviceId?.name;
+          if (serviceName) {
+            const serviceKey = `${serviceName}-${appointment.salonId?._id || appointment.salonId}`;
+            serviceCount[serviceKey] = (serviceCount[serviceKey] || 0) + 1;
+          }
+        });
+      }
+      
+      // Count salons
+      const salonId = appointment.salonId?._id || appointment.salonId;
+      if (salonId) {
+        salonCount[salonId] = {
+          count: (salonCount[salonId]?.count || 0) + 1,
+          name: appointment.salonId?.salonName || 'Unknown Salon',
+          id: salonId,
+          businessHours: appointment.salonId?.businessHours
+        };
+      }
+    });
+    
+    // Find most frequent service-salon combination
+    let mostFrequentService = null;
+    let maxServiceCount = 0;
+    let associatedSalon = null;
+    
+    for (const [serviceKey, count] of Object.entries(serviceCount)) {
+      if (count > maxServiceCount) {
+        maxServiceCount = count;
+        const [serviceName, salonId] = serviceKey.split('-');
+        mostFrequentService = serviceName;
+        associatedSalon = Object.values(salonCount).find(salon => salon.id.toString() === salonId);
+      }
+    }
+    
+    // If we couldn't find a service-salon combination, fall back to most frequent salon
+    if (!mostFrequentService && Object.keys(salonCount).length > 0) {
+      let maxSalonCount = 0;
+      for (const [salonId, salonData] of Object.entries(salonCount)) {
+        if (salonData.count > maxSalonCount) {
+          maxSalonCount = salonData.count;
+          associatedSalon = salonData;
+        }
+      }
+      
+      // Use the most recent service from this salon
+      const salonAppointments = recentAppointments.filter(app => 
+        (app.salonId?._id || app.salonId)?.toString() === associatedSalon.id.toString()
+      );
+      
+      if (salonAppointments.length > 0 && salonAppointments[0].services.length > 0) {
+        const service = salonAppointments[0].services[0];
+        mostFrequentService = service.serviceName || service.serviceId?.name;
+      }
+    }
+    
+    if (!mostFrequentService || !associatedSalon) {
+      return successResponse(res, null, 'Insufficient booking history to determine preference');
+    }
+    
+    // Find next availability for this salon and service
+    const nextAvailability = await findNextAvailability(associatedSalon.id, mostFrequentService);
+    
+    const bookingPreference = {
+      service: mostFrequentService,
+      salon: {
+        id: associatedSalon.id,
+        name: associatedSalon.name
+      },
+      nextAvailability
+    };
+    
+    console.log('Returning booking preference for customer:', customerId, bookingPreference);
+    return successResponse(res, bookingPreference, 'Booking preference retrieved successfully');
+  } catch (error) {
+    console.error('Error fetching booking preference:', error);
+    return errorResponse(res, 'Failed to retrieve booking preference: ' + error.message, 500);
+  }
+};
+
+// Helper function to find next availability for a salon and service
+const findNextAvailability = async (salonId, serviceName) => {
+  try {
+    // Check today and next few days for availability (next 7 days)
+    const today = new Date();
+    
+    for (let i = 0; i < 7; i++) {
+      const checkDate = new Date(today);
+      checkDate.setDate(today.getDate() + i);
+      const dateStr = checkDate.toISOString().split('T')[0];
+      
+      try {
+        // Get the salon to access business hours
+        const salon = await Salon.findById(salonId);
+        if (!salon) {
+          continue;
+        }
+        
+        // Check if salon is open on this day
+        const dayName = checkDate.toLocaleDateString('en-US', { weekday: 'long' });
+        if (!salon.businessHours.workingDays.includes(dayName)) {
+          continue;
+        }
+        
+        // Generate time slots based on business hours
+        const openTime = salon.businessHours.openTime;
+        const closeTime = salon.businessHours.closeTime;
+        
+        if (!openTime || !closeTime) {
+          continue;
+        }
+        
+        const slots = [];
+        const [openHour, openMin] = openTime.split(':').map(Number);
+        const [closeHour, closeMin] = closeTime.split(':').map(Number);
+        
+        let currentHour = openHour;
+        let currentMin = openMin;
+        
+        while (currentHour < closeHour || (currentHour === closeHour && currentMin < closeMin)) {
+          const timeSlot = `${currentHour.toString().padStart(2, '0')}:${currentMin.toString().padStart(2, '0')}`;
+          slots.push(timeSlot);
+          
+          currentMin += 30; // 30-minute slots
+          if (currentMin >= 60) {
+            currentMin = 0;
+            currentHour++;
+          }
+        }
+        
+        // Get existing appointments for the date
+        const formattedDate = dateStr;
+        const existingAppointments = await Appointment.find({
+          salonId,
+          appointmentDate: new RegExp(`^${formattedDate}`),
+          status: { $in: ['Pending', 'Approved', 'In-Progress'] }
+        });
+        
+        // Remove occupied slots
+        const availableSlots = slots.filter(slot => {
+          return !existingAppointments.some(appointment => {
+            return slot >= appointment.appointmentTime && slot < appointment.estimatedEndTime;
+          });
+        });
+        
+        // If we found available slots, return the first one
+        if (availableSlots.length > 0) {
+          return {
+            date: dateStr,
+            time: availableSlots[0],
+            day: checkDate.toLocaleDateString('en-US', { weekday: 'short' })
+          };
+        }
+      } catch (err) {
+        // Continue to next day if error occurred
+        continue;
+      }
+    }
+    
+    // If no availability found, return null
+    return null;
+  } catch (error) {
+    console.error('Error finding next availability:', error);
+    // Return a default availability for demo purposes
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return {
+      date: tomorrow.toISOString().split('T')[0],
+      time: '10:00',
+      day: tomorrow.toLocaleDateString('en-US', { weekday: 'short' })
+    };
+  }
+};

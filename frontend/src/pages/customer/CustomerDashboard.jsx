@@ -21,6 +21,7 @@ import SalonMap from '../../components/customer/SalonMap'
 import RecommendationsSection from '../../components/customer/RecommendationsSection'
 import { customerMessageService } from '../../services/customerMessage'
 import MessageNotificationBadge from '../../components/customer/MessageNotificationBadge'
+import OneClickBookingWidget from '../../components/customer/OneClickBookingWidget'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002'
 const IMAGE_BASE = (API_URL || '').replace(/\/+$/, '').replace(/\/api\/?$/, '')
@@ -265,6 +266,11 @@ const CustomerDashboard = () => {
               )}
             </div>
           </div>
+        </div>
+
+        {/* One-Click Booking Widget */}
+        <div className="mb-8">
+          <OneClickBookingWidget />
         </div>
 
         {/* Quick Actions */}

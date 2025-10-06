@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { Link, useParams, useNavigate } from "react-router-dom";
+import { Link, useParams, useNavigate, useLocation } from "react-router-dom";
 import { customerService } from "../../services/customer";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import toast from "react-hot-toast";
 
 const BookAppointment = () => {
   const { salonId } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [salon, setSalon] = useState(null);
@@ -17,6 +18,26 @@ const BookAppointment = () => {
   const [customerNotes, setCustomerNotes] = useState("");
   const [dateError, setDateError] = useState("");
 
+  // Check for pre-filled data from one-click booking widget
+  useEffect(() => {
+    const preselectedData = location.state;
+    if (preselectedData) {
+      // Set preselected salon if available
+      if (preselectedData.preselectedSalon && !salonId) {
+        // Navigate to the specific salon page
+        navigate(`/customer/book-appointment/${preselectedData.preselectedSalon}`, { replace: true });
+      }
+      
+      // Set preselected date and time
+      if (preselectedData.preselectedDate) {
+        setAppointmentDate(preselectedData.preselectedDate);
+      }
+      if (preselectedData.preselectedTime) {
+        setAppointmentTime(preselectedData.preselectedTime);
+      }
+    }
+  }, [location, salonId, navigate]);
+
   useEffect(() => {
     if (!salonId) { setLoading(false); return; }
     (async () => {
@@ -24,6 +45,17 @@ const BookAppointment = () => {
         const res = await customerService.getSalonDetails(salonId);
         if (res?.success) {
           setSalon(res.data);
+          
+          // If there's a preselected service, select it
+          const preselectedData = location.state;
+          if (preselectedData && preselectedData.preselectedService) {
+            const serviceToSelect = res.data.services?.find(service => 
+              service.name === preselectedData.preselectedService
+            );
+            if (serviceToSelect) {
+              setSelectedServices([{ serviceId: serviceToSelect._id }]);
+            }
+          }
         }
       } catch (e) {
         toast.error("Failed to load salon details");
@@ -31,7 +63,7 @@ const BookAppointment = () => {
         setLoading(false);
       }
     })();
-  }, [salonId]);
+  }, [salonId, location.state]);
 
   useEffect(() => {
     if (salonId) return;

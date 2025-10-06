@@ -23,6 +23,35 @@ import {
   Eye
 } from 'lucide-react';
 
+// Mini sparkline component
+const Sparkline = ({ data, color = 'green' }) => {
+  if (!data || data.length === 0) return null;
+  
+  // Normalize data to fit in a small space
+  const minValue = Math.min(...data);
+  const maxValue = Math.max(...data);
+  const range = maxValue - minValue || 1; // Avoid division by zero
+  
+  // Create SVG path for the sparkline
+  const points = data.map((value, index) => {
+    const x = (index / (data.length - 1)) * 100;
+    const y = 100 - ((value - minValue) / range) * 100;
+    return `${x},${y}`;
+  }).join(' ');
+  
+  return (
+    <svg viewBox="0 0 100 100" className="w-full h-full">
+      <polyline 
+        points={points} 
+        fill="none" 
+        stroke={color === 'green' ? '#10B981' : '#EF4444'} 
+        strokeWidth="2" 
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  );
+};
+
 const FinancialDashboard = () => {
   const navigate = useNavigate();
   
@@ -31,6 +60,9 @@ const FinancialDashboard = () => {
   const [filteredExpenses, setFilteredExpenses] = useState([]);
   const [totalExpenses, setTotalExpenses] = useState(0);
   const [monthlyExpenses, setMonthlyExpenses] = useState(0);
+  const [monthlyExpensesChange, setMonthlyExpensesChange] = useState(0);
+  const [monthlyExpensesChangeStatus, setMonthlyExpensesChangeStatus] = useState('N/A');
+  const [expenseTrend, setExpenseTrend] = useState([]);
   
   // Revenue state (new)
   const [revenueData, setRevenueData] = useState({});
@@ -54,11 +86,12 @@ const FinancialDashboard = () => {
       try {
         setLoading(true);
         
-        // Fetch expenses (existing)
+        // Fetch expenses with trend analysis (existing)
         const expenseResponse = await salonService.getExpenses();
-        const expensesData = expenseResponse.data || [];
+        const expensesData = expenseResponse.data?.expenses || [];
+        const expenseTrendData = expenseResponse.data?.expenseTrend || [];
         
-        // Fetch revenue data (new)
+        // Fetch revenue data with trend analysis (new)
         const revenueResponse = await revenueService.getRevenueData();
         const revenueRecordsResponse = await revenueService.getRevenueRecords({ limit: 50 });
         
@@ -68,18 +101,16 @@ const FinancialDashboard = () => {
         setRevenueRecords(revenueRecordsResponse.data.records || []);
         setFilteredRevenueRecords(revenueRecordsResponse.data.records || []);
         
-        // Calculate totals
-        const total = expensesData.reduce((sum, expense) => sum + (expense.amount || 0), 0);
-        setTotalExpenses(total);
+        // Set expense trend data
+        setExpenseTrend(expenseTrendData);
         
-        // Calculate monthly expenses
-        const currentMonth = new Date().getMonth();
-        const currentYear = new Date().getFullYear();
-        const monthlyExp = expensesData.filter(expense => {
-          const expenseDate = new Date(expense.date);
-          return expenseDate.getMonth() === currentMonth && expenseDate.getFullYear() === currentYear;
-        }).reduce((sum, expense) => sum + (expense.amount || 0), 0);
-        setMonthlyExpenses(monthlyExp);
+        // Set monthly expenses comparison data
+        setMonthlyExpenses(expenseResponse.data?.currentMonthExpenses || 0);
+        setMonthlyExpensesChange(expenseResponse.data?.monthlyExpensesChange || 0);
+        setMonthlyExpensesChangeStatus(expenseResponse.data?.monthlyExpensesChangeStatus || 'N/A');
+        
+        // Set total expenses
+        setTotalExpenses(expenseResponse.data?.totalExpenses || 0);
         
         // Extract unique categories
         const uniqueCategories = [...new Set(expensesData.map(e => e.category))];
@@ -136,21 +167,16 @@ const FinancialDashboard = () => {
       
       // Refresh the expense list
       const expenseResponse = await salonService.getExpenses();
-      const expensesData = expenseResponse.data || [];
+      const expensesData = expenseResponse.data?.expenses || [];
       setExpenses(expensesData);
       setFilteredExpenses(expensesData);
       
       // Recalculate totals
-      const total = expensesData.reduce((sum, expense) => sum + (expense.amount || 0), 0);
-      setTotalExpenses(total);
-      
-      const currentMonth = new Date().getMonth();
-      const currentYear = new Date().getFullYear();
-      const monthlyExp = expensesData.filter(expense => {
-        const expenseDate = new Date(expense.date);
-        return expenseDate.getMonth() === currentMonth && expenseDate.getFullYear() === currentYear;
-      }).reduce((sum, expense) => sum + (expense.amount || 0), 0);
-      setMonthlyExpenses(monthlyExp);
+      setTotalExpenses(expenseResponse.data?.totalExpenses || 0);
+      setMonthlyExpenses(expenseResponse.data?.currentMonthExpenses || 0);
+      setMonthlyExpensesChange(expenseResponse.data?.monthlyExpensesChange || 0);
+      setMonthlyExpensesChangeStatus(expenseResponse.data?.monthlyExpensesChangeStatus || 'N/A');
+      setExpenseTrend(expenseResponse.data?.expenseTrend || []);
       
       // Update categories
       const uniqueCategories = [...new Set(expensesData.map(e => e.category))];
@@ -179,6 +205,50 @@ const FinancialDashboard = () => {
     );
   }
 
+  // Format percentage change for display
+  const formatPercentageChange = (change, status) => {
+    if (change === "N/A" || status === "N/A") {
+      return "N/A vs last month";
+    }
+    
+    const formattedChange = Math.abs(typeof change === 'number' ? change.toFixed(1) : 0);
+    const isPositive = status === "positive";
+    
+    return (
+      <span className={`text-sm font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+        {isPositive ? '↑' : '↓'}{formattedChange}% vs last month
+      </span>
+    );
+  };
+
+  // Format average growth for display
+  const formatAverageGrowth = (trendData) => {
+    if (!trendData || trendData.length < 2) return "N/A";
+    
+    // Calculate average monthly growth
+    let totalGrowth = 0;
+    let validPeriods = 0;
+    
+    for (let i = 1; i < trendData.length; i++) {
+      if (trendData[i-1] > 0) {
+        const growth = ((trendData[i] - trendData[i-1]) / trendData[i-1]) * 100;
+        totalGrowth += growth;
+        validPeriods++;
+      }
+    }
+    
+    if (validPeriods === 0) return "N/A";
+    
+    const avgGrowth = totalGrowth / validPeriods;
+    const isPositive = avgGrowth >= 0;
+    
+    return (
+      <span className={`text-sm font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+        {isPositive ? '+' : ''}{avgGrowth.toFixed(1)}% Avg Monthly Growth
+      </span>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
@@ -198,9 +268,18 @@ const FinancialDashboard = () => {
                 <p className="text-2xl font-bold text-green-600">
                   {revenueService.formatCurrency(revenueData.totalRevenue)}
                 </p>
+                {revenueData.revenueTrend && (
+                  <div className="mt-1">
+                    {formatAverageGrowth(revenueData.revenueTrend)}
+                  </div>
+                )}
               </div>
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                <TrendingUp className="h-6 w-6 text-green-600" />
+              <div className="w-12 h-12 rounded-full flex items-center justify-center bg-green-100">
+                {revenueData.revenueTrend ? (
+                  <Sparkline data={revenueData.revenueTrend} color="green" />
+                ) : (
+                  <TrendingUp className="h-6 w-6 text-green-600" />
+                )}
               </div>
             </div>
           </div>
@@ -213,8 +292,11 @@ const FinancialDashboard = () => {
                 <p className="text-2xl font-bold text-green-600">
                   {revenueService.formatCurrency(revenueData.monthlyRevenue)}
                 </p>
+                <div className="mt-1">
+                  {formatPercentageChange(revenueData.monthlyRevenueChange, revenueData.monthlyRevenueChangeStatus)}
+                </div>
               </div>
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center bg-green-100">
                 <DollarSign className="h-6 w-6 text-green-600" />
               </div>
             </div>
@@ -250,9 +332,18 @@ const FinancialDashboard = () => {
                 <p className="text-2xl font-bold text-red-600">
                   {revenueService.formatCurrency(totalExpenses)}
                 </p>
+                {expenseTrend && (
+                  <div className="mt-1">
+                    {formatAverageGrowth(expenseTrend)}
+                  </div>
+                )}
               </div>
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                <CreditCard className="h-6 w-6 text-red-600" />
+              <div className="w-12 h-12 rounded-full flex items-center justify-center bg-red-100">
+                {expenseTrend && expenseTrend.length > 0 ? (
+                  <Sparkline data={expenseTrend} color="red" />
+                ) : (
+                  <CreditCard className="h-6 w-6 text-red-600" />
+                )}
               </div>
             </div>
           </div>
@@ -265,8 +356,11 @@ const FinancialDashboard = () => {
                 <p className="text-2xl font-bold text-red-600">
                   {revenueService.formatCurrency(monthlyExpenses)}
                 </p>
+                <div className="mt-1">
+                  {formatPercentageChange(monthlyExpensesChange, monthlyExpensesChangeStatus)}
+                </div>
               </div>
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center bg-red-100">
                 <BarChart3 className="h-6 w-6 text-red-600" />
               </div>
             </div>

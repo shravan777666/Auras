@@ -1343,7 +1343,7 @@ export const addExpense = asyncHandler(async (req, res) => {
   return successResponse(res, expense, 'Expense added successfully');
 });
 
-// Get salon expenses
+// Get salon expenses with trend analysis
 export const getExpenses = asyncHandler(async (req, res) => {
   const userId = req.user.id;
   const page = parseInt(req.query.page) || 1;
@@ -1362,7 +1362,8 @@ export const getExpenses = asyncHandler(async (req, res) => {
     return notFoundResponse(res, 'Salon profile');
   }
 
-  const filter = { salonId: salon._id };
+  const salonId = salon._id;
+  const filter = { salonId: salonId };
   
   // Apply category filter if provided
   if (req.query.category) {
@@ -1387,12 +1388,98 @@ export const getExpenses = asyncHandler(async (req, res) => {
 
   const totalPages = Math.ceil(totalExpenses / limit);
 
-  return paginatedResponse(res, expenses, {
-    page,
-    limit,
-    totalPages,
-    totalItems: totalExpenses
-  });
+  // Calculate monthly expenses for comparison
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  
+  // Previous month dates for comparison
+  const startOfPreviousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const endOfPreviousMonth = startOfMonth;
+
+  // Get current month's expenses
+  const currentMonthExpensesResult = await Expense.aggregate([
+    { 
+      $match: { 
+        salonId: salonId, 
+        date: { $gte: startOfMonth, $lt: endOfMonth } 
+      } 
+    },
+    { $group: { _id: null, total: { $sum: '$amount' } } }
+  ]);
+
+  // Get previous month's expenses for comparison
+  const previousMonthExpensesResult = await Expense.aggregate([
+    { 
+      $match: { 
+        salonId: salonId, 
+        date: { $gte: startOfPreviousMonth, $lt: endOfPreviousMonth } 
+      } 
+    },
+    { $group: { _id: null, total: { $sum: '$amount' } } }
+  ]);
+
+  const currentMonthExpenses = currentMonthExpensesResult.length > 0 ? currentMonthExpensesResult[0].total : 0;
+  const previousMonthExpenses = previousMonthExpensesResult.length > 0 ? previousMonthExpensesResult[0].total : 0;
+
+  // Calculate percentage change for monthly expenses
+  let monthlyExpensesChange = 0;
+  let monthlyExpensesChangeStatus = "N/A";
+  if (previousMonthExpenses > 0) {
+    monthlyExpensesChange = ((currentMonthExpenses - previousMonthExpenses) / previousMonthExpenses) * 100;
+    monthlyExpensesChangeStatus = monthlyExpensesChange >= 0 ? "negative" : "positive"; // Expenses increase is negative
+  } else if (previousMonthExpenses === 0 && currentMonthExpenses > 0) {
+    monthlyExpensesChange = "N/A"; // No previous data to compare
+    monthlyExpensesChangeStatus = "negative";
+  }
+
+  // Get 12-month historical trend data for total expenses
+  const twelveMonthsAgo = new Date(now.getFullYear() - 1, now.getMonth(), 1);
+  const expenseTrendData = await Expense.aggregate([
+    { 
+      $match: { 
+        salonId: salonId, 
+        date: { $gte: twelveMonthsAgo } 
+      } 
+    },
+    {
+      $group: {
+        _id: {
+          year: { $year: "$date" },
+          month: { $month: "$date" }
+        },
+        total: { $sum: '$amount' }
+      }
+    },
+    { $sort: { "_id.year": 1, "_id.month": 1 } }
+  ]);
+
+  // Format trend data for sparkline
+  const expenseTrend = expenseTrendData.map(item => item.total);
+
+  // Get total expenses
+  const totalExpensesResult = await Expense.aggregate([
+    { $match: { salonId: salonId } },
+    { $group: { _id: null, total: { $sum: '$amount' } } }
+  ]);
+  
+  const totalExpensesAmount = totalExpensesResult.length > 0 ? totalExpensesResult[0].total : 0;
+
+  return successResponse(res, {
+    expenses,
+    currentMonthExpenses,
+    previousMonthExpenses,
+    monthlyExpensesChange,
+    monthlyExpensesChangeStatus,
+    expenseTrend,
+    totalExpenses: totalExpensesAmount,
+    pagination: {
+      page,
+      limit,
+      totalPages,
+      totalItems: totalExpenses
+    }
+  }, 'Expenses retrieved successfully');
 });
 
 // Get expense summary by category
