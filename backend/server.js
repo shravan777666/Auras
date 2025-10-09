@@ -42,6 +42,9 @@ import staffInvitationRoutes from './routes/staffInvitation.js';
 import userRoutes from './routes/user.js';
 import alertsRoutes from './routes/alerts.js';
 
+// Add the new import for schedule requests
+import scheduleRequestsRoutes from './routes/scheduleRequests.js';
+
 // Create Express app
 const app = express();
 
@@ -308,6 +311,9 @@ app.use('/api/broadcast', broadcastRoutes);
 app.use('/api/staff-invitations', staffInvitationRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/alerts', alertsRoutes);
+
+// Add the new route for schedule requests
+app.use('/api/schedule-requests', scheduleRequestsRoutes);
 
 // Handle undefined routes
 app.all('*', (req, res) => {

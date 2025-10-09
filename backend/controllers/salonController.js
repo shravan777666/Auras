@@ -966,145 +966,151 @@ export const getStaffAvailability = asyncHandler(async (req, res) => {
   const userId = req.user.id;
   const { startDate, endDate } = req.query;
 
-  // Get user record to find salon
-  const User = (await import('../models/User.js')).default;
-  const user = await User.findById(userId);
-  if (!user || user.type !== 'salon') {
-    return errorResponse(res, 'Access denied: Only salon owners can access staff availability', 403);
-  }
-
-  // Find salon by email
-  const salon = await Salon.findOne({ email: user.email });
-  if (!salon) {
-    return notFoundResponse(res, 'Salon profile');
-  }
-
-  const salonId = salon._id;
-
-  // Get staff assigned to this salon
-  const staff = await Staff.find({
-    assignedSalon: salonId,
-    isActive: true,
-    approvalStatus: 'approved'
-  })
-  .select('name email position skills availability contactNumber profilePicture')
-  .sort({ name: 1 });
-
-  // Get appointments for the date range
-  let appointmentFilter = {
-    salonId: salonId,
-    status: { $in: ['Pending', 'Approved', 'In-Progress'] }
-  };
-
-  if (startDate && endDate) {
-    // Since appointmentDate is stored as string in YYYY-MM-DDTHH:mm format,
-    // we need to do string comparison rather than Date comparison
-    appointmentFilter.appointmentDate = {
-      $gte: startDate + 'T00:00',
-      $lte: endDate + 'T23:59'
-    };
-    
-    console.log('🗓️ Date filter applied:', {
-      startDate: startDate + 'T00:00',
-      endDate: endDate + 'T23:59'
-    });
-  }
-
-  const appointments = await Appointment.find(appointmentFilter)
-    .populate('staffId', 'name position')
-    .populate('customerId', 'name email phone')
-    .populate('services.serviceId', 'name duration')
-    .sort({ appointmentDate: 1, appointmentTime: 1 });
-
-  console.log('🔍 Staff Availability Debug:', {
-    salonId,
-    appointmentFilter,
-    totalAppointments: appointments.length,
-    appointmentStatuses: appointments.map(apt => ({ id: apt._id, status: apt.status, staffId: apt.staffId?.name || 'Unassigned' }))
-  });
-
-  // Group appointments by staff
-  const staffAppointments = staff.map(staffMember => {
-    const staffAppts = appointments.filter(apt =>
-      apt.staffId && apt.staffId._id.toString() === staffMember._id.toString()
-    );
-    
-    console.log(`👤 Staff ${staffMember.name} appointments:`, {
-      staffId: staffMember._id,
-      appointmentCount: staffAppts.length,
-      appointments: staffAppts.map(apt => ({ id: apt._id, status: apt.status, date: apt.appointmentDate }))
-    });
-
-    return {
-      staff: {
-        _id: staffMember._id,
-        name: staffMember.name,
-        position: staffMember.position || 'Staff',
-        availability: staffMember.availability
-      },
-      appointments: staffAppts.map(apt => {
-        // Extract time from appointmentDate if it contains time, otherwise use appointmentTime
-        let timeToDisplay = apt.appointmentTime;
-        if (apt.appointmentDate && apt.appointmentDate.includes('T')) {
-          const timePart = apt.appointmentDate.split('T')[1];
-          if (timePart) {
-            timeToDisplay = timePart.substring(0, 5); // Get HH:mm part
-          }
-        }
-        
-        return {
-          _id: apt._id,
-          date: apt.appointmentDate,
-          time: timeToDisplay,
-          status: apt.status,
-          duration: apt.estimatedDuration || apt.services.reduce((total, service) => total + (service.duration || 0), 0),
-          customer: apt.customerId ? apt.customerId.name : 'Unknown Customer',
-          services: apt.services.map(s => s.serviceName || (s.serviceId ? s.serviceId.name : 'Service')),
-          staffName: staffMember.name,
-          staffId: staffMember._id
-        };
-      })
-    };
-  });
-
-  // Get unassigned appointments (no staff assigned)
-  const unassignedAppointments = appointments.filter(apt => !apt.staffId).map(apt => {
-    // Extract time from appointmentDate if it contains time, otherwise use appointmentTime
-    let timeToDisplay = apt.appointmentTime;
-    if (apt.appointmentDate && apt.appointmentDate.includes('T')) {
-      const timePart = apt.appointmentDate.split('T')[1];
-      if (timePart) {
-        timeToDisplay = timePart.substring(0, 5); // Get HH:mm part
-      }
+  try {
+    // Get user record to find salon
+    const User = (await import('../models/User.js')).default;
+    const user = await User.findById(userId);
+    if (!user || user.type !== 'salon') {
+      return errorResponse(res, 'Access denied: Only salon owners can access staff availability', 403);
     }
-    
-    return {
-      _id: apt._id,
-      date: apt.appointmentDate,
-      time: timeToDisplay,
-      status: apt.status,
-      duration: apt.estimatedDuration || apt.services.reduce((total, service) => total + (service.duration || 0), 0),
-      customer: apt.customerId ? apt.customerId.name : 'Unknown Customer',
-      services: apt.services.map(s => s.serviceName || (s.serviceId ? s.serviceId.name : 'Service')),
-      staffName: 'Unassigned',
-      staffId: null
+
+    // Find salon by email
+    const salon = await Salon.findOne({ email: user.email });
+    if (!salon) {
+      return notFoundResponse(res, 'Salon profile');
+    }
+
+    const salonId = salon._id;
+
+    // Get staff assigned to this salon
+    const staff = await Staff.find({
+      assignedSalon: salonId,
+      isActive: true,
+      approvalStatus: 'approved'
+    })
+    .select('name email position skills availability contactNumber profilePicture')
+    .sort({ name: 1 });
+
+    // Get appointments for the date range
+    let appointmentFilter = {
+      salonId: salonId,
+      status: { $in: ['Pending', 'Approved', 'In-Progress', 'STAFF_BLOCKED'] } // Include STAFF_BLOCKED
     };
-  });
 
-  // Add unassigned appointments as a separate "staff" entry
-  if (unassignedAppointments.length > 0) {
-    staffAppointments.push({
-      staff: {
-        _id: 'unassigned',
-        name: 'Unassigned Appointments',
-        position: 'Pending Assignment',
-        availability: null
-      },
-      appointments: unassignedAppointments
+    if (startDate && endDate) {
+      // Since appointmentDate is stored as string in YYYY-MM-DDTHH:mm format,
+      // we need to do string comparison rather than Date comparison
+      appointmentFilter.appointmentDate = {
+        $gte: startDate + 'T00:00',
+        $lte: endDate + 'T23:59'
+      };
+      
+      console.log('🗓️ Date filter applied:', {
+        startDate: startDate + 'T00:00',
+        endDate: endDate + 'T23:59'
+      });
+    }
+
+    const appointments = await Appointment.find(appointmentFilter)
+      .populate('staffId', 'name position')
+      .populate('customerId', 'name email phone')
+      .populate('services.serviceId', 'name duration')
+      .sort({ appointmentDate: 1, appointmentTime: 1 });
+
+    console.log('🔍 Staff Availability Debug:', {
+      salonId,
+      appointmentFilter,
+      totalAppointments: appointments.length,
+      appointmentStatuses: appointments.map(apt => ({ id: apt._id, status: apt.status, staffId: apt.staffId?.name || 'Unassigned' }))
     });
-  }
 
-  return successResponse(res, { staffAppointments }, 'Staff availability data retrieved successfully');
+    // Group appointments by staff
+    const staffAppointments = staff.map(staffMember => {
+      const staffAppts = appointments.filter(apt =>
+        apt.staffId && apt.staffId._id && staffMember._id && 
+        apt.staffId._id.toString() === staffMember._id.toString()
+      );
+      
+      console.log(`👤 Staff ${staffMember.name} appointments:`, {
+        staffId: staffMember._id,
+        appointmentCount: staffAppts.length,
+        appointments: staffAppts.map(apt => ({ id: apt._id, status: apt.status, date: apt.appointmentDate }))
+      });
+
+      return {
+        staff: {
+          _id: staffMember._id,
+          name: staffMember.name,
+          position: staffMember.position || 'Staff',
+          availability: staffMember.availability
+        },
+        appointments: staffAppts.map(apt => {
+          // Extract time from appointmentDate if it contains time, otherwise use appointmentTime
+          let timeToDisplay = apt.appointmentTime;
+          if (apt.appointmentDate && apt.appointmentDate.includes('T')) {
+            const timePart = apt.appointmentDate.split('T')[1];
+            if (timePart) {
+              timeToDisplay = timePart.substring(0, 5); // Get HH:mm part
+            }
+          }
+          
+          return {
+            _id: apt._id,
+            date: apt.appointmentDate,
+            time: timeToDisplay,
+            status: apt.status,
+            duration: apt.estimatedDuration || apt.services.reduce((total, service) => total + (service.duration || 0), 0),
+            customer: apt.customerId ? apt.customerId.name : 'Unknown Customer',
+            services: apt.services.map(s => s.serviceName || (s.serviceId ? s.serviceId.name : 'Service')),
+            staffName: staffMember.name,
+            staffId: staffMember._id
+          };
+        })
+      };
+    });
+
+    // Get unassigned appointments (no staff assigned)
+    const unassignedAppointments = appointments.filter(apt => !apt.staffId).map(apt => {
+      // Extract time from appointmentDate if it contains time, otherwise use appointmentTime
+      let timeToDisplay = apt.appointmentTime;
+      if (apt.appointmentDate && apt.appointmentDate.includes('T')) {
+        const timePart = apt.appointmentDate.split('T')[1];
+        if (timePart) {
+          timeToDisplay = timePart.substring(0, 5); // Get HH:mm part
+        }
+      }
+      
+      return {
+        _id: apt._id,
+        date: apt.appointmentDate,
+        time: timeToDisplay,
+        status: apt.status,
+        duration: apt.estimatedDuration || apt.services.reduce((total, service) => total + (service.duration || 0), 0),
+        customer: apt.customerId ? apt.customerId.name : 'Unknown Customer',
+        services: apt.services.map(s => s.serviceName || (s.serviceId ? s.serviceId.name : 'Service')),
+        staffName: 'Unassigned',
+        staffId: null
+      };
+    });
+
+    // Add unassigned appointments as a separate "staff" entry
+    if (unassignedAppointments.length > 0) {
+      staffAppointments.push({
+        staff: {
+          _id: 'unassigned',
+          name: 'Unassigned Appointments',
+          position: 'Pending Assignment',
+          availability: null
+        },
+        appointments: unassignedAppointments
+      });
+    }
+
+    return successResponse(res, { staffAppointments }, 'Staff availability data retrieved successfully');
+  } catch (error) {
+    console.error('Error in getStaffAvailability:', error);
+    return errorResponse(res, `Failed to retrieve staff availability: ${error.message}`, 500);
+  }
 });
 
 // Update appointment status
@@ -1258,11 +1264,10 @@ export const getRevenueByService = asyncHandler(async (req, res) => {
 
   const salonId = salon._id;
 
-  // Limit to current month
+  // First try to get data from Revenue collection for current month
   const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   const endOfMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1);
 
-  // First try to get data from Revenue collection
   let revenueData = await Revenue.aggregate([
     { $match: { salonId: salonId, date: { $gte: startOfMonth, $lt: endOfMonth } } },
     { $group: { _id: '$service', total: { $sum: '$amount' }, count: { $sum: 1 } } },
@@ -1278,9 +1283,9 @@ export const getRevenueByService = asyncHandler(async (req, res) => {
     ]);
   }
 
-  // If no Revenue records exist, calculate from completed appointments
+  // If no Revenue records exist for current month, calculate from completed appointments
   if (revenueData.length === 0) {
-    console.log('No Revenue records found, calculating from completed appointments...');
+    console.log('No Revenue records found for current month, calculating from completed appointments...');
     
     const appointmentRevenue = await Appointment.aggregate([
       {
@@ -1302,6 +1307,65 @@ export const getRevenueByService = asyncHandler(async (req, res) => {
     ]);
 
     revenueData = appointmentRevenue;
+  }
+
+  // If still no data for current month, get data for the most recent month with completed appointments
+  if (revenueData.length === 0) {
+    console.log('No revenue data for current month, checking for most recent month with data...');
+    
+    // Find the most recent completed appointment to determine the most recent month with data
+    const recentAppointment = await Appointment.findOne({
+      salonId: salonId,
+      status: 'Completed'
+    }).sort({ createdAt: -1 });
+    
+    if (recentAppointment && recentAppointment.createdAt) {
+      const recentDate = new Date(recentAppointment.createdAt);
+      const recentStartOfMonth = new Date(recentDate.getFullYear(), recentDate.getMonth(), 1);
+      const recentEndOfMonth = new Date(recentDate.getFullYear(), recentDate.getMonth() + 1, 1);
+      
+      console.log(`Checking revenue data for most recent month: ${recentStartOfMonth.toISOString()} to ${recentEndOfMonth.toISOString()}`);
+      
+      // Try to get data from Revenue collection for the most recent month
+      revenueData = await Revenue.aggregate([
+        { $match: { salonId: salonId, date: { $gte: recentStartOfMonth, $lt: recentEndOfMonth } } },
+        { $group: { _id: '$service', total: { $sum: '$amount' }, count: { $sum: 1 } } },
+        { $sort: { total: -1 } }
+      ]);
+      
+      // Fallback for legacy records where salonId may be stored as string
+      if (revenueData.length === 0) {
+        revenueData = await Revenue.aggregate([
+          { $match: { salonId: salonId.toString(), date: { $gte: recentStartOfMonth, $lt: recentEndOfMonth } } },
+          { $group: { _id: '$service', total: { $sum: '$amount' }, count: { $sum: 1 } } },
+          { $sort: { total: -1 } }
+        ]);
+      }
+      
+      // If no Revenue records exist for the most recent month, calculate from completed appointments
+      if (revenueData.length === 0) {
+        const appointmentRevenue = await Appointment.aggregate([
+          {
+            $match: {
+              salonId: salonId,
+              status: 'Completed',
+              createdAt: { $gte: recentStartOfMonth, $lt: recentEndOfMonth }
+            }
+          },
+          { $unwind: '$services' },
+          {
+            $group: {
+              _id: '$services.serviceName',
+              total: { $sum: '$services.price' },
+              count: { $sum: 1 }
+            }
+          },
+          { $sort: { total: -1 } }
+        ]);
+        
+        revenueData = appointmentRevenue;
+      }
+    }
   }
 
   if (revenueData.length === 0) {

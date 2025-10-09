@@ -5,9 +5,10 @@ import {
   updateAppointment,
   getAvailableSlots,
   getAppointmentsSummary,
-  submitReview
+  submitReview,
+  blockTimeSlot
 } from '../controllers/appointmentController.js';
-import { requireAuth, requireCustomer } from '../middleware/roleAuth.js';
+import { requireAuth, requireCustomer, requireStaff, requireStaffSetup } from '../middleware/roleAuth.js';
 import { validateAppointment, validateObjectId } from '../middleware/validation.js';
 
 const router = express.Router();
@@ -17,6 +18,9 @@ router.use(requireAuth);
 
 // Booking (customers only)
 router.post('/book', requireCustomer, validateAppointment, bookAppointment);
+
+// Block time slot (staff only with setup completed)
+router.post('/block', requireStaff, requireStaffSetup, blockTimeSlot);
 
 // Get available time slots (public for authenticated users)
 router.get('/slots/available', getAvailableSlots);

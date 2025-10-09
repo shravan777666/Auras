@@ -1,82 +1,120 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import Staff from './models/Staff.js';
-import User from './models/User.js';
 import bcrypt from 'bcryptjs';
-import { fileURLToPath } from 'url';
-import path from 'path';
+import User from './models/User.js';
+import Staff from './models/Staff.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Load environment variables
+dotenv.config();
 
-dotenv.config({ path: path.join(__dirname, '.env') });
-
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/auracare';
-
-const debugStaffLogin = async () => {
+// MongoDB connection
+const connectDB = async () => {
   try {
-    console.log('🔄 Connecting to MongoDB...');
-    await mongoose.connect(MONGODB_URI);
-    
-    const email = 'staff@test.com';
-    const password = 'password123';
-    const userType = 'staff';
-    
-    console.log(`\n🔍 Debugging login for: ${email}`);
-    
-    // Check central User model with EXACT same query as auth controller
-    console.log('🔍 Testing exact auth controller query...');
-    const user = await User.findOne({ email, type: userType, isActive: true });
-    console.log('👤 User found by auth query:', user ? {
-      id: user._id,
-      name: user.name,
-      email: user.email,
-      type: user.type,
-      setupCompleted: user.setupCompleted,
-      isActive: user.isActive,
-      hasPassword: !!user.password
-    } : 'NOT FOUND');
-    
-    // Also check without isActive filter
-    const userWithoutActive = await User.findOne({ email, type: userType });
-    console.log('👤 User without isActive filter:', userWithoutActive ? {
-      id: userWithoutActive._id,
-      name: userWithoutActive.name,
-      email: userWithoutActive.email,
-      type: userWithoutActive.type,
-      isActive: userWithoutActive.isActive
-    } : 'NOT FOUND');
-    
-    // Check Staff model
-    const staff = await Staff.findOne({ email, isActive: true });
-    console.log('👨‍💼 Staff profile:', staff ? {
-      id: staff._id,
-      name: staff.name,
-      email: staff.email,
-      approvalStatus: staff.approvalStatus,
-      setupCompleted: staff.setupCompleted,
-      isActive: staff.isActive,
-      hasPassword: !!staff.password,
-      userRef: staff.user
-    } : 'NOT FOUND');
-    
-    if (user) {
-      console.log('\n🔐 Testing password verification with User model...');
-      const isMatch = await bcrypt.compare(password, user.password);
-      console.log('Password match:', isMatch);
-    }
-    
-    if (staff && staff.password) {
-      console.log('\n🔐 Testing password verification with Staff model...');
-      const isMatch = await bcrypt.compare(password, staff.password);
-      console.log('Password match:', isMatch);
-    }
-    
-    process.exit(0);
+    const conn = await mongoose.connect(process.env.MONGODB_URI, {
+      dbName: process.env.DB_NAME || 'auracare'
+    });
+    console.log(`MongoDB Connected: ${conn.connection.host}`);
+    return conn;
   } catch (error) {
-    console.error('❌ Error:', error);
+    console.error(`Error: ${error.message}`);
     process.exit(1);
   }
 };
 
+// Function to debug staff login
+const debugStaffLogin = async () => {
+  try {
+    // Connect to database
+    await connectDB();
+    
+    // Test credentials (replace with actual test credentials)
+    const email = 'kevin@gmail.com'; // Example staff email
+    const password = '123456'; // Example password
+    const userType = 'staff';
+    
+    console.log(`\n🔍 Debugging staff login for ${email} (${userType})\n`);
+    
+    // Step 1: Find staff in Staff collection
+    console.log('1️⃣ Looking for staff in Staff collection...');
+    const staff = await Staff.findOne({ email, isActive: true });
+    console.log('Staff found:', staff ? {
+      id: staff._id,
+      name: staff.name,
+      email: staff.email,
+      hasPassword: !!staff.password,
+      approvalStatus: staff.approvalStatus,
+      isActive: staff.isActive,
+      userRef: staff.user
+    } : 'NOT FOUND');
+    
+    // Step 2: Find staff in User collection
+    console.log('\n2️⃣ Looking for staff in User collection...');
+    let user = null;
+    if (staff && staff.user) {
+      user = await User.findById(staff.user);
+    } else {
+      user = await User.findOne({ email, type: userType, isActive: true });
+    }
+    console.log('User found:', user ? {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      type: user.type,
+      hasPassword: !!user.password,
+      isActive: user.isActive
+    } : 'NOT FOUND');
+    
+    // Step 3: Check password comparison
+    if (staff && user) {
+      console.log('\n3️⃣ Checking password comparison...');
+      console.log(`Staff password: ${staff.password ? 'SET' : 'NOT SET'}`);
+      console.log(`User password: ${user.password ? 'SET' : 'NOT SET'}`);
+      
+      if (staff.password) {
+        try {
+          const isMatch = await bcrypt.compare(password, staff.password);
+          console.log(`Password match (staff): ${isMatch}`);
+        } catch (error) {
+          console.log(`Password comparison error (staff): ${error.message}`);
+        }
+      }
+      
+      if (user.password) {
+        try {
+          const isMatch = await bcrypt.compare(password, user.password);
+          console.log(`Password match (user): ${isMatch}`);
+        } catch (error) {
+          console.log(`Password comparison error (user): ${error.message}`);
+        }
+      }
+    }
+    
+    // Step 4: Check approval status
+    if (staff) {
+      console.log('\n4️⃣ Checking approval status...');
+      console.log(`Approval status: ${staff.approvalStatus}`);
+      console.log(`Is verified: ${staff.isVerified}`);
+      
+      if (staff.approvalStatus === 'rejected') {
+        console.log(`❌ Staff rejected: ${staff.rejectionReason || 'No reason provided'}`);
+      } else if (staff.approvalStatus === 'pending') {
+        console.log('⚠️  Staff pending approval');
+      } else if (staff.approvalStatus !== 'approved') {
+        console.log(`⚠️  Staff not approved: ${staff.approvalStatus}`);
+      } else {
+        console.log('✅ Staff approved');
+      }
+    }
+    
+    // Close the connection
+    await mongoose.connection.close();
+    console.log('\nDatabase connection closed');
+  } catch (error) {
+    console.error('❌ Error:', error);
+    await mongoose.connection.close();
+    process.exit(1);
+  }
+};
+
+// Run the function
 debugStaffLogin();

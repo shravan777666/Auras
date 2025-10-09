@@ -159,7 +159,7 @@ export const bookAppointment = asyncHandler(async (req, res) => {
       }
     }
 
-    // Check for time conflicts
+    // Check for time conflicts including STAFF_BLOCKED appointments
     const appointmentDateTimeForConflictCheck = parseAppointmentDateTime(appointmentDate, appointmentTime);
 
     const conflictFilter = {
@@ -168,7 +168,7 @@ export const bookAppointment = asyncHandler(async (req, res) => {
         staffId ? { staffId } : {}
       ].filter(f => Object.keys(f).length > 0),
       appointmentDate: formattedAppointmentDate,
-      status: { $in: ['Pending', 'Confirmed', 'In-Progress'] }
+      status: { $in: ['Pending', 'Confirmed', 'In-Progress', 'STAFF_BLOCKED'] } // Include STAFF_BLOCKED
     };
 
     const conflictingAppointments = await Appointment.find(conflictFilter);
@@ -177,7 +177,10 @@ export const bookAppointment = asyncHandler(async (req, res) => {
       const existingStart = existing.appointmentTime;
       const existingEnd = existing.estimatedEndTime;
 
-      if (appointmentTime >= existingStart && appointmentTime < existingEnd) {
+      if (appointmentTime < existingEnd && existingStart < (appointmentTime + totalDuration)) {
+        if (existing.status === 'STAFF_BLOCKED') {
+          return errorResponse(res, `Conflict: Staff member is unavailable during this time (${existing.reason || 'Blocked Time'})`, 409);
+        }
         return errorResponse(res, 'Time slot not available. Please choose a different time.', 409);
       }
     }
@@ -502,7 +505,7 @@ export const getAvailableSlots = asyncHandler(async (req, res) => {
   const existingAppointments = await Appointment.find({
     salonId,
     appointmentDate: new RegExp(`^${formattedDate}`), // Match appointments starting with this date
-    status: { $in: ['Pending', 'Confirmed', 'In-Progress'] },
+    status: { $in: ['Pending', 'Approved', 'In-Progress', 'STAFF_BLOCKED'] },
     ...(staffId && { staffId })
   });
 
@@ -603,6 +606,32 @@ export const submitReview = asyncHandler(async (req, res) => {
   return successResponse(res, appointment, 'Review submitted successfully');
 });
 
+// Block time slot for staff
+export const blockTimeSlot = asyncHandler(async (req, res) => {
+  const { staffId, salonId, appointmentDate, appointmentTime, estimatedDuration, reason } = req.body;
+
+  if (!staffId || !salonId || !appointmentDate || !appointmentTime || !estimatedDuration) {
+    return errorResponse(res, 'Missing required fields', 400);
+  }
+
+  const appointment = new Appointment({
+    salonId,
+    staffId,
+    appointmentDate,
+    appointmentTime,
+    estimatedDuration,
+    reason,
+    status: 'STAFF_BLOCKED',
+    // Add a dummy customerId to satisfy the model requirement
+    customerId: '000000000000000000000000',
+    services: [],
+  });
+
+  await appointment.save();
+
+  return successResponse(res, appointment, 'Time slot blocked successfully', 201);
+});
+
 export default {
   bookAppointment,
   getAppointmentDetails,
@@ -610,4 +639,5 @@ export default {
   getAvailableSlots,
   getAppointmentsSummary,
   submitReview,
+  blockTimeSlot,
 };

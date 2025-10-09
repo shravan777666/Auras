@@ -39,6 +39,10 @@ const StaffAvailability = () => {
                   <div className="w-3 h-3 bg-orange-100 border border-orange-300 rounded"></div>
                   <span className="text-gray-600">Unassigned appointments (click to assign staff)</span>
                 </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-gray-200 border border-gray-300 rounded"></div>
+                  <span className="text-gray-600">Staff blocked time (unavailable)</span>
+                </div>
               </div>
             </div>
           </div>

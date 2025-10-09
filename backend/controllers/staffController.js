@@ -432,9 +432,7 @@ export const getDashboard = asyncHandler(async (req, res) => {
 
   console.log('Staff approval check passed, fetching dashboard data...');
 
-  const today = new Date();
-  const todayStart = new Date(today.setHours(0, 0, 0, 0));
-  const todayEnd = new Date(today.setHours(23, 59, 59, 999));
+  const todayString = new Date().toISOString().split('T')[0];
 
   const [
     totalAppointments,
@@ -449,14 +447,14 @@ export const getDashboard = asyncHandler(async (req, res) => {
     Appointment.countDocuments({ 
       staffId: staffInfo._id, 
       appointmentDate: {
-        $gte: todayStart,
-        $lt: todayEnd
+        $gte: `${todayString}T00:00`,
+        $lt: `${todayString}T23:59`
       }
     }),
     Appointment.countDocuments({ 
       staffId: staffInfo._id,
-      status: { $in: ['Pending', 'Confirmed'] },
-      appointmentDate: { $gte: new Date() }
+      status: { $in: ['Pending', 'Approved'] },
+      appointmentDate: { $gt: `${todayString}T23:59` }
     }),
     Appointment.countDocuments({ staffId: staffInfo._id, status: 'Completed' }),
     staffInfo.assignedSalon ? Salon.findById(staffInfo.assignedSalon).select('salonName ownerName') : null,
@@ -464,10 +462,10 @@ export const getDashboard = asyncHandler(async (req, res) => {
     Appointment.find({
       staffId: staffInfo._id,
       appointmentDate: {
-        $gte: todayStart,
-        $lt: todayEnd
+        $gte: `${todayString}T00:00`,
+        $lt: `${todayString}T23:59`
       },
-      status: { $in: ['Pending', 'Confirmed', 'In-Progress'] }
+      status: { $in: ['Pending', 'Approved', 'In-Progress'] }
     })
     .populate('customerId', 'name')
     .populate('services.serviceId', 'name')
@@ -476,8 +474,8 @@ export const getDashboard = asyncHandler(async (req, res) => {
     // Get upcoming clients
     Appointment.find({
       staffId: staffInfo._id,
-      status: { $in: ['Pending', 'Confirmed'] },
-      appointmentDate: { $gte: new Date() }
+      status: { $in: ['Pending', 'Approved'] },
+      appointmentDate: { $gt: `${todayString}T23:59` }
     })
     .populate('customerId', 'name')
     .sort({ appointmentDate: 1, appointmentTime: 1 })
@@ -1220,7 +1218,7 @@ export const getNextAppointment = asyncHandler(async (req, res) => {
     },
     status: { $in: ['Confirmed', 'Approved'] }  // Include both Confirmed and Approved appointments
   })
-  .populate('customerId', 'name')
+  .populate('customerId', 'name profilePic')
   .populate('services.serviceId', 'name')
   .sort({ appointmentTime: 1 });
 
@@ -1308,6 +1306,7 @@ export const getNextAppointment = asyncHandler(async (req, res) => {
     serviceName: nextAppointment.services?.[0]?.serviceId?.name || 'Service',
     startTime: nextAppointment.appointmentTime,
     clientId: nextAppointment.customerId?._id,
+    clientProfilePic: nextAppointment.customerId?.profilePic ? getFileUrl(nextAppointment.customerId.profilePic, req) : null,
     countdownText,
     countdownColor,
     clientNotes

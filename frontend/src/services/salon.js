@@ -111,11 +111,21 @@ export const salonService = {
   },
 
   async getStaffAvailability({ startDate, endDate } = {}) {
-    const params = new URLSearchParams();
-    if (startDate) params.set('startDate', startDate);
-    if (endDate) params.set('endDate', endDate);
-    const response = await api.get(`/salon/staff/availability?${params.toString()}`);
-    return response.data;
+    try {
+      const params = new URLSearchParams();
+      if (startDate) params.set('startDate', startDate);
+      if (endDate) params.set('endDate', endDate);
+      const response = await api.get(`/salon/staff/availability?${params.toString()}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching staff availability:', error);
+      // Return a consistent error structure
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Failed to fetch staff availability',
+        data: null
+      };
+    }
   },
 
   async assignStaffToAppointment(appointmentId, data) {
@@ -330,4 +340,19 @@ export const salonService = {
     );
   },
 
+  // Add the new schedule request methods
+  async getPendingScheduleRequests() {
+    const response = await api.get('/schedule-requests/pending');
+    return response.data;
+  },
+
+  async approveScheduleRequest(requestId) {
+    const response = await api.patch(`/schedule-requests/${requestId}/approve`);
+    return response.data;
+  },
+
+  async rejectScheduleRequest(requestId, rejectionReason) {
+    const response = await api.patch(`/schedule-requests/${requestId}/reject`, { rejectionReason });
+    return response.data;
+  }
 };

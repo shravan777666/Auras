@@ -165,20 +165,26 @@ const StaffAppointmentsCalendar = ({ embedded = false, onRefresh }) => {
       case 'Pending':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'Approved':
-      case 'Confirmed':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case 'In-Progress':
         return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'In-Progress':
+        return 'bg-indigo-100 text-indigo-800 border-indigo-200';
       case 'Completed':
         return 'bg-gray-100 text-gray-800 border-gray-200';
       case 'Cancelled':
         return 'bg-red-100 text-red-800 border-red-200';
+      case 'STAFF_BLOCKED':
+        return 'bg-gray-200 text-gray-800 border-gray-300'; // Gray for blocked time
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
 
   const handleAppointmentClick = (appointment) => {
+    // Don't allow assignment for STAFF_BLOCKED appointments
+    if (appointment.status === 'STAFF_BLOCKED') {
+      return; // Do nothing for blocked time slots
+    }
+    
     setSelectedAppointment(appointment);
     if (!appointment.staffId) {
       setShowAssignModal(true);

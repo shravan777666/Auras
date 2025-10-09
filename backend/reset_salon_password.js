@@ -4,7 +4,13 @@ import User from './models/User.js';
 import Salon from './models/Salon.js';
 import bcrypt from 'bcryptjs';
 
-dotenv.config();
+import { fileURLToPath } from 'url';
+import path from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 const connectDB = async () => {
   try {

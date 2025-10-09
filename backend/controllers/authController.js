@@ -148,163 +148,174 @@ export const register = async (req, res) => {
 export const login = async (req, res) => {
   try {
     const { email, password, userType } = req.body;
+    console.log('Login attempt:', { email, userType });
 
-    // Validate required fields
     if (!email || !password || !userType) {
       return errorResponse(res, 'Email, password, and user type are required', 400);
     }
 
-    // Find user by email and role - first check central User model
-    let user = await User.findOne({ email, type: userType, isActive: true });
-    let userFromSpecificModel = null;
+    // Refactored path for staff login for clarity and robustness
+    if (userType === 'staff') {
+      try {
+        console.log('=== STAFF LOGIN REFACTORED PATH ===');
+        const Staff = (await import('../models/Staff.js')).default;
 
-    // If not found in central User model, check specific model as fallback
-    if (!user) {
-      console.log(`User not found in central User model, checking ${userType} model...`);
-      
+        // 1. Find the central User record, which is the source of truth for auth
+        const centralUser = await User.findOne({ email, type: 'staff' }).select('+password');
+        if (!centralUser) {
+          console.log(`Staff login failed for ${email}: Central user record not found.`);
+          return errorResponse(res, 'Authentication failed. User not found.', 401);
+        }
+
+        if (!centralUser.isActive) {
+          console.log(`Staff login failed for ${email}: User account is inactive.`);
+          return errorResponse(res, 'Your account is inactive. Please contact support.', 403);
+        }
+
+        if (!centralUser.password) {
+          console.log(`Staff login failed for ${email}: No password set for user (e.g., social login).`);
+          return errorResponse(res, 'Authentication failed. No password set for this account.', 401);
+        }
+
+        // 2. Compare password
+        const isMatch = await bcrypt.compare(password, centralUser.password);
+        if (!isMatch) {
+          console.log(`Staff login failed for ${email}: Incorrect password.`);
+          return errorResponse(res, 'Authentication failed. Incorrect password.', 401);
+        }
+
+        // 3. Find the associated Staff profile for business logic checks
+        const staffProfile = await Staff.findOne({ user: centralUser._id });
+        if (!staffProfile) {
+          console.log(`Staff login auth successful for ${email}, but staff profile not found.`);
+          return errorResponse(res, 'Login successful, but your staff profile could not be found.', 404);
+        }
+
+        // 4. Check approval status from the staff profile
+        if (staffProfile.approvalStatus !== 'approved') {
+          let message = 'Your staff application is not yet approved for login.';
+          if (staffProfile.approvalStatus === 'pending') {
+            message = 'Your application is still pending approval. Please complete your profile and wait for confirmation.';
+          } else if (staffProfile.approvalStatus === 'rejected') {
+            message = `Your application was rejected. Reason: ${staffProfile.rejectionReason || 'No reason provided'}`;
+          }
+          console.log(`Staff login failed for ${email}: Approval status is '${staffProfile.approvalStatus}'.`);
+          return errorResponse(res, message, 403);
+        }
+
+        // 5. Success: All checks passed. Sign token and return response.
+        const userForToken = {
+          _id: centralUser._id,
+          email: centralUser.email,
+          type: centralUser.type,
+          setupCompleted: staffProfile.setupCompleted,
+          name: staffProfile.name,
+          approvalStatus: staffProfile.approvalStatus,
+        };
+        const token = signToken(userForToken);
+        
+        const safeUser = {
+          id: centralUser._id.toString(),
+          name: staffProfile.name,
+          email: centralUser.email,
+          type: centralUser.type,
+          setupCompleted: staffProfile.setupCompleted,
+          approvalStatus: staffProfile.approvalStatus,
+        };
+
+        console.log(`Staff login successful for ${email}`);
+        return successResponse(res, { token, user: safeUser }, 'Logged in successfully');
+
+      } catch (staffError) {
+        console.error('An error occurred during the refactored staff login path:', staffError);
+        return errorResponse(res, 'An unexpected error occurred during login.', 500);
+      }
+    }
+
+    // --- Original logic for other user types (customer, salon, admin) ---
+    let user = null;
+    let specificModelUser = null;
+
+    try {
       switch (userType) {
         case 'customer':
           const Customer = (await import('../models/Customer.js')).default;
-          userFromSpecificModel = await Customer.findOne({ email, isActive: true });
+          specificModelUser = await Customer.findOne({ email, isActive: true });
           break;
         case 'salon':
           const Salon = (await import('../models/Salon.js')).default;
-          userFromSpecificModel = await Salon.findOne({ email, isActive: true });
-          break;
-        case 'staff':
-          const Staff = (await import('../models/Staff.js')).default;
-          userFromSpecificModel = await Staff.findOne({ email, isActive: true });
+          specificModelUser = await Salon.findOne({ email, isActive: true });
           break;
         case 'admin':
           const Admin = (await import('../models/Admin.js')).default;
-          userFromSpecificModel = await Admin.findOne({ email, isActive: true });
+          specificModelUser = await Admin.findOne({ email, isActive: true });
           break;
+        default:
+          return errorResponse(res, 'Invalid user type provided.', 400);
       }
+    } catch (importError) {
+      console.error('Model import error:', importError);
+      return errorResponse(res, 'System error occurred during authentication.', 500);
+    }
 
-      if (!userFromSpecificModel) {
+    if (!specificModelUser) {
+      user = await User.findOne({ email, type: userType, isActive: true }).select('+password');
+      if (!user) {
         return errorResponse(res, 'No user found with provided credentials and role.', 401);
       }
+    } else {
+      let centralUser = null;
+      try {
+        if (specificModelUser.ownerId) {
+          centralUser = await User.findById(specificModelUser.ownerId).select('+password');
+        } else {
+          centralUser = await User.findOne({ email: specificModelUser.email, type: userType }).select('+password');
+        }
+      } catch (dbError) {
+        console.error('Database error when finding central user:', dbError);
+        return errorResponse(res, 'System error occurred during authentication.', 500);
+      }
 
-      // Create a user object compatible with the rest of the login flow
+      if (!centralUser) {
+        return errorResponse(res, 'Associated central user not found.', 401);
+      }
+
       user = {
-        _id: userFromSpecificModel._id,
-        name: userFromSpecificModel.name,
-        email: userFromSpecificModel.email,
-        password: userFromSpecificModel.password,
+        _id: centralUser._id,
+        name: specificModelUser.name,
+        email: specificModelUser.email,
+        password: centralUser.password,
         type: userType,
-        setupCompleted: userFromSpecificModel.setupCompleted || false,
-        isActive: userFromSpecificModel.isActive
+        setupCompleted: specificModelUser.setupCompleted || false,
+        isActive: specificModelUser.isActive,
+        approvalStatus: specificModelUser.approvalStatus || undefined,
       };
     }
 
-    // Check password
+    if (!user.password) {
+        return errorResponse(res, 'Authentication failed. No password set for this account.', 401);
+    }
+
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return errorResponse(res, 'Incorrect password.', 401);
     }
 
-    let salon = null; // Declare salon here
-
-    // For salon users, check approval status
     if (userType === 'salon') {
-      console.log('=== SALON LOGIN DEBUG ===');
-      console.log('User email:', user.email);
-      console.log('User type:', userType);
-      
-      // If we already have salon data from specific model lookup, use it
-      if (userFromSpecificModel) {
-        salon = userFromSpecificModel;
-      } else {
         const Salon = (await import('../models/Salon.js')).default;
-        salon = await Salon.findOne({ email: user.email }); // Assign to declared salon
-      }
-      
-      console.log('Salon found:', salon ? {
-        id: salon._id,
-        salonName: salon.salonName,
-        email: salon.email,
-        approvalStatus: salon.approvalStatus,
-        isVerified: salon.isVerified
-      } : 'null');
-      
-      if (!salon) {
-        console.log('Salon profile not found for email:', user.email);
-        return errorResponse(res, 'Salon profile not found.', 404);
-      }
-      
-      // Add approvalStatus to the user object before signing the token
-      user.approvalStatus = salon.approvalStatus;
-
-      if (salon.approvalStatus === 'rejected') {
-        console.log('Salon is rejected');
-        return errorResponse(res, `Your salon registration has been rejected. Reason: ${salon.rejectionReason || 'No reason provided'}`, 403);
-      }
-      
-      if (salon.approvalStatus === 'pending') {
-        console.log('Salon is still pending');
-        return errorResponse(res, 'Your salon registration is still pending approval by admin. Please wait for approval.', 403);
-      }
-      
-      if (salon.approvalStatus !== 'approved') {
-        console.log('Salon approval status is not approved:', salon.approvalStatus);
-        return errorResponse(res, 'Your salon is not approved for login.', 403);
-      }
-      
-      console.log('Salon approval check passed - login allowed');
+        const salon = specificModelUser || await Salon.findOne({ email: user.email });
+        if (!salon) {
+          return errorResponse(res, 'Salon profile not found.', 404);
+        }
+        user.approvalStatus = salon.approvalStatus;
+        if (salon.approvalStatus !== 'approved') {
+          let message = 'Your salon is not approved for login.';
+          if(salon.approvalStatus === 'pending') message = 'Your salon registration is pending approval.';
+          if(salon.approvalStatus === 'rejected') message = `Your salon registration has been rejected. Reason: ${salon.rejectionReason || 'No reason provided'}`;
+          return errorResponse(res, message, 403);
+        }
     }
 
-    let staff = null; // Declare staff here
-
-    // For staff users, check approval status
-    if (userType === 'staff') {
-      console.log('=== STAFF LOGIN DEBUG ===');
-      console.log('User email:', user.email);
-      console.log('User type:', userType);
-      
-      // If we already have staff data from specific model lookup, use it
-      if (userFromSpecificModel) {
-        staff = userFromSpecificModel;
-      } else {
-        const Staff = (await import('../models/Staff.js')).default;
-        staff = await Staff.findOne({ email: user.email }); // Find staff profile
-      }
-      
-      console.log('Staff found:', staff ? {
-        id: staff._id,
-        name: staff.name,
-        email: staff.email,
-        approvalStatus: staff.approvalStatus,
-        isVerified: staff.isVerified,
-        setupCompleted: staff.setupCompleted
-      } : 'null');
-      
-      if (!staff) {
-        console.log('Staff profile not found for email:', user.email);
-        return errorResponse(res, 'Staff profile not found.', 404);
-      }
-      
-      // Add approvalStatus to the user object before signing the token
-      user.approvalStatus = staff.approvalStatus;
-
-      if (staff.approvalStatus === 'rejected') {
-        console.log('Staff is rejected');
-        return errorResponse(res, `Your staff application has been rejected. Reason: ${staff.rejectionReason || 'No reason provided'}`, 403);
-      }
-      
-      if (staff.approvalStatus === 'pending') {
-        console.log('Staff is still pending');
-        return errorResponse(res, 'Your staff application is still pending approval by admin. Please complete your profile setup and wait for approval.', 403);
-      }
-      
-      if (staff.approvalStatus !== 'approved') {
-        console.log('Staff approval status is not approved:', staff.approvalStatus);
-        return errorResponse(res, 'Your staff application is not approved for login.', 403);
-      }
-      
-      console.log('Staff approval check passed - login allowed');
-    }
-
-    // If everything is valid, sign JWT and return user
     const token = signToken(user);
     const safeUser = {
       id: user._id.toString(),
@@ -313,17 +324,14 @@ export const login = async (req, res) => {
       type: user.type,
       setupCompleted: user.setupCompleted,
     };
-
-    // Conditionally add approvalStatus for salon and staff users
     if ((user.type === 'salon' || user.type === 'staff') && user.approvalStatus) {
       safeUser.approvalStatus = user.approvalStatus;
     }
 
     return successResponse(res, { token, user: safeUser }, 'Logged in successfully');
   } catch (err) {
-    // Log error and return user-friendly message
     console.error('Login error:', err);
-    return errorResponse(res, err.message || 'Login failed', 500);
+    return errorResponse(res, 'Login failed: ' + (err.message || 'Unknown error occurred'), 500);
   }
 };
 
@@ -430,10 +438,55 @@ export const changePassword = async (req, res) => {
 };
 
 export const refreshToken = async (req, res) => {
-  const old = req.user;
-  if (!old) return res.status(401).json({ success: false, message: 'Unauthorized' });
-  const token = signToken(old);
-  return successResponse(res, { token }, 'Token refreshed');
+  try {
+    // Get token from Authorization header or request body
+    let token = null;
+    
+    // Check Authorization header first
+    const authHeader = req.headers['authorization'];
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    }
+    
+    // If not in header, check request body
+    if (!token && req.body && req.body.refreshToken) {
+      token = req.body.refreshToken;
+    }
+    
+    // If no token provided at all
+    if (!token) {
+      return errorResponse(res, 'No token provided', 401);
+    }
+    
+    // Verify the token
+    try {
+      const secret = process.env.JWT_SECRET || 'dev_secret';
+      
+      // Verify the token but ignore expiration for refresh
+      const payload = jwt.verify(token, secret, { ignoreExpiration: true });
+      
+      // Remove old expiration and issued-at fields
+      const { exp, iat, ...cleanPayload } = payload;
+      
+      // Create a new token with the same payload but new expiration
+      const newToken = jwt.sign(cleanPayload, secret, { 
+        expiresIn: process.env.JWT_EXPIRE || '7d' 
+      });
+      
+      return successResponse(res, { token: newToken }, 'Token refreshed successfully');
+    } catch (err) {
+      // Any error other than expiration should be treated as invalid
+      if (err.name === 'JsonWebTokenError') {
+        return errorResponse(res, 'Invalid token', 401);
+      }
+      // Log other unexpected errors
+      console.error('Token refresh verification error:', err);
+      return errorResponse(res, 'Token verification failed', 401);
+    }
+  } catch (err) {
+    console.error('Token refresh error:', err);
+    return errorResponse(res, 'Failed to refresh token', 500);
+  }
 };
 
 export const generateToken = (user) => {

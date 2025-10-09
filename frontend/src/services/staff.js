@@ -184,6 +184,16 @@ export const staffService = {
     }
   },
 
+  async blockTimeSlot(data) {
+    try {
+      const response = await api.post('/appointments/block', data);
+      return response.data;
+    } catch (error) {
+      console.error('Error blocking time slot:', error);
+      throw error;
+    }
+  },
+
   // Keep the individual export as well
   getAppointmentsByStaffId,
 };

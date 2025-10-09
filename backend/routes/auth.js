@@ -46,9 +46,9 @@ router.post('/reset-password', validateNewPassword, resetPassword);
 
 // Authenticated routes
 router.get('/me', authenticateToken, getCurrentUser);
-router.post('/logout', authenticateToken, logout);
+router.post('/logout', logout);
 router.post('/change-password', authenticateToken, changePassword);
-router.post('/refresh-token', authenticateToken, refreshToken);
+router.post('/refresh-token', refreshToken); // Remove authenticateToken middleware
 
 // Example usage for protected dashboard routes
 

@@ -129,6 +129,22 @@ const StaffDashboard = () => {
     navigate('/staff/profile/edit');
   };
 
+  // Add new handler functions for schedule requests
+  const handleBlockTime = () => {
+    navigate('/staff/schedule');
+    // In a real implementation, we would open a modal or pass state to show the block time form
+  };
+
+  const handleRequestTimeOff = () => {
+    navigate('/staff/schedule');
+    // In a real implementation, we would open a modal or pass state to show the leave request form
+  };
+
+  const handleRequestShiftSwap = () => {
+    navigate('/staff/schedule');
+    // In a real implementation, we would open a modal or pass state to show the shift swap form
+  };
+
   if (loading) {
     return <LoadingSpinner />;
   }
@@ -320,6 +336,31 @@ const StaffDashboard = () => {
               ) : (
                 <p className="text-gray-500">You have no appointments scheduled for today.</p>
               )}
+              
+              {/* Add Schedule Request Buttons */}
+              <div className="mt-6 pt-4 border-t border-gray-200">
+                <h3 className="text-sm font-medium text-gray-900 mb-3">Schedule Requests</h3>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={handleBlockTime}
+                    className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-md text-sm hover:bg-blue-200 transition-colors"
+                  >
+                    Block Break/Lunch Time
+                  </button>
+                  <button
+                    onClick={handleRequestTimeOff}
+                    className="px-3 py-1.5 bg-green-100 text-green-700 rounded-md text-sm hover:bg-green-200 transition-colors"
+                  >
+                    Request Time Off
+                  </button>
+                  <button
+                    onClick={handleRequestShiftSwap}
+                    className="px-3 py-1.5 bg-purple-100 text-purple-700 rounded-md text-sm hover:bg-purple-200 transition-colors"
+                  >
+                    Request Shift Swap
+                  </button>
+                </div>
+              </div>
             </DashboardCard>
           </div>
 

@@ -3,7 +3,13 @@ import mongoose from 'mongoose';
 import User from './models/User.js';
 import Salon from './models/Salon.js';
 
-dotenv.config();
+import { fileURLToPath } from 'url';
+import path from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 const connectDB = async () => {
   try {
@@ -46,6 +52,26 @@ const listPendingSalons = async () => {
     console.log(`${i + 1}. ${salon.salonName || 'Unnamed Salon'}`);
     console.log(`   Owner: ${salon.ownerName || 'Not specified'}`);
     console.log(`   Email: ${salon.email}`);
+    console.log(`   Registered: ${salon.createdAt?.toLocaleDateString() || 'Unknown'}`);
+    console.log('');
+  });
+};
+
+const listAllSalons = async () => {
+  const allSalons = await Salon.find({})
+    .select('salonName ownerName email approvalStatus createdAt');
+  
+  if (allSalons.length === 0) {
+    console.log('✅ No salons found in the database');
+    return;
+  }
+  
+  console.log(`\n📋 ${allSalons.length} Total Salon(s) in Database:\n`);
+  allSalons.forEach((salon, i) => {
+    console.log(`${i + 1}. ${salon.salonName || 'Unnamed Salon'}`);
+    console.log(`   Owner: ${salon.ownerName || 'Not specified'}`);
+    console.log(`   Email: ${salon.email}`);
+    console.log(`   Status: ${salon.approvalStatus}`);
     console.log(`   Registered: ${salon.createdAt?.toLocaleDateString() || 'Unknown'}`);
     console.log('');
   });
@@ -125,6 +151,9 @@ const main = async () => {
     switch (command) {
       case 'list':
         await listPendingSalons();
+        break;
+      case 'list-all':
+        await listAllSalons();
         break;
       case 'approve':
         if (!email) {

@@ -7,6 +7,14 @@ import "../../styles/fullcalendar.css";
 import { staffService } from "../../services/staff";
 import { parseAppointmentDate } from "../../utils/dateUtils";
 
+// Add imports for the new components and service
+import BlockTimeForm from "../../components/ScheduleRequestForms/BlockTimeForm";
+import LeaveRequestForm from "../../components/ScheduleRequestForms/LeaveRequestForm";
+import ShiftSwapForm from "../../components/ScheduleRequestForms/ShiftSwapForm";
+import MyRequests from "../../components/ScheduleRequestForms/MyRequests";
+import { scheduleRequestService } from "../../services/scheduleRequests";
+import { toast } from "react-hot-toast";
+
 const StaffSchedule = () => {
   const calendarRef = useRef(null);
   const [events, setEvents] = useState([]);
@@ -315,7 +323,8 @@ const StaffSchedule = () => {
         'Confirmed': 'bg-green-100 text-green-800 border-green-200',
         'In-Progress': 'bg-blue-100 text-blue-800 border-blue-200',
         'Completed': 'bg-gray-100 text-gray-800 border-gray-200',
-        'Cancelled': 'bg-red-100 text-red-800 border-red-200'
+        'Cancelled': 'bg-red-100 text-red-800 border-red-200',
+        'STAFF_BLOCKED': 'bg-yellow-100 text-yellow-800 border-yellow-200'
       };
       
       const colorClass = statusColors[status] || 'bg-gray-100 text-gray-800 border-gray-200';
@@ -429,6 +438,61 @@ const StaffSchedule = () => {
     console.log('📊 Demo data loaded (manual refresh mode)');
   };
 
+  // Add state for the new modals
+  const [showBlockTimeForm, setShowBlockTimeForm] = useState(false);
+  const [showLeaveRequestForm, setShowLeaveRequestForm] = useState(false);
+  const [showShiftSwapForm, setShowShiftSwapForm] = useState(false);
+
+  // Handle block time request submission
+  const handleBlockTimeSubmit = async (data) => {
+    try {
+      await scheduleRequestService.createBlockTimeRequest(data);
+      toast.success("Time blocked successfully!");
+      // Refresh the calendar to show the blocked time
+      if (viewRangeRef.current?.start && viewRangeRef.current?.end) {
+        fetchRangeAsEvents(viewRangeRef.current.start, viewRangeRef.current.end);
+      }
+    } catch (error) {
+      console.error("Error blocking time:", error);
+      // Check if it's an authentication error
+      if (error.response?.status === 401) {
+        toast.error("Session expired. Please log in again.");
+        // Clear local storage and redirect to login
+        localStorage.removeItem('auracare_token');
+        localStorage.removeItem('auracare_user');
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+      } else if (error.response?.status === 403) {
+        toast.error("Access denied. Please make sure you're logged in as staff.");
+      } else {
+        toast.error("Failed to block time. Please try again.");
+      }
+    }
+  };
+
+  // Handle leave request submission
+  const handleLeaveRequestSubmit = async (data) => {
+    try {
+      await scheduleRequestService.createLeaveRequest(data);
+      toast.success("Leave request submitted successfully!");
+    } catch (error) {
+      console.error("Error submitting leave request:", error);
+      toast.error("Failed to submit leave request. Please try again.");
+    }
+  };
+
+  // Handle shift swap request submission
+  const handleShiftSwapSubmit = async (data) => {
+    try {
+      await scheduleRequestService.createShiftSwapRequest(data);
+      toast.success("Shift swap request submitted successfully!");
+    } catch (error) {
+      console.error("Error submitting shift swap request:", error);
+      toast.error("Failed to submit shift swap request. Please try again.");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
@@ -449,44 +513,28 @@ const StaffSchedule = () => {
             </div>
           </div>
           
-          <div className="flex items-center gap-3">
-            {loading && (
-              <div className="flex items-center gap-2 text-blue-600">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                <span className="text-sm">Loading appointments...</span>
-              </div>
-            )}
-            
-            <div className="flex flex-col items-end gap-1">
-              <div className="flex items-center gap-2 text-xs">
-                <div className={`w-2 h-2 rounded-full ${
-                  connectionStatus === 'connected' ? 'bg-green-500' :
-                  connectionStatus === 'connecting' ? 'bg-yellow-500' :
-                  'bg-red-500'
-                }`}></div>
-                <span className="text-gray-500">
-                  {connectionStatus === 'connected' ? 'Connected' :
-                   connectionStatus === 'connecting' ? 'Connecting...' :
-                   'Connection Error'}
-                </span>
-                {lastUpdated && connectionStatus === 'connected' && (
-                  <span className="text-gray-400">
-                    • Updated {lastUpdated.toLocaleTimeString()}
-                  </span>
-                )}
-              </div>
-              <div className="text-xs text-gray-500">
-                Manual refresh only
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={retryFetch}
-                  className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm font-medium"
-                >
-                  Refresh
-                </button>
-              </div>
+          {/* Add the new action buttons here */}
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowBlockTimeForm(true)}
+                className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+              >
+                Block Break/Lunch Time
+              </button>
+              <button
+                onClick={() => setShowLeaveRequestForm(true)}
+                className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+              >
+                Request Time Off
+              </button>
             </div>
+            <button
+              onClick={() => setShowShiftSwapForm(true)}
+              className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+            >
+              Request Shift Swap
+            </button>
           </div>
         </div>
 
@@ -638,6 +686,11 @@ const StaffSchedule = () => {
           />
         </div>
 
+        {/* Add My Requests section */}
+        <div className="mt-8">
+          <MyRequests />
+        </div>
+
         {/* Empty State */}
         {!loading && !error && events.length === 0 && (
           <div className="text-center py-12">
@@ -751,7 +804,7 @@ const StaffSchedule = () => {
                   <div className="bg-green-50 p-4 rounded-lg">
                     <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                       </svg>
                       Booked Services
                     </h3>
@@ -815,6 +868,30 @@ const StaffSchedule = () => {
             </div>
           </div>
         )}
+
+        {/* Add the new modals here */}
+        <BlockTimeForm
+          isOpen={showBlockTimeForm}
+          onClose={() => setShowBlockTimeForm(false)}
+          onSubmit={handleBlockTimeSubmit}
+        />
+        
+        <LeaveRequestForm
+          isOpen={showLeaveRequestForm}
+          onClose={() => setShowLeaveRequestForm(false)}
+          onSubmit={handleLeaveRequestSubmit}
+        />
+        
+        <ShiftSwapForm
+          isOpen={showShiftSwapForm}
+          onClose={() => setShowShiftSwapForm(false)}
+          onSubmit={handleShiftSwapSubmit}
+          staffMembers={[
+            { id: 'staff1', name: 'John Doe', position: 'Senior Stylist' },
+            { id: 'staff2', name: 'Jane Smith', position: 'Color Specialist' },
+            { id: 'staff3', name: 'Mike Johnson', position: 'Barber' }
+          ]}
+        />
       </div>
     </div>
   );

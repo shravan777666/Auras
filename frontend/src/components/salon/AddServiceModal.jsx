@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { X } from 'lucide-react';
+import { salonService } from '../../services/salon';
 
 const AddServiceModal = ({ isOpen, onClose, onServiceAdded, onServiceUpdated, serviceToEdit }) => {
   const [formData, setFormData] = useState({
@@ -181,20 +182,24 @@ const AddServiceModal = ({ isOpen, onClose, onServiceAdded, onServiceUpdated, se
         isActive: true
       };
 
-      // For demo purposes, we'll just call the callback functions
-      // In a real implementation, you would call your API here
-      toast.success(`Service ${isEditMode ? 'updated' : 'added'} successfully!`);
-      
-      if (isEditMode) {
+      // Call the actual API to create/update the service
+      if (isEditMode && serviceToEdit) {
+        // Update existing service
+        await salonService.updateService(serviceToEdit._id, serviceData);
+        toast.success('Service updated successfully!');
         onServiceUpdated();
       } else {
+        // Create new service
+        await salonService.addService(serviceData);
+        toast.success('Service added successfully!');
         onServiceAdded();
       }
       
       onClose();
       
     } catch (error) {
-      toast.error('An error occurred while saving the service');
+      const errorMessage = error.response?.data?.message || error.message || 'An error occurred while saving the service';
+      toast.error(errorMessage);
       console.error('Error saving service:', error);
     } finally {
       setLoading(false);

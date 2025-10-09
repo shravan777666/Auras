@@ -96,7 +96,11 @@ const NextClientCountdown = () => {
       <div className="p-6">
         <div className="flex items-start gap-4">
           <div className="flex-shrink-0">
-            <div className="bg-gray-200 border-2 border-dashed rounded-xl w-16 h-16" />
+            <img
+              src={nextAppointment.clientProfilePic || `https://ui-avatars.com/api/?name=${nextAppointment.clientName.replace(/\s/g, '+')}&background=random`}
+              alt={nextAppointment.clientName}
+              className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
+            />
           </div>
           
           <div className="flex-1">

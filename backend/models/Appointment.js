@@ -34,7 +34,7 @@ const AppointmentSchema = new mongoose.Schema(
     finalAmount: { type: Number, default: 0 },
     status: {
       type: String,
-      enum: ['Pending', 'Approved', 'In-Progress', 'Completed', 'Cancelled', 'No-Show'],
+      enum: ['Pending', 'Approved', 'In-Progress', 'Completed', 'Cancelled', 'No-Show', 'STAFF_BLOCKED'],
       default: 'Pending'
     },
     customerNotes: { type: String },
@@ -42,6 +42,7 @@ const AppointmentSchema = new mongoose.Schema(
     salonNotes: { type: String },
     staffNotes: { type: String },
     cancellationReason: { type: String },
+    reason: { type: String },
     isFirstVisit: { type: Boolean, default: false },
     source: { type: String, default: 'Website' },
     rating: {

@@ -44,6 +44,7 @@ import AddServiceModal from '../../components/salon/AddServiceModal';
 import AssignStaffModal from '../../components/salon/AssignStaffModal';
 import ClientRecommendations from '../../components/salon/ClientRecommendations';
 import NeedsAttentionAlerts from '../../components/salon/NeedsAttentionAlerts';
+import PendingScheduleRequests from '../../components/salon/PendingScheduleRequests';
 
 // A reusable card for displaying statistics
 const StatCard = ({ icon, title, value, color, onClick }) => (
@@ -272,6 +273,7 @@ const SalonDashboard = () => {
     try {
       setLoadingRevenue(true);
       const data = await salonService.getRevenueByService();
+      console.log('Revenue data fetched:', data); // Debug log
       // Normalize expected shape: [{ service, total_revenue, transaction_count, percentage }]
       const normalized = Array.isArray(data)
         ? data.map((d) => ({
@@ -281,6 +283,7 @@ const SalonDashboard = () => {
             percentage: Number(d.percentage ?? 0),
           }))
         : [];
+      console.log('Normalized revenue data:', normalized); // Debug log
       setRevenueData(normalized);
       setTotalRevenue(normalized.reduce((sum, i) => sum + (i.total_revenue || 0), 0));
     } catch (e) {
@@ -506,7 +509,10 @@ const SalonDashboard = () => {
         {/* Needs Attention Alerts - Added immediately after Welcome Banner */}
         <NeedsAttentionAlerts />
 
-        {/* Client Recommendations Section - Added after Needs Attention Alerts */}
+        {/* Pending Schedule Requests - Added after Needs Attention Alerts */}
+        <PendingScheduleRequests />
+
+        {/* Client Recommendations Section - Added after Pending Schedule Requests */}
         <div className="mb-8">
           <ClientRecommendations />
         </div>

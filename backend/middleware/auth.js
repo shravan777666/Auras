@@ -7,16 +7,25 @@ export const authenticateToken = async (req, res, next) => {
   if (!token) return res.status(401).json({ success: false, message: 'No token provided' });
 
   try {
+    // Check if token is blacklisted
     const blacklistedToken = await TokenBlacklist.findOne({ token });
     if (blacklistedToken) {
-      return res.status(401).json({ success: false, message: 'Token is blacklisted' });
+      return res.status(401).json({ success: false, message: 'Session expired' });
     }
 
+    // Verify token
     const payload = jwt.verify(token, process.env.JWT_SECRET || 'dev_secret');
     req.user = payload;
     next();
   } catch (err) {
-    return res.status(401).json({ success: false, message: 'Invalid token' });
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({ success: false, message: 'Session expired' });
+    } else if (err.name === 'JsonWebTokenError') {
+      return res.status(401).json({ success: false, message: 'Invalid token' });
+    } else {
+      console.error('Token verification error:', err);
+      return res.status(401).json({ success: false, message: 'Session expired' });
+    }
   }
 };
 
