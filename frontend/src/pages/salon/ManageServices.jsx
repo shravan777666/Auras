@@ -66,7 +66,8 @@ const ManageServices = () => {
         page,
         limit: pagination.limit,
         category: categoryFilter || undefined,
-        active: statusFilter ? statusFilter === 'true' : undefined,
+        // Always filter for active services unless specifically requesting inactive ones
+        active: statusFilter ? statusFilter === 'true' : true,
         filter: showAlertServicesOnly ? 'low_bookings' : undefined
       });
       
@@ -126,9 +127,12 @@ const ManageServices = () => {
       filtered = filtered.filter(service => (service?.isActive ?? false) === (statusFilter === 'true'));
     }
     
-    // Apply alert services filter
+    // Apply alert services filter (but only for active services)
     if (showAlertServicesOnly) {
-      filtered = filtered.filter(service => (service?.totalBookings ?? 0) < lowBookingsThreshold);
+      filtered = filtered.filter(service => 
+        (service?.isActive ?? false) === true && 
+        (service?.totalBookings ?? 0) < lowBookingsThreshold
+      );
     }
     
     return filtered;

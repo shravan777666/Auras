@@ -16,7 +16,8 @@ import {
   updateStaffById,
   getAppointmentsByStaffId,
   getStaffReport,
-  getNextAppointment
+  getNextAppointment,
+  getSalonColleagues // Add this new import
 } from '../controllers/staffController.js';
 import { requireStaff, requireStaffSetup, requireSalonOwner } from '../middleware/roleAuth.js';
 import { validateStaffSetup, validatePagination, validateObjectId } from '../middleware/validation.js';
@@ -44,7 +45,6 @@ router.use(requireStaff);
 // Notification Routes
 router.use('/notifications', staffNotificationRoutes);
 
-
 // Setup (no setup completion required)
 router.post('/setup', upload.fields([
   { name: 'profilePicture', maxCount: 1 },
@@ -62,6 +62,9 @@ router.patch('/availability', requireStaffSetup, updateAvailability);
 
 // New route for next appointment countdown
 router.get('/next-appointment', requireStaffSetup, getNextAppointment);
+
+// New route for getting salon colleagues
+router.get('/colleagues', requireStaffSetup, getSalonColleagues);
 
 // Appointment Management
 router.get('/appointments', requireStaffSetup, validatePagination, getAppointments);

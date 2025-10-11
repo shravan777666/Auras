@@ -675,12 +675,15 @@ export const getServices = asyncHandler(async (req, res) => {
 
   const filter = { salonId: salon._id };
 
-  if (req.query.category) {
-    filter.category = req.query.category;
-  }
-
+  // By default, only show active services unless specifically requesting inactive ones
   if (req.query.active !== undefined) {
     filter.isActive = req.query.active === 'true';
+  } else {
+    filter.isActive = true;
+  }
+
+  if (req.query.category) {
+    filter.category = req.query.category;
   }
 
   // Handle low bookings filter

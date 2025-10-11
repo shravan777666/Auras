@@ -1315,6 +1315,48 @@ export const getNextAppointment = asyncHandler(async (req, res) => {
   return successResponse(res, responseData, 'Next appointment retrieved successfully');
 });
 
+// Get colleagues from the same salon
+export const getSalonColleagues = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+
+  // First find the staff record to get the staff ID and assigned salon
+  const staff = await Staff.findOne({ user: userId });
+  if (!staff) {
+    return notFoundResponse(res, 'Staff profile');
+  }
+
+  // Check if staff is approved
+  if (staff.approvalStatus !== 'approved') {
+    return errorResponse(res, 'Staff profile not approved', 403);
+  }
+
+  // Check if staff is assigned to a salon
+  if (!staff.assignedSalon) {
+    return successResponse(res, [], 'No colleagues found - not assigned to a salon');
+  }
+
+  // Find all staff members from the same salon (excluding the current staff member)
+  const colleagues = await Staff.find({
+    assignedSalon: staff.assignedSalon,
+    approvalStatus: 'approved',
+    isActive: true,
+    _id: { $ne: staff._id }
+  })
+  .select('name email position profilePicture')
+  .lean();
+
+  // Format the response
+  const formattedColleagues = colleagues.map(colleague => ({
+    _id: colleague._id,
+    name: colleague.name,
+    email: colleague.email,
+    position: colleague.position || 'Staff Member',
+    profilePicture: colleague.profilePicture ? getFileUrl(colleague.profilePicture, req) : null
+  }));
+
+  return successResponse(res, formattedColleagues, 'Salon colleagues retrieved successfully');
+});
+
 export default {
   register,
   createStaff,

@@ -184,6 +184,17 @@ export const staffService = {
     }
   },
 
+  // New service for getting salon colleagues
+  async getSalonColleagues() {
+    try {
+      const response = await api.get('/staff/colleagues');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching salon colleagues:', error);
+      throw error;
+    }
+  },
+
   async blockTimeSlot(data) {
     try {
       const response = await api.post('/appointments/block', data);

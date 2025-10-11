@@ -24,6 +24,8 @@ const StaffSchedule = () => {
   const [currentView, setCurrentView] = useState("dayGridMonth");
   const [connectionStatus, setConnectionStatus] = useState('connecting'); // 'connecting', 'connected', 'error'
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [salonStaff, setSalonStaff] = useState([]); // New state for salon staff
+  const [loadingStaff, setLoadingStaff] = useState(false); // New state for staff loading
   const viewRangeRef = useRef({ start: null, end: null });
 
   // ✅ FIXED: Improved fetch function with better error handling
@@ -274,6 +276,25 @@ const StaffSchedule = () => {
     }
   };
 
+  // Fetch salon staff members (colleagues)
+  const fetchSalonStaff = async () => {
+    try {
+      setLoadingStaff(true);
+      const response = await staffService.getSalonColleagues();
+      if (response.success) {
+        setSalonStaff(response.data);
+      } else {
+        console.error('Failed to fetch salon staff:', response.message);
+        toast.error('Failed to load staff members');
+      }
+    } catch (error) {
+      console.error('Error fetching salon staff:', error);
+      toast.error('Failed to load staff members');
+    } finally {
+      setLoadingStaff(false);
+    }
+  };
+
   // Calendar configuration
   const calendarOptions = useMemo(() => ({
     plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
@@ -368,6 +389,9 @@ const StaffSchedule = () => {
         // Fetch initial data
         await fetchRangeAsEvents(start, end);
         viewRangeRef.current = { start, end };
+        
+        // Fetch salon staff members
+        await fetchSalonStaff();
 
       } catch (error) {
         console.error("❌ Error initializing calendar:", error);
@@ -886,11 +910,11 @@ const StaffSchedule = () => {
           isOpen={showShiftSwapForm}
           onClose={() => setShowShiftSwapForm(false)}
           onSubmit={handleShiftSwapSubmit}
-          staffMembers={[
-            { id: 'staff1', name: 'John Doe', position: 'Senior Stylist' },
-            { id: 'staff2', name: 'Jane Smith', position: 'Color Specialist' },
-            { id: 'staff3', name: 'Mike Johnson', position: 'Barber' }
-          ]}
+          staffMembers={salonStaff.map(staff => ({
+            id: staff._id,
+            name: staff.name,
+            position: staff.position || 'Staff Member'
+          }))}
         />
       </div>
     </div>
