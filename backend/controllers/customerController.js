@@ -240,6 +240,178 @@ export const getSalonDetails = asyncHandler(async (req, res) => {
   return successResponse(res, salon, 'Salon details retrieved successfully');
 });
 
+// Get salon availability for a specific date
+export const getSalonAvailability = asyncHandler(async (req, res) => {
+  try {
+    // salonId comes from route params, date comes from query params
+    const { salonId } = req.params;
+    const { date } = req.query;
+    
+    if (!salonId || !date) {
+      return errorResponse(res, 'Salon ID and date are required', 400);
+    }
+    
+    // Validate date format
+    const selectedDate = new Date(date);
+    if (isNaN(selectedDate.getTime())) {
+      return errorResponse(res, 'Invalid date format', 400);
+    }
+    
+    // Get salon information
+    const salon = await Salon.findById(salonId);
+    if (!salon) {
+      return notFoundResponse(res, 'Salon');
+    }
+    
+    // Import Staff model (was missing)
+    const Staff = (await import('../models/Staff.js')).default;
+    
+    // Get staff assigned to this salon with more detailed information
+    const staff = await Staff.find({
+      assignedSalon: salonId,
+      isActive: true,
+      approvalStatus: 'approved'
+    })
+    .select('name position skills profilePicture availability')
+    .sort({ name: 1 });
+    
+    // Get appointments for the selected date
+    const startDate = new Date(selectedDate);
+    startDate.setHours(0, 0, 0, 0);
+    
+    const endDate = new Date(selectedDate);
+    endDate.setHours(23, 59, 59, 999);
+    
+    const appointmentFilter = {
+      salonId: salonId,
+      appointmentDate: {
+        $gte: startDate,
+        $lte: endDate
+      },
+      status: { $in: ['Pending', 'Approved', 'In-Progress', 'Confirmed'] }
+    };
+    
+    const appointments = await Appointment.find(appointmentFilter)
+      .populate('staffId', 'name position profilePicture')
+      .populate('customerId', 'name')
+      .populate('services.serviceId', 'name duration')
+      .sort({ appointmentDate: 1, appointmentTime: 1 });
+    
+    // Group appointments by staff
+    const staffAppointments = staff.map(staffMember => {
+      const staffAppts = appointments.filter(apt =>
+        apt.staffId && apt.staffId._id && staffMember._id && 
+        apt.staffId._id.toString() === staffMember._id.toString()
+      );
+      
+      // Format working hours from availability
+      let workingHours = 'Not specified';
+      if (staffMember.availability && staffMember.availability.workingHours) {
+        const { startTime, endTime } = staffMember.availability.workingHours;
+        if (startTime && endTime) {
+          workingHours = `${startTime} - ${endTime}`;
+        }
+      }
+      
+      return {
+        staff: {
+          _id: staffMember._id,
+          name: staffMember.name,
+          position: staffMember.position || 'Staff',
+          profilePicture: staffMember.profilePicture,
+          workingHours
+        },
+        appointments: staffAppts.map(apt => {
+          // Extract time from appointmentDate if it contains time, otherwise use appointmentTime
+          let startTime = apt.appointmentTime;
+          if (apt.appointmentDate && apt.appointmentDate.includes('T')) {
+            const timePart = apt.appointmentDate.split('T')[1];
+            if (timePart) {
+              startTime = timePart.substring(0, 5); // Get HH:mm part
+            }
+          }
+          
+          // Calculate end time based on duration
+          let endTime = 'N/A';
+          if (startTime !== 'N/A' && apt.estimatedDuration) {
+            const [hours, minutes] = startTime.split(':').map(Number);
+            const totalMinutes = hours * 60 + minutes + apt.estimatedDuration;
+            const endHours = Math.floor(totalMinutes / 60) % 24;
+            const endMinutes = totalMinutes % 60;
+            endTime = `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
+          }
+          
+          return {
+            _id: apt._id,
+            startTime,
+            endTime,
+            status: apt.status,
+            duration: apt.estimatedDuration || apt.services.reduce((total, service) => total + (service.duration || 0), 0),
+            customer: apt.customerId ? apt.customerId.name : 'Unknown Customer',
+            service: apt.services.map(s => s.serviceId ? s.serviceId.name : 'Service').join(', ')
+          };
+        })
+      };
+    });
+    
+    // Get unassigned appointments (no staff assigned)
+    const unassignedAppointments = appointments
+      .filter(apt => !apt.staffId)
+      .map(apt => {
+        // Extract time from appointmentDate if it contains time, otherwise use appointmentTime
+        let startTime = apt.appointmentTime;
+        if (apt.appointmentDate && apt.appointmentDate.includes('T')) {
+          const timePart = apt.appointmentDate.split('T')[1];
+          if (timePart) {
+            startTime = timePart.substring(0, 5); // Get HH:mm part
+          }
+        }
+        
+        // Calculate end time based on duration
+        let endTime = 'N/A';
+        if (startTime !== 'N/A' && apt.estimatedDuration) {
+          const [hours, minutes] = startTime.split(':').map(Number);
+          const totalMinutes = hours * 60 + minutes + apt.estimatedDuration;
+          const endHours = Math.floor(totalMinutes / 60) % 24;
+          const endMinutes = totalMinutes % 60;
+          endTime = `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
+        }
+        
+        return {
+          _id: apt._id,
+          startTime,
+          endTime,
+          status: apt.status,
+          duration: apt.estimatedDuration || apt.services.reduce((total, service) => total + (service.duration || 0), 0),
+          customer: apt.customerId ? apt.customerId.name : 'Unknown Customer',
+          service: apt.services.map(s => s.serviceId ? s.serviceId.name : 'Service').join(', ')
+        };
+      });
+    
+    // Add unassigned appointments as a separate "staff" entry
+    if (unassignedAppointments.length > 0) {
+      staffAppointments.push({
+        staff: {
+          _id: 'unassigned',
+          name: 'Unassigned Appointments',
+          position: 'Pending Assignment',
+          profilePicture: null,
+          workingHours: 'N/A'
+        },
+        appointments: unassignedAppointments
+      });
+    }
+    
+    return successResponse(res, { 
+      staffMembers: staffAppointments,
+      salonBusinessHours: salon.businessHours // Include salon business hours for reference
+    }, 'Salon availability retrieved successfully');
+  } catch (error) {
+    console.error('Error in getSalonAvailability:', error);
+    return errorResponse(res, `Failed to retrieve salon availability: ${error.message}`, 500);
+  }
+});
+
 // Search services
 export const searchServices = asyncHandler(async (req, res) => {
   const page = parseInt(req.query.page) || 1;

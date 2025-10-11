@@ -340,11 +340,16 @@ export const googleAuth = (req, res, next) => {
   const { role } = req.query;
   
   if (!role || !['customer', 'salon', 'staff'].includes(role)) {
-    return errorResponse(res, 'Valid role parameter (customer, salon, staff) is required', 400);
+    return res.status(400).json({
+      success: false,
+      message: 'Valid role parameter (customer, salon, staff) is required'
+    });
   }
 
   // Store role in session state to pass to callback
-  req.session.oauthRole = role;
+  if (req.session) {
+    req.session.oauthRole = role;
+  }
   
   // Initiate Google OAuth with role as state parameter
   passport.authenticate('google', {
@@ -359,15 +364,14 @@ export const googleCallback = async (req, res) => {
     const user = req.user;
     
     if (!user) {
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3007';
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3002';
       return res.redirect(`${frontendUrl}/auth/callback?error=oauth_failed`);
     }
 
     // Generate JWT token
     const token = signToken(user);
     
-    // Redirect to frontend OAuth callback with token and user info
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3007';
+    // Prepare user data for frontend
     const userData = {
       id: user._id.toString(),
       name: user.name,
@@ -376,13 +380,16 @@ export const googleCallback = async (req, res) => {
       setupCompleted: user.setupCompleted,
       avatar: user.avatar
     };
+    
+    // Redirect to frontend OAuth callback with token and user info
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3002';
     const redirectUrl = `${frontendUrl}/auth/callback?token=${token}&user=${encodeURIComponent(JSON.stringify(userData))}`;
     
     res.redirect(redirectUrl);
     
   } catch (error) {
     console.error('Google OAuth callback error:', error);
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3007';
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3002';
     const errorUrl = `${frontendUrl}/auth/callback?error=oauth_error`;
     return res.redirect(errorUrl);
   }

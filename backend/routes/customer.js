@@ -8,7 +8,8 @@ import {
   searchServices,
   getBookings,
   cancelBooking,
-  rateAppointment
+  rateAppointment,
+  getSalonAvailability
 } from '../controllers/customerController.js';
 import { requireCustomer } from '../middleware/roleAuth.js';
 import { upload } from '../middleware/upload.js';
@@ -29,6 +30,9 @@ router.patch('/profile', upload.single('profilePicture'), updateProfile);
 router.get('/salons', validatePagination, browseSalons);
 router.get('/salons/:salonId', validateObjectId('salonId'), getSalonDetails);
 router.get('/services/search', validatePagination, searchServices);
+
+// Salon Availability
+router.get('/salons/:salonId/availability', getSalonAvailability);
 
 // Booking Management
 router.get('/bookings', validatePagination, getBookings);

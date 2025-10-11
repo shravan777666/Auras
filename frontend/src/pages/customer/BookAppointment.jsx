@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useParams, useNavigate, useLocation } from "react-router-dom";
 import { customerService } from "../../services/customer";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
+import SalonAvailabilityDisplay from "../../components/customer/SalonAvailabilityDisplay";
 import toast from "react-hot-toast";
 
 const BookAppointment = () => {
@@ -255,6 +256,12 @@ const BookAppointment = () => {
                   Book Appointment
                 </button>
               </div>
+              
+              {/* Display salon availability when a date is selected */}
+              <SalonAvailabilityDisplay 
+                salonId={salon._id} 
+                selectedDate={appointmentDate} 
+              />
             </div>
           </div>
         </div>

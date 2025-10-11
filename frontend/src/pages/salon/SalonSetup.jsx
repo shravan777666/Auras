@@ -15,7 +15,9 @@ import {
   ArrowLeft,
   CheckCircle,
   Sparkles,
-  Info
+  Info,
+  Check,
+  X
 } from 'lucide-react';
 
 const SalonSetup = () => {
@@ -32,6 +34,10 @@ const SalonSetup = () => {
     description: '',
     contactNumber: ''
   });
+
+  // Validation states
+  const [contactNumberError, setContactNumberError] = useState('');
+  const [contactNumberValid, setContactNumberValid] = useState(null);
 
   const [address, setAddress] = useState({
     street: '',
@@ -70,8 +76,80 @@ const SalonSetup = () => {
     }
   }, [location.state]);
 
+  // Contact number validation function
+  const validateContactNumber = (number) => {
+    // Remove all spaces and special characters for validation
+    const cleanNumber = number.replace(/\D/g, '');
+    
+    // Check if empty
+    if (!number.trim()) {
+      return 'Contact number is required';
+    }
+    
+    // Check for spaces at beginning or end
+    if (number !== number.trim()) {
+      return 'Contact number should not contain leading or trailing spaces';
+    }
+    
+    // Check if contains only numbers
+    if (!/^\d+$/.test(number)) {
+      return 'Please enter a valid phone number (numbers only)';
+    }
+    
+    // Check length
+    if (cleanNumber.length !== 10) {
+      return 'Contact number must be exactly 10 digits';
+    }
+    
+    // Check for common fake numbers
+    const fakeNumbers = [
+      '1234567890',
+      '0000000000',
+      '1111111111',
+      '2222222222',
+      '3333333333',
+      '4444444444',
+      '5555555555',
+      '6666666666',
+      '7777777777',
+      '8888888888',
+      '9999999999'
+    ];
+    
+    if (fakeNumbers.includes(cleanNumber)) {
+      return 'Please enter a valid phone number';
+    }
+    
+    return ''; // Valid
+  };
+
+  // Handle contact number change with real-time validation
+  const handleContactNumberChange = (e) => {
+    let value = e.target.value;
+    
+    // Allow only numbers
+    value = value.replace(/\D/g, '');
+    
+    // Limit to 10 digits
+    if (value.length > 10) {
+      value = value.slice(0, 10);
+    }
+    
+    setBasicInfo({ ...basicInfo, contactNumber: value });
+    
+    // Validate in real-time
+    const errorMessage = validateContactNumber(value);
+    setContactNumberError(errorMessage);
+    setContactNumberValid(errorMessage ? false : (value ? true : null));
+  };
+
   const handleBasicInfoChange = (e) => {
-    setBasicInfo({ ...basicInfo, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    if (name === 'contactNumber') {
+      handleContactNumberChange(e);
+    } else {
+      setBasicInfo({ ...basicInfo, [name]: value });
+    }
   };
 
   const handleAddressChange = (e) => {
@@ -108,7 +186,8 @@ const SalonSetup = () => {
   const validateStep = (step) => {
     switch (step) {
       case 1:
-        return basicInfo.salonName && basicInfo.contactNumber && basicInfo.description;
+        const contactValid = !validateContactNumber(basicInfo.contactNumber);
+        return basicInfo.salonName && contactValid && basicInfo.description;
       case 2:
         return address.street && address.city && address.state && address.postalCode;
       case 3:
@@ -268,12 +347,27 @@ const SalonSetup = () => {
                       name="contactNumber"
                       value={basicInfo.contactNumber}
                       onChange={handleBasicInfoChange}
-                      className="form-input w-full pl-10"
+                      className={`form-input w-full pl-10 ${
+                        contactNumberValid === false 
+                          ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
+                          : contactNumberValid === true 
+                            ? 'border-green-500 focus:ring-green-500 focus:border-green-500' 
+                            : ''
+                      }`}
                       placeholder="10-digit mobile number"
                       maxLength={10}
                       required
                     />
                   </div>
+                  {contactNumberValid === true && (
+                    <div className="flex items-center mt-1">
+                      <Check className="h-4 w-4 text-green-500 mr-1" />
+                      <span className="text-sm text-green-600">Valid contact number</span>
+                    </div>
+                  )}
+                  {contactNumberError && (
+                    <p className="mt-1 text-sm text-red-600">{contactNumberError}</p>
+                  )}
                 </div>
 
                 <div>

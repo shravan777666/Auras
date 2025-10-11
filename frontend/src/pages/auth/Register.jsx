@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import toast from 'react-hot-toast'
-import { Eye, EyeOff, Mail, Lock, User, Sparkles, Users } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock, User, Sparkles, Users, Check, X } from 'lucide-react'
 import GoogleOAuthButton from '../../components/auth/GoogleOAuthButton'
 
 const Register = () => {
@@ -19,6 +19,14 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [errors, setErrors] = useState({
+    name: '',
+    email: ''
+  })
+  const [valid, setValid] = useState({
+    name: null, // null = not validated, false = invalid, true = valid
+    email: null
+  })
 
   const userTypes = [
     { value: 'customer', label: 'Customer', description: 'Book beauty services', icon: User },
@@ -43,19 +51,134 @@ const Register = () => {
     }
   };
 
+  // Validation functions
+  const validateName = (name) => {
+    if (!name) {
+      return 'Full name is required';
+    }
+    
+    if (name.length < 2) {
+      return 'Must be at least 2 characters';
+    }
+    
+    if (name.length > 50) {
+      return 'Maximum 50 characters allowed';
+    }
+    
+    // Only allow letters, spaces, hyphens, and apostrophes
+    const nameRegex = /^[A-Za-z\s\-']+$/;
+    if (!nameRegex.test(name)) {
+      return 'Only letters, spaces, hyphens, and apostrophes allowed';
+    }
+    
+    return '';
+  };
+
+  const validateEmail = (email) => {
+    // Check for spaces anywhere in the email (leading, trailing, or middle)
+    if (email.includes(' ')) {
+      return 'Email should not contain spaces';
+    }
+    
+    // Even if there are no visible spaces, check for other whitespace characters
+    if (/\s/.test(email)) {
+      return 'Email should not contain spaces';
+    }
+    
+    // Trim leading and trailing spaces before validation (defensive)
+    const trimmedEmail = email.trim();
+    
+    if (!trimmedEmail) {
+      return 'Email is required';
+    }
+    
+    if (trimmedEmail.length > 255) {
+      return 'Email too long';
+    }
+    
+    // Basic email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      return 'Please enter a valid email address';
+    }
+    
+    // Check if it ends with .com
+    if (!trimmedEmail.toLowerCase().endsWith('.com')) {
+      return 'Only .com domains are allowed';
+    }
+    
+    return '';
+  };
+
+  // Handle input changes with real-time validation
+  const handleNameChange = (e) => {
+    const name = e.target.value;
+    setFormData({ ...formData, name });
+    
+    // Validate in real-time as user types
+    const errorMessage = validateName(name);
+    setErrors({ ...errors, name: errorMessage });
+    setValid({ ...valid, name: errorMessage ? false : (name ? true : null) });
+  };
+
+  const handleEmailChange = (e) => {
+    const email = e.target.value;
+    setFormData({ ...formData, email });
+    
+    // Validate in real-time as user types
+    const errorMessage = validateEmail(email);
+    setErrors({ ...errors, email: errorMessage });
+    setValid({ ...valid, email: errorMessage ? false : (email ? true : null) });
+  };
+
+  // Check if form is valid
+  const isFormValid = () => {
+    const nameError = validateName(formData.name);
+    const emailError = validateEmail(formData.email);
+    return !nameError && !emailError && formData.password && formData.confirmPassword && 
+           formData.password === formData.confirmPassword;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Validate all fields
+    const nameError = validateName(formData.name);
+    const emailError = validateEmail(formData.email);
+    
+    setErrors({
+      name: nameError,
+      email: emailError
+    });
+    
+    setValid({
+      name: nameError ? false : (formData.name ? true : null),
+      email: emailError ? false : (formData.email ? true : null)
+    });
+
+    // If there are validation errors, don't submit
+    if (nameError || emailError) {
+      return;
+    }
 
     if (formData.password !== formData.confirmPassword) {
       toast.error('Passwords do not match');
       return;
     }
 
+    // Trim email before submission
+    const trimmedEmail = formData.email.trim();
+
     setLoading(true);
 
     try {
       console.log('🔍 Registration data being sent:', formData);
-      const response = await register(formData);
+      // Submit with trimmed email
+      const submissionData = {
+        ...formData,
+        email: trimmedEmail
+      };
+      const response = await register(submissionData);
       toast.success('Registration successful! Welcome to Auracare!');
 
       // Ensure staff are taken to setup flow until completed
@@ -156,12 +279,28 @@ const Register = () => {
                   type="text"
                   autoComplete="name"
                   required
-                  className="form-input pl-10"
+                  className={`form-input pl-10 ${valid.name === false ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : valid.name === true ? 'border-green-500 focus:ring-green-500 focus:border-green-500' : ''}`}
                   placeholder="Enter your full name"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={handleNameChange}
                 />
+                {valid.name === true && (
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                    <Check className="h-5 w-5 text-green-500" />
+                  </div>
+                )}
+                {valid.name === false && (
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                    <X className="h-5 w-5 text-red-500" />
+                  </div>
+                )}
               </div>
+              {errors.name && (
+                <p className="mt-1 text-sm text-red-600">{errors.name}</p>
+              )}
+              {valid.name === true && !errors.name && (
+                <p className="mt-1 text-sm text-green-600">Looks good!</p>
+              )}
             </div>
 
             {/* Email */}
@@ -179,12 +318,28 @@ const Register = () => {
                   type="email"
                   autoComplete="email"
                   required
-                  className="form-input pl-10"
+                  className={`form-input pl-10 ${valid.email === false ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : valid.email === true ? 'border-green-500 focus:ring-green-500 focus:border-green-500' : ''}`}
                   placeholder="Enter your email"
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  onChange={handleEmailChange}
                 />
+                {valid.email === true && (
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                    <Check className="h-5 w-5 text-green-500" />
+                  </div>
+                )}
+                {valid.email === false && (
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                    <X className="h-5 w-5 text-red-500" />
+                  </div>
+                )}
               </div>
+              {errors.email && (
+                <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+              )}
+              {valid.email === true && !errors.email && (
+                <p className="mt-1 text-sm text-green-600">Valid email format!</p>
+              )}
             </div>
 
             {/* Password */}
@@ -259,8 +414,8 @@ const Register = () => {
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={loading}
-            className="btn btn-primary w-full py-3 text-base"
+            disabled={loading || !isFormValid()}
+            className={`btn w-full py-3 text-base ${isFormValid() ? 'btn-primary' : 'btn-disabled'}`}
           >
             {loading ? 'Creating Account...' : 'Create Account'}
           </button>

@@ -82,7 +82,15 @@ export const customerService = {
   
   // New function to get salon availability for a specific date
   async getSalonAvailability(salonId, date) {
+    const response = await api.get(`/customer/salons/${salonId}/availability?date=${date}`);
+    return response.data;
+  },
+  
+  // Keep the existing function for backward compatibility
+  async getSalonSlots(salonId, date) {
     const response = await api.get(`/appointment/slots/available?salonId=${salonId}&date=${date}`);
     return response.data;
   }
 };
+
+export default customerService;
