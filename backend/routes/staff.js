@@ -77,8 +77,8 @@ router.patch('/appointments/:appointmentId/status',
   updateAppointmentStatus
 );
 
-// Get appointments for a staff member by staff ID (for admins/salon owners)
-router.get('/:id/appointments', validateObjectId('id'), getAppointmentsByStaffId);
+// Get appointments for a staff member by staff ID (accessible by staff members in the same salon)
+router.get('/:id/appointments', requireStaffSetup, validateObjectId('id'), getAppointmentsByStaffId);
 
 // NOTE: Parameter routes must come last to avoid shadowing specific paths like /dashboard
 // Get a staff member by ID (for admins/salon owners)

@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
+import PeerShiftSwapReview from '../../components/ScheduleRequestForms/PeerShiftSwapReview';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -60,6 +61,7 @@ const StaffDashboard = () => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [pendingInvitations, setPendingInvitations] = useState(0);
+  const [showPeerReview, setShowPeerReview] = useState(false);
 
   // Load notifications and invitations
   const loadNotifications = async () => {
@@ -145,6 +147,11 @@ const StaffDashboard = () => {
     // In a real implementation, we would open a modal or pass state to show the shift swap form
   };
 
+  // Add handler for peer review
+  const handlePeerReview = () => {
+    setShowPeerReview(true);
+  };
+
   if (loading) {
     return <LoadingSpinner />;
   }
@@ -227,7 +234,10 @@ const StaffDashboard = () => {
                 </button>
               </li>
               <li className="mb-4">
-                <button onClick={() => navigate('/staff/broadcasts')} className="w-full text-left flex items-center justify-between p-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
+                <button 
+                  onClick={() => navigate('/staff/broadcasts')} 
+                  className="w-full text-left flex items-center justify-between p-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+                >
                   <div className="flex items-center gap-3">
                     <MessageSquare size={20} /> Broadcasts
                   </div>
@@ -239,9 +249,20 @@ const StaffDashboard = () => {
                 </button>
               </li>
               <li className="mb-4">
+                <button 
+                  onClick={handlePeerReview}
+                  className="w-full text-left flex items-center justify-between p-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <UserPlus size={20} /> Shift Swap Requests
+                  </div>
+                  {/* We could add a count here if needed */}
+                </button>
+              </li>
+              <li className="mb-4">
                 <button onClick={() => navigate('/staff/invitations')} className="w-full text-left flex items-center justify-between p-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
                   <div className="flex items-center gap-3">
-                    <UserPlus size={20} /> Invitations
+                    <Mail size={20} /> Invitations
                   </div>
                   {pendingInvitations > 0 && (
                     <span className="bg-green-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
@@ -427,7 +448,14 @@ const StaffDashboard = () => {
                       className={`p-3 rounded-lg border transition-colors cursor-pointer hover:bg-gray-50 ${
                         !notification.isRead ? 'bg-primary-50 border-primary-200' : 'bg-white border-gray-200'
                       }`}
-                      onClick={() => navigate('/staff/broadcasts')}
+                      onClick={() => {
+                        // Check if this is a shift swap notification
+                        if (notification.subject.includes('Shift Swap Request')) {
+                          handlePeerReview();
+                        } else {
+                          navigate('/staff/broadcasts');
+                        }
+                      }}
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
@@ -526,6 +554,16 @@ const StaffDashboard = () => {
           </DashboardCard>
         </div>
       </main>
+      
+      {/* Peer Shift Swap Review Modal */}
+      <PeerShiftSwapReview
+        isOpen={showPeerReview}
+        onClose={() => setShowPeerReview(false)}
+        onActionComplete={() => {
+          // Refresh notifications when an action is completed
+          loadNotifications();
+        }}
+      />
     </div>
   );
 };

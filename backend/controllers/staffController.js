@@ -638,7 +638,7 @@ export const getAppointments = asyncHandler(async (req, res) => {
     if (staffSalonId) {
       filter = {
         $or: [
-          { staffId: staff._id, status: 'Approved' }, // Assigned to this staff
+          { staffId: staff._id, status: { $in: ['Approved', 'Pending', 'Confirmed', 'In-Progress'] } }, // Assigned to this staff
           { salonId: staffSalonId, status: 'Approved', staffId: { $exists: false } }, // Unassigned in salon
           { salonId: staffSalonId, status: 'Approved', staffId: null } // Explicitly null staffId
         ]
@@ -647,7 +647,7 @@ export const getAppointments = asyncHandler(async (req, res) => {
     } else {
       filter = { 
         staffId: staff._id,
-        status: 'Approved'
+        status: { $in: ['Approved', 'Pending', 'Confirmed', 'In-Progress'] }
       };
       console.log('🔍 Staff-specific appointment filter (no salon):', filter);
     }
@@ -700,6 +700,11 @@ export const getAppointments = asyncHandler(async (req, res) => {
       endDate: endDateStr, 
       filter: filter.appointmentDate 
     });
+  } else {
+    // If no date filter is provided, filter for upcoming appointments
+    const today = new Date().toISOString().split('T')[0];
+    filter.appointmentDate = { $gte: `${today}T00:00` };
+    console.log('📅 Upcoming appointments filter:', filter.appointmentDate);
   }
 
   console.log('📅 Final filter with date range:', JSON.stringify(filter, null, 2));
@@ -949,12 +954,58 @@ export const getStaffById = asyncHandler(async (req, res) => {
   return successResponse(res, responseData, 'Staff retrieved successfully');
 });
 
-// Get appointments for a staff member by staff ID (for salon owners)
+// Get appointments for a staff member by staff ID (accessible by staff members in the same salon)
 export const getAppointmentsByStaffId = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { startDate, endDate, page = 1, limit = 20 } = req.query;
-
+  
+  console.log('getAppointmentsByStaffId called with:', { id, startDate, endDate, page, limit });
+  
+  // Get the current staff member
+  const currentStaff = await Staff.findOne({ user: req.user.id });
+  if (!currentStaff) {
+    console.log('Current staff not found for user ID:', req.user.id);
+    return notFoundResponse(res, 'Staff profile');
+  }
+  
+  console.log('Current staff:', {
+    id: currentStaff._id,
+    name: currentStaff.name,
+    assignedSalon: currentStaff.assignedSalon
+  });
+  
+  // Get the target staff member
+  const targetStaff = await Staff.findById(id);
+  if (!targetStaff) {
+    console.log('Target staff not found with ID:', id);
+    return notFoundResponse(res, 'Target staff member');
+  }
+  
+  console.log('Target staff:', {
+    id: targetStaff._id,
+    name: targetStaff.name,
+    assignedSalon: targetStaff.assignedSalon
+  });
+  
+  // Check if both staff members are in the same salon
+  const currentStaffSalon = currentStaff.assignedSalon?.toString();
+  const targetStaffSalon = targetStaff.assignedSalon?.toString();
+  
+  console.log('Salon comparison:', {
+    currentStaffSalon,
+    targetStaffSalon,
+    sameSalon: currentStaffSalon === targetStaffSalon
+  });
+  
+  if (currentStaffSalon !== targetStaffSalon) {
+    console.log('Access denied - staff members not in same salon');
+    return errorResponse(res, 'Access denied. You can only view appointments of colleagues in your salon.', 403);
+  }
+  
+  // Base filter for the target staff member
   const filter = { staffId: id };
+  
+  // Add date range filtering if provided
   if (startDate && endDate) {
     const start = new Date(startDate);
     const end = new Date(endDate);
@@ -962,7 +1013,16 @@ export const getAppointmentsByStaffId = asyncHandler(async (req, res) => {
       $gte: new Date(start.setHours(0, 0, 0, 0)),
       $lte: new Date(end.setHours(23, 59, 59, 999))
     };
+  } else {
+    // If no date range is provided, filter for upcoming appointments
+    const today = new Date().toISOString().split('T')[0];
+    filter.appointmentDate = { $gte: `${today}T00:00` };
   }
+  
+  // Filter for valid upcoming statuses
+  filter.status = { $in: ['Approved', 'Pending', 'Confirmed', 'In-Progress'] };
+  
+  console.log('Appointment filter:', filter);
 
   const numericLimit = Math.min(parseInt(limit) || 20, 100);
   const numericPage = Math.max(parseInt(page) || 1, 1);
@@ -977,6 +1037,8 @@ export const getAppointmentsByStaffId = asyncHandler(async (req, res) => {
       .limit(numericLimit),
     Appointment.countDocuments(filter)
   ]);
+  
+  console.log('Found appointments:', appointments.length);
 
   // Map to a lightweight structure suitable for calendar grids
   const mapped = appointments.map((apt) => ({

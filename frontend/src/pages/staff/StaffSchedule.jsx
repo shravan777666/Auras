@@ -115,19 +115,19 @@ const StaffSchedule = () => {
         rangeEnd: rangeEnd.toISOString()
       });
 
-      // Fetch appointments - use salon scope to show all appointments in staff's salon
+      // Fetch appointments - remove scope parameter to show only current staff's appointments
       console.log('📡 About to call staffService.getAppointments with params:', {
         startDate,
         endDate,
-        limit: 100,
-        scope: 'salon'
+        limit: 100
+        // Removed scope: 'salon' to show only current staff's appointments
       });
 
       const response = await staffService.getAppointments({
         startDate,
         endDate,
-        limit: 100,
-        scope: 'salon' // Show all approved appointments in the staff's salon
+        limit: 100
+        // Removed scope: 'salon' to show only current staff's appointments
       });
 
       console.log('📊 Appointments API Response received:', response);
@@ -911,7 +911,7 @@ const StaffSchedule = () => {
           onClose={() => setShowShiftSwapForm(false)}
           onSubmit={handleShiftSwapSubmit}
           staffMembers={salonStaff.map(staff => ({
-            id: staff._id,
+            _id: staff._id,
             name: staff.name,
             position: staff.position || 'Staff Member'
           }))}

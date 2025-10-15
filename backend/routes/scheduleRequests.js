@@ -6,7 +6,10 @@ import {
   getMyRequests,
   approveRequest,
   rejectRequest,
-  getPendingRequestsForOwner
+  getPendingRequestsForOwner,
+  peerApproveShiftSwap,
+  peerRejectShiftSwap,
+  getPeerShiftSwapRequests
 } from '../controllers/scheduleRequestController.js';
 import { requireStaff, requireStaffSetup, requireSalonOwner } from '../middleware/roleAuth.js';
 
@@ -17,6 +20,11 @@ router.post('/block-time', requireStaff, requireStaffSetup, createBlockTimeReque
 router.post('/leave', requireStaff, requireStaffSetup, createLeaveRequest);
 router.post('/shift-swap', requireStaff, requireStaffSetup, createShiftSwapRequest);
 router.get('/my-requests', requireStaff, requireStaffSetup, getMyRequests);
+
+// Staff routes for peer review of shift swaps
+router.get('/peer-shift-swaps', requireStaff, requireStaffSetup, getPeerShiftSwapRequests);
+router.patch('/:id/peer-approve', requireStaff, requireStaffSetup, peerApproveShiftSwap);
+router.patch('/:id/peer-reject', requireStaff, requireStaffSetup, peerRejectShiftSwap);
 
 // Owner routes for managing requests
 router.get('/pending', requireSalonOwner, getPendingRequestsForOwner);

@@ -31,6 +31,9 @@ export const scheduleRequestService = {
       return response.data;
     } catch (error) {
       console.error('Error creating shift swap request:', error);
+      // Show a more user-friendly error message
+      const errorMessage = error.response?.data?.message || 'Failed to submit shift swap request. Please try again.';
+      toast.error(errorMessage);
       throw error;
     }
   },
@@ -42,6 +45,39 @@ export const scheduleRequestService = {
       return response.data;
     } catch (error) {
       console.error('Error fetching my requests:', error);
+      throw error;
+    }
+  },
+
+  // Get peer shift swap requests (for target staff to review)
+  async getPeerShiftSwapRequests(params = {}) {
+    try {
+      const response = await api.get('/schedule-requests/peer-shift-swaps', { params });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching peer shift swap requests:', error);
+      throw error;
+    }
+  },
+
+  // Peer approve a shift swap request
+  async peerApproveShiftSwap(id) {
+    try {
+      const response = await api.patch(`/schedule-requests/${id}/peer-approve`);
+      return response.data;
+    } catch (error) {
+      console.error('Error peer approving shift swap request:', error);
+      throw error;
+    }
+  },
+
+  // Peer reject a shift swap request
+  async peerRejectShiftSwap(id, rejectionReason) {
+    try {
+      const response = await api.patch(`/schedule-requests/${id}/peer-reject`, { rejectionReason });
+      return response.data;
+    } catch (error) {
+      console.error('Error peer rejecting shift swap request:', error);
       throw error;
     }
   },

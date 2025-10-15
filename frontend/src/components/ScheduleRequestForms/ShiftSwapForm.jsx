@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { staffService } from '../../services/staff';
+import { toast } from 'react-hot-toast';
 
 const ShiftSwapForm = ({ isOpen, onClose, onSubmit, staffMembers = [] }) => {
   const [formData, setFormData] = useState({
@@ -45,9 +46,10 @@ const ShiftSwapForm = ({ isOpen, onClose, onSubmit, staffMembers = [] }) => {
     try {
       setLoadingMyShifts(true);
       // Fetch current staff's appointments
+      // We'll fetch a larger number of appointments and filter on the frontend
       const response = await staffService.getAppointments({
-        limit: 50,
-        scope: 'mine' // Only fetch my appointments
+        limit: 200  // Increased limit to ensure we get all upcoming appointments
+        // Removed scope and status parameters to get all appointments
       });
       
       let appointments = [];
@@ -59,18 +61,31 @@ const ShiftSwapForm = ({ isOpen, onClose, onSubmit, staffMembers = [] }) => {
         appointments = response.data || [];
       }
       
-      // Filter for upcoming confirmed appointments
+      // Filter for upcoming appointments with valid statuses
       const upcomingShifts = appointments
         .filter(appointment => {
-          const appointmentDate = new Date(appointment.appointmentDate);
-          const today = new Date();
-          return appointmentDate >= today && appointment.status === 'Confirmed';
+          // Parse the appointment date string properly
+          const appointmentDateStr = appointment.appointmentDate;
+          if (!appointmentDateStr) return false;
+          
+          // Extract date part for comparison (YYYY-MM-DD)
+          const appointmentDatePart = appointmentDateStr.split('T')[0];
+          const todayDatePart = new Date().toISOString().split('T')[0];
+          
+          // Compare date strings lexicographically
+          const isUpcoming = appointmentDatePart >= todayDatePart;
+          
+          // Show appointments with valid upcoming statuses
+          const isValidStatus = ['Approved', 'Pending', 'Confirmed', 'In-Progress'].includes(appointment.status);
+          
+          return isUpcoming && isValidStatus;
         })
         .map(appointment => ({
           id: appointment._id,
           date: new Date(appointment.appointmentDate).toLocaleDateString(),
-          time: appointment.appointmentTime || 'Time not specified',
-          title: `${appointment.customerId?.name || 'Customer'} - ${appointment.services?.[0]?.serviceId?.name || 'Service'}`,
+          // Extract time from appointmentDate if appointmentTime is not available
+          time: appointment.appointmentTime || (appointment.appointmentDate ? appointment.appointmentDate.split('T')[1] : 'Time not specified'),
+          title: `${appointment.customerId?.name || 'Customer'} - ${appointment.services?.[0]?.serviceId?.name || appointment.services?.[0]?.serviceName || 'Service'}`,
           fullDate: appointment.appointmentDate
         }))
         .sort((a, b) => new Date(a.fullDate) - new Date(b.fullDate));
@@ -78,6 +93,7 @@ const ShiftSwapForm = ({ isOpen, onClose, onSubmit, staffMembers = [] }) => {
       setMyShifts(upcomingShifts);
     } catch (error) {
       console.error('Error fetching my shifts:', error);
+      toast.error("Failed to load your shifts. Please try again.");
     } finally {
       setLoadingMyShifts(false);
     }
@@ -86,11 +102,75 @@ const ShiftSwapForm = ({ isOpen, onClose, onSubmit, staffMembers = [] }) => {
   const fetchTargetStaffShifts = async (targetStaffId) => {
     try {
       setLoadingTargetShifts(true);
-      // In a real implementation, you would fetch shifts for the target staff member
-      // For now, we'll simulate this with a placeholder
-      setAvailableShifts([]);
+      console.log('Fetching shifts for target staff ID:', targetStaffId);
+      
+      // Fetch shifts for the target staff member
+      const response = await staffService.getAppointmentsByStaffId(targetStaffId, {
+        limit: 200  // Increased limit to ensure we get all upcoming appointments
+      });
+      
+      console.log('Response from getAppointmentsByStaffId:', response);
+      
+      let appointments = [];
+      if (response?.success) {
+        appointments = response.data || [];
+      } else if (Array.isArray(response)) {
+        appointments = response;
+      } else if (response?.data) {
+        appointments = response.data || [];
+      }
+      
+      console.log('Appointments fetched:', appointments);
+      
+      // Filter for upcoming appointments with valid statuses (in case backend filtering is not working)
+      const upcomingShifts = appointments
+        .filter(appointment => {
+          // Parse the appointment date string properly
+          const appointmentDateStr = appointment.date || appointment.appointmentDate;
+          if (!appointmentDateStr) return false;
+          
+          // Extract date part for comparison (YYYY-MM-DD)
+          const appointmentDatePart = appointmentDateStr.split('T')[0];
+          const todayDatePart = new Date().toISOString().split('T')[0];
+          
+          // Compare date strings lexicographically
+          const isUpcoming = appointmentDatePart >= todayDatePart;
+          
+          // Show appointments with valid upcoming statuses
+          const isValidStatus = ['Approved', 'Pending', 'Confirmed', 'In-Progress'].includes(appointment.status);
+          
+          console.log('Appointment filter results:', {
+            appointmentId: appointment.id || appointment._id,
+            date: appointmentDateStr,
+            isUpcoming,
+            status: appointment.status,
+            isValidStatus,
+            shouldInclude: isUpcoming && isValidStatus
+          });
+          
+          return isUpcoming && isValidStatus;
+        })
+        .map(appointment => ({
+          id: appointment.id || appointment._id,
+          date: new Date(appointment.date || appointment.appointmentDate).toLocaleDateString(),
+          // Extract time from appointmentDate if appointmentTime is not available
+          time: appointment.time || appointment.appointmentTime || ((appointment.date || appointment.appointmentDate) ? (appointment.date || appointment.appointmentDate).split('T')[1] : 'Time not specified'),
+          title: `${appointment.customer || appointment.customerId?.name || 'Customer'} - ${appointment.service || appointment.services?.[0]?.serviceId?.name || appointment.services?.[0]?.serviceName || 'Service'}`,
+          customer: appointment.customer || appointment.customerId?.name || 'Customer',
+          service: appointment.service || appointment.services?.[0]?.serviceId?.name || appointment.services?.[0]?.serviceName || 'Service',
+          fullDate: appointment.date || appointment.appointmentDate
+        }))
+        .sort((a, b) => new Date(a.fullDate) - new Date(b.fullDate));
+      
+      console.log('Filtered and mapped upcoming shifts:', upcomingShifts);
+      setAvailableShifts(upcomingShifts);
     } catch (error) {
       console.error('Error fetching target staff shifts:', error);
+      // Log more detailed error information
+      if (error.response) {
+        console.error('Error response:', error.response);
+      }
+      toast.error("Failed to load colleague's shifts. Please try again.");
       setAvailableShifts([]);
     } finally {
       setLoadingTargetShifts(false);
@@ -118,8 +198,17 @@ const ShiftSwapForm = ({ isOpen, onClose, onSubmit, staffMembers = [] }) => {
     e.preventDefault();
     setLoading(true);
     try {
+      // Validate form data before submission
+      if (!formData.requesterShiftId || !formData.targetStaffId || !formData.targetShiftId) {
+        toast.error("Please select all required fields.");
+        setLoading(false);
+        return;
+      }
+      
       await onSubmit(formData);
       onClose();
+      // Show success message
+      toast.success("Shift Swap Request Submitted Successfully.");
       // Reset form
       setFormData({
         requesterShiftId: '',
@@ -129,6 +218,9 @@ const ShiftSwapForm = ({ isOpen, onClose, onSubmit, staffMembers = [] }) => {
       });
     } catch (error) {
       console.error('Error submitting shift swap request:', error);
+      // Show more specific error message if available
+      const errorMessage = error.response?.data?.message || "Failed to submit shift swap request. Please try again.";
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -234,7 +326,7 @@ const ShiftSwapForm = ({ isOpen, onClose, onSubmit, staffMembers = [] }) => {
                   <option value="">Select their shift</option>
                   {availableShifts.map(shift => (
                     <option key={shift.id} value={shift.id}>
-                      {shift.date} - {shift.time}
+                      {shift.date} - {shift.time} - {shift.title}
                     </option>
                   ))}
                 </>
@@ -274,7 +366,7 @@ const ShiftSwapForm = ({ isOpen, onClose, onSubmit, staffMembers = [] }) => {
             <button
               type="submit"
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50"
-              disabled={loading || staffMembers.length === 0 || myShifts.length === 0}
+              disabled={loading || staffMembers.length === 0 || myShifts.length === 0 || !formData.requesterShiftId || !formData.targetStaffId || !formData.targetShiftId}
             >
               {loading ? 'Submitting...' : 'Submit Request'}
             </button>

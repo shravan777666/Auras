@@ -30,7 +30,7 @@ const calculateDurationInMinutes = (startTime, endTime) => {
 // Create a block time request (immediate)
 export const createBlockTimeRequest = asyncHandler(async (req, res) => {
   const { date, startTime, endTime, reason } = req.body;
-  const staffId = req.user.id;
+  const userId = req.user.id;
 
   // Validate required fields
   if (!date || !startTime || !endTime || !reason) {
@@ -39,7 +39,7 @@ export const createBlockTimeRequest = asyncHandler(async (req, res) => {
 
   try {
     // Get staff member to retrieve salonId
-    const staff = await Staff.findById(staffId);
+    const staff = await Staff.findOne({ user: userId });
     if (!staff) {
       return errorResponse(res, 'Staff member not found', 404);
     }
@@ -51,7 +51,7 @@ export const createBlockTimeRequest = asyncHandler(async (req, res) => {
 
     // Create the schedule request with salonId
     const scheduleRequest = await ScheduleRequest.create({
-      staffId,
+      staffId: staff._id,
       salonId: staff.assignedSalon, // Add salonId for direct filtering
       type: 'block-time',
       blockTime: {
@@ -123,7 +123,7 @@ export const createBlockTimeRequest = asyncHandler(async (req, res) => {
 // Create a leave request
 export const createLeaveRequest = asyncHandler(async (req, res) => {
   const { startDate, endDate, reason, notes } = req.body;
-  const staffId = req.user.id;
+  const userId = req.user.id;
 
   // Validate required fields
   if (!startDate || !endDate || !reason) {
@@ -132,7 +132,7 @@ export const createLeaveRequest = asyncHandler(async (req, res) => {
 
   try {
     // Get staff member to retrieve salonId
-    const staff = await Staff.findById(staffId);
+    const staff = await Staff.findOne({ user: userId });
     if (!staff) {
       return errorResponse(res, 'Staff member not found', 404);
     }
@@ -144,7 +144,7 @@ export const createLeaveRequest = asyncHandler(async (req, res) => {
 
     // Create the schedule request with salonId
     const scheduleRequest = await ScheduleRequest.create({
-      staffId,
+      staffId: staff._id,
       salonId: staff.assignedSalon, // Add salonId for direct filtering
       type: 'leave',
       leave: {
@@ -189,7 +189,7 @@ export const createLeaveRequest = asyncHandler(async (req, res) => {
 // Create a shift swap request
 export const createShiftSwapRequest = asyncHandler(async (req, res) => {
   const { requesterShiftId, targetStaffId, targetShiftId, requesterNotes } = req.body;
-  const staffId = req.user.id;
+  const userId = req.user.id;
 
   // Validate required fields
   if (!requesterShiftId || !targetStaffId || !targetShiftId) {
@@ -198,7 +198,7 @@ export const createShiftSwapRequest = asyncHandler(async (req, res) => {
 
   try {
     // Get staff member to retrieve salonId
-    const staff = await Staff.findById(staffId);
+    const staff = await Staff.findOne({ user: userId });
     if (!staff) {
       return errorResponse(res, 'Staff member not found', 404);
     }
@@ -208,9 +208,39 @@ export const createShiftSwapRequest = asyncHandler(async (req, res) => {
       return errorResponse(res, 'Staff member is not assigned to a salon', 400);
     }
 
+    // Validate that the requester shift belongs to the current staff member
+    const requesterShift = await Appointment.findOne({
+      _id: requesterShiftId,
+      staffId: staff._id
+    });
+    
+    if (!requesterShift) {
+      return errorResponse(res, 'Requester shift not found or does not belong to you', 404);
+    }
+
+    // Validate that the target shift belongs to the target staff member
+    const targetShift = await Appointment.findOne({
+      _id: targetShiftId,
+      staffId: targetStaffId
+    });
+    
+    if (!targetShift) {
+      return errorResponse(res, 'Target shift not found or does not belong to the target staff', 404);
+    }
+
+    // Verify that both staff members belong to the same salon
+    const targetStaff = await Staff.findById(targetStaffId);
+    if (!targetStaff) {
+      return errorResponse(res, 'Target staff member not found', 404);
+    }
+
+    if (targetStaff.assignedSalon?.toString() !== staff.assignedSalon?.toString()) {
+      return errorResponse(res, 'Target staff member is not in your salon', 400);
+    }
+
     // Create the schedule request with salonId
     const scheduleRequest = await ScheduleRequest.create({
-      staffId,
+      staffId: staff._id,
       salonId: staff.assignedSalon, // Add salonId for direct filtering
       type: 'shift-swap',
       shiftSwap: {
@@ -223,8 +253,7 @@ export const createShiftSwapRequest = asyncHandler(async (req, res) => {
     });
 
     // Send notification to target staff member
-    const requester = await Staff.findById(staffId);
-    const targetStaff = await Staff.findById(targetStaffId);
+    const requester = await Staff.findOne({ user: userId });
     
     if (targetStaff && targetStaff.user) {
       // Get salon information for the notification
@@ -240,7 +269,7 @@ export const createShiftSwapRequest = asyncHandler(async (req, res) => {
         staffId: targetStaff._id,
         staffName: targetStaff.name,
         staffEmail: targetStaff.email,
-        senderId: staffId,
+        senderId: staff._id,
         senderType: 'Staff',
         senderName: requester.name,
         senderEmail: requester.email,
@@ -249,7 +278,7 @@ export const createShiftSwapRequest = asyncHandler(async (req, res) => {
         subject: 'Shift Swap Request',
         message: `${requester.name} wants to swap shifts with you. Please review the request.`,
         targetSkill: 'All Staff',
-        category: 'schedule',
+        category: 'announcement', // Changed from 'schedule' to valid category
         priority: 'medium'
       });
     }
@@ -257,24 +286,39 @@ export const createShiftSwapRequest = asyncHandler(async (req, res) => {
     return successResponse(res, scheduleRequest, 'Shift swap request submitted successfully');
   } catch (error) {
     console.error('Error creating shift swap request:', error);
-    return errorResponse(res, 'Failed to submit shift swap request', 500);
+    // Log more detailed error information
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      requesterShiftId,
+      targetStaffId,
+      targetShiftId,
+      userId
+    });
+    return errorResponse(res, 'Failed to submit shift swap request: ' + error.message, 500);
   }
 });
 
 // Get my requests (for staff)
 export const getMyRequests = asyncHandler(async (req, res) => {
-  const staffId = req.user.id;
+  const userId = req.user.id;
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
   const skip = (page - 1) * limit;
 
   try {
+    // Get staff member
+    const staff = await Staff.findOne({ user: userId });
+    if (!staff) {
+      return errorResponse(res, 'Staff member not found', 404);
+    }
+    
     const [requests, totalRequests] = await Promise.all([
-      ScheduleRequest.find({ staffId })
+      ScheduleRequest.find({ staffId: staff._id })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
-      ScheduleRequest.countDocuments({ staffId })
+      ScheduleRequest.countDocuments({ staffId: staff._id })
     ]);
 
     return paginatedResponse(res, requests, {
@@ -513,5 +557,206 @@ export const rejectRequest = asyncHandler(async (req, res) => {
   } catch (error) {
     console.error('Error rejecting schedule request:', error);
     return errorResponse(res, 'Failed to reject request', 500);
+  }
+});
+
+// Peer approve a shift swap request
+export const peerApproveShiftSwap = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user.id;
+
+  try {
+    // Get the schedule request
+    const scheduleRequest = await ScheduleRequest.findById(id);
+    if (!scheduleRequest) {
+      return notFoundResponse(res, 'Schedule request');
+    }
+
+    // Check if it's a shift swap request
+    if (scheduleRequest.type !== 'shift-swap') {
+      return errorResponse(res, 'This request is not a shift swap request', 400);
+    }
+
+    // Check if the current user is the target staff member
+    const targetStaff = await Staff.findById(scheduleRequest.shiftSwap.targetStaffId);
+    if (!targetStaff || targetStaff.user.toString() !== userId) {
+      return errorResponse(res, 'You are not authorized to approve this request', 403);
+    }
+
+    // Check if peer approval is already done
+    if (scheduleRequest.peerApproval && scheduleRequest.peerApproval.status === 'approved') {
+      return errorResponse(res, 'Request is already peer approved', 400);
+    }
+
+    // Update peer approval status
+    scheduleRequest.peerApproval = {
+      status: 'approved',
+      approvedBy: targetStaff._id,
+      approvedAt: new Date()
+    };
+    
+    // Update overall status to peer-approved
+    scheduleRequest.status = 'peer-approved';
+    await scheduleRequest.save();
+
+    // Send notification to requester
+    const requester = await Staff.findById(scheduleRequest.staffId);
+    if (requester && requester.user) {
+      // Get salon information for the notification
+      let salonName = 'Your Salon';
+      if (targetStaff.assignedSalon) {
+        const salon = await Salon.findById(targetStaff.assignedSalon);
+        if (salon) {
+          salonName = salon.salonName;
+        }
+      }
+      
+      await StaffNotification.create({
+        staffId: requester._id,
+        staffName: requester.name,
+        staffEmail: requester.email,
+        senderId: targetStaff._id,
+        senderType: 'Staff',
+        senderName: targetStaff.name,
+        senderEmail: targetStaff.email,
+        senderSalonName: salonName,
+        type: 'broadcast',
+        subject: 'Shift Swap Request Peer Approved',
+        message: `${targetStaff.name} has approved your shift swap request. It is now pending manager approval.`,
+        targetSkill: 'All Staff',
+        category: 'announcement', // Changed from 'schedule' to valid category
+        priority: 'medium'
+      });
+    }
+
+    return successResponse(res, scheduleRequest, 'Shift swap request peer approved successfully');
+  } catch (error) {
+    console.error('Error peer approving shift swap request:', error);
+    return errorResponse(res, 'Failed to peer approve shift swap request', 500);
+  }
+});
+
+// Peer reject a shift swap request
+export const peerRejectShiftSwap = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { rejectionReason } = req.body;
+  const userId = req.user.id;
+
+  try {
+    // Get the schedule request
+    const scheduleRequest = await ScheduleRequest.findById(id);
+    if (!scheduleRequest) {
+      return notFoundResponse(res, 'Schedule request');
+    }
+
+    // Check if it's a shift swap request
+    if (scheduleRequest.type !== 'shift-swap') {
+      return errorResponse(res, 'This request is not a shift swap request', 400);
+    }
+
+    // Check if the current user is the target staff member
+    const targetStaff = await Staff.findById(scheduleRequest.shiftSwap.targetStaffId);
+    if (!targetStaff || targetStaff.user.toString() !== userId) {
+      return errorResponse(res, 'You are not authorized to reject this request', 403);
+    }
+
+    // Check if peer approval is already done
+    if (scheduleRequest.peerApproval && scheduleRequest.peerApproval.status === 'rejected') {
+      return errorResponse(res, 'Request is already peer rejected', 400);
+    }
+
+    // Update peer approval status
+    scheduleRequest.peerApproval = {
+      status: 'rejected',
+      approvedBy: targetStaff._id,
+      approvedAt: new Date()
+    };
+    
+    // Update overall status to rejected
+    scheduleRequest.status = 'rejected';
+    scheduleRequest.rejectedBy = targetStaff._id;
+    scheduleRequest.rejectedAt = new Date();
+    scheduleRequest.rejectionReason = rejectionReason || 'Peer rejected the shift swap request';
+    await scheduleRequest.save();
+
+    // Send notification to requester
+    const requester = await Staff.findById(scheduleRequest.staffId);
+    if (requester && requester.user) {
+      // Get salon information for the notification
+      let salonName = 'Your Salon';
+      if (targetStaff.assignedSalon) {
+        const salon = await Salon.findById(targetStaff.assignedSalon);
+        if (salon) {
+          salonName = salon.salonName;
+        }
+      }
+      
+      await StaffNotification.create({
+        staffId: requester._id,
+        staffName: requester.name,
+        staffEmail: requester.email,
+        senderId: targetStaff._id,
+        senderType: 'Staff',
+        senderName: targetStaff.name,
+        senderEmail: targetStaff.email,
+        senderSalonName: salonName,
+        type: 'broadcast',
+        subject: 'Shift Swap Request Peer Rejected',
+        message: `${targetStaff.name} has rejected your shift swap request. Reason: ${rejectionReason || 'No reason provided'}`,
+        targetSkill: 'All Staff',
+        category: 'announcement', // Changed from 'schedule' to valid category
+        priority: 'medium'
+      });
+    }
+
+    return successResponse(res, scheduleRequest, 'Shift swap request peer rejected successfully');
+  } catch (error) {
+    console.error('Error peer rejecting shift swap request:', error);
+    return errorResponse(res, 'Failed to peer reject shift swap request', 500);
+  }
+});
+
+// Get shift swap requests for peer review (target staff member)
+export const getPeerShiftSwapRequests = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const skip = (page - 1) * limit;
+
+  try {
+    // Get staff member
+    const staff = await Staff.findOne({ user: userId });
+    if (!staff) {
+      return errorResponse(res, 'Staff member not found', 404);
+    }
+    
+    // Find shift swap requests where this staff is the target
+    const query = {
+      'shiftSwap.targetStaffId': staff._id,
+      'type': 'shift-swap',
+      'status': 'pending'
+    };
+
+    const [requests, totalRequests] = await Promise.all([
+      ScheduleRequest.find(query)
+        .populate({
+          path: 'staffId',
+          select: 'name position profilePicture'
+        })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      ScheduleRequest.countDocuments(query)
+    ]);
+
+    return paginatedResponse(res, requests, {
+      page,
+      limit,
+      totalPages: Math.ceil(totalRequests / limit),
+      totalItems: totalRequests
+    });
+  } catch (error) {
+    console.error('Error fetching peer shift swap requests:', error);
+    return errorResponse(res, 'Failed to fetch peer shift swap requests', 500);
   }
 });
