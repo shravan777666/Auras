@@ -768,7 +768,7 @@ export const getAppointments = asyncHandler(async (req, res) => {
   try {
     [appointments, totalAppointments] = await Promise.all([
       Appointment.find(filter)
-        .populate('customerId', 'name email')
+        .populate('customerId', 'name email profilePic')
         .populate('salonId', 'salonName')
         .populate('services.serviceId', 'name price duration')
         .skip(skip)
@@ -794,6 +794,13 @@ export const getAppointments = asyncHandler(async (req, res) => {
       }
     }
     
+    // Helper function to convert file path to full URL
+    const getFileUrl = (filePath) => {
+      if (!filePath) return null;
+      const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 5002}`;
+      return `${baseUrl}/${filePath.replace(/\\/g, '/')}`;
+    };
+    
     return {
       _id: apt._id,
       appointmentDate: apt.appointmentDate,
@@ -805,6 +812,9 @@ export const getAppointments = asyncHandler(async (req, res) => {
       customerNotes: apt.customerNotes,
       specialRequests: apt.specialRequests,
       customerId: apt.customerId,
+      customerName: apt.customerId?.name,
+      customerEmail: apt.customerId?.email,
+      customerProfilePic: apt.customerId?.profilePic ? getFileUrl(apt.customerId.profilePic) : null,
       salonId: apt.salonId,
       services: apt.services,
       createdAt: apt.createdAt,

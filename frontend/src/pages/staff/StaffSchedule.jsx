@@ -198,83 +198,98 @@ const StaffSchedule = () => {
               }
             }
 
-            // Calculate end time
-            const eventEnd = new Date(eventStart);
-            const duration = appointment.estimatedDuration || 
-                           appointment.services?.[0]?.duration || 
-                           60; // Default 60 minutes
-            eventEnd.setMinutes(eventEnd.getMinutes() + parseInt(duration));
+            // Calculate end time based on estimated duration or default to 1 hour
+            const duration = appointment.estimatedDuration || 60;
+            const eventEnd = new Date(eventStart.getTime() + duration * 60000);
 
-            const customerName = appointment.customerId?.name || "Customer";
-            const serviceName = appointment.services?.[0]?.serviceId?.name || "Service";
+            // Format customer and service names
+            const customerName = appointment.customerId?.name || 'Unknown Customer';
+            const serviceName = appointment.services?.[0]?.serviceId?.name || 
+                              appointment.services?.[0]?.serviceName || 
+                              'Service';
 
-            const event = {
-              id: appointment._id || `event-${index}-${Date.now()}`,
+            // Determine event color based on status
+            let backgroundColor = '#3b82f6'; // Default blue
+            switch (appointment.status?.toLowerCase()) {
+              case 'approved':
+                backgroundColor = '#10b981'; // Green
+                break;
+              case 'pending':
+                backgroundColor = '#f59e0b'; // Amber
+                break;
+              case 'completed':
+                backgroundColor = '#8b5cf6'; // Purple
+                break;
+              case 'cancelled':
+                backgroundColor = '#ef4444'; // Red
+                break;
+              case 'staff_blocked':
+                backgroundColor = '#6b7280'; // Gray
+                break;
+              default:
+                backgroundColor = '#3b82f6'; // Blue
+            }
+
+            return {
+              id: appointment._id,
               title: `${customerName} - ${serviceName}`,
               start: eventStart,
               end: eventEnd,
+              backgroundColor,
+              borderColor: backgroundColor,
               extendedProps: {
-                customerName,
-                serviceName,
-                customerEmail: appointment.customerId?.email || "",
-                customerPhone: appointment.customerId?.phone || "",
-                services: appointment.services || [],
-                notes: appointment.customerNotes || "",
-                specialRequests: appointment.specialRequests || "",
-                status: appointment.status || "Pending",
-                totalAmount: appointment.totalAmount || 0,
-                raw: appointment,
-              },
+                appointmentId: appointment._id,
+                customer: customerName,
+                service: serviceName,
+                status: appointment.status,
+                notes: appointment.customerNotes,
+                staffNotes: appointment.staffNotes,
+                duration
+              }
             };
-
-            return event;
-          } catch (error) {
-            console.error(`❌ Error processing appointment ${index}:`, error);
+          } catch (parseError) {
+            console.error(`❌ Error parsing appointment ${index}:`, parseError);
             return null;
           }
         })
-        .filter(Boolean);
+        .filter(Boolean); // Remove null events
 
-      console.log('✅ Successfully mapped events:', mappedEvents.length);
-      console.log('📅 Final events for calendar:', mappedEvents.map(event => ({
-        id: event.id,
-        title: event.title,
-        start: event.start,
-        end: event.end,
-        startISO: event.start?.toISOString(),
-        endISO: event.end?.toISOString()
-      })));
-      
+      console.log('✅ Mapped events count:', mappedEvents.length);
+      console.log('✅ Sample mapped events:', mappedEvents.slice(0, 2));
+
       setEvents(mappedEvents);
-      setConnectionStatus('connected');
       setLastUpdated(new Date());
-
     } catch (error) {
-      console.error("❌ Failed to fetch appointments:", {
-        message: error.message,
-        status: error.response?.status,
-        data: error.response?.data
-      });
-      
-      // Specific error handling
-      if (error.response?.status === 401) {
-        setError('Authentication failed. Please login again.');
-      } else if (error.response?.status === 500) {
-        setError('Server error. Please check if the backend server is running on port 5002.');
-      } else if (error.code === 'ECONNABORTED') {
-        setError('Request timeout. Server is taking too long to respond.');
-      } else if (error.message.includes('Network Error')) {
-        setError('Network error. Please check your connection and ensure the backend server is running.');
-      } else {
-        setError(`Failed to load appointments: ${error.message}`);
-      }
-      
-      setEvents([]);
-      setConnectionStatus('error');
+      console.error('❌ Error in fetchRangeAsEvents:', error);
+      setError(`Failed to load schedule: ${error.message}`);
+      toast.error(`Failed to load schedule: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
+
+  // Add event listener for shift swap approvals
+  useEffect(() => {
+    const handleShiftSwapApproved = (event) => {
+      console.log('Shift swap approved, refreshing calendar...');
+      toast.success('Shift swap approved! Calendar updated.');
+      
+      // Refresh the calendar events
+      const calendarApi = calendarRef.current?.getApi();
+      if (calendarApi) {
+        const currentRange = calendarApi.view.currentRange;
+        fetchRangeAsEvents(currentRange.start, currentRange.end);
+      }
+    };
+
+    // Add event listener
+    window.addEventListener('shiftSwapApproved', handleShiftSwapApproved);
+
+    // Cleanup event listener
+    return () => {
+      window.removeEventListener('shiftSwapApproved', handleShiftSwapApproved);
+    };
+  }, []);
 
   // Fetch salon staff members (colleagues)
   const fetchSalonStaff = async () => {
@@ -474,7 +489,7 @@ const StaffSchedule = () => {
       toast.success("Time blocked successfully!");
       // Refresh the calendar to show the blocked time
       if (viewRangeRef.current?.start && viewRangeRef.current?.end) {
-        fetchRangeAsEvents(viewRangeRef.current.start, viewRangeRef.current.end);
+        fetchRangeAsEvents(viewRangeRef.current.start, viewRangeRef.current?.end);
       }
     } catch (error) {
       console.error("Error blocking time:", error);
@@ -760,10 +775,29 @@ const StaffSchedule = () => {
                     Client Information
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <span className="text-sm font-medium text-gray-600">Name:</span>
-                      <p className="text-gray-900 mt-1">{selectedEvent.customerName}</p>
+                    {/* Customer Profile Picture and Name */}
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0">
+                        {selectedEvent.customerProfilePic ? (
+                          <img 
+                            src={selectedEvent.customerProfilePic} 
+                            alt={selectedEvent.customerName}
+                            className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
+                          />
+                        ) : (
+                          <div className="w-16 h-16 rounded-full bg-gray-200 border-2 border-gray-300 flex items-center justify-center">
+                            <svg className="w-8 h-8 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium text-gray-600">Name:</span>
+                        <p className="text-gray-900 mt-1 font-medium">{selectedEvent.customerName}</p>
+                      </div>
                     </div>
+                    
                     {selectedEvent.customerEmail && (
                       <div>
                         <span className="text-sm font-medium text-gray-600">Email:</span>

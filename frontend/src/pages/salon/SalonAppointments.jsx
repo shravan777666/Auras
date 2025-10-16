@@ -24,6 +24,19 @@ import {
 const SalonAppointments = () => {
   const [loading, setLoading] = useState(true);
   const [appointments, setAppointments] = useState([]);
+  const [appointmentCounts, setAppointmentCounts] = useState({
+    total: 0,
+    Pending: 0,
+    Approved: 0,
+    'In-Progress': 0,
+    Completed: 0,
+    Cancelled: 0
+  });
+  
+  useEffect(() => {
+    // Remove the debugging useEffect
+  }, [appointmentCounts]);
+
   const [filter, setFilter] = useState('all'); // all, Pending, Approved, In-Progress, Completed, Cancelled
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -35,10 +48,65 @@ const SalonAppointments = () => {
   const [selectedCustomerId, setSelectedCustomerId] = useState(null);
   const [showClientProfile, setShowClientProfile] = useState(false);
 
+  // Set default to today's date
+  const today = new Date().toISOString().split('T')[0];
+  const [selectedDate, setSelectedDate] = useState(today);
+
   useEffect(() => {
+    fetchAppointmentCounts();
     fetchAppointments();
     fetchStaff();
-  }, [filter, currentPage]);
+  }, []);
+
+  useEffect(() => {
+    fetchAppointments();
+    fetchAppointmentCounts();
+  }, [filter, currentPage, selectedDate]);
+
+  const fetchAppointmentCounts = async () => {
+    try {
+      const response = await salonService.getAppointmentCounts({ date: selectedDate });
+      
+      // Check if response has the expected structure
+      if (response && response.success) {
+        const countsData = response.data || {};
+        
+        // Create a new counts object with default values
+        const newCounts = {
+          total: countsData.total || 0,
+          Pending: countsData.Pending || 0,
+          Approved: countsData.Approved || 0,
+          'In-Progress': countsData['In-Progress'] || 0,
+          Completed: countsData.Completed || 0,
+          Cancelled: countsData.Cancelled || 0
+        };
+        
+        setAppointmentCounts(newCounts);
+      } else {
+        // Set default values
+        setAppointmentCounts({
+          total: 0,
+          Pending: 0,
+          Approved: 0,
+          'In-Progress': 0,
+          Completed: 0,
+          Cancelled: 0
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching appointment counts:', error);
+      toast.error('Failed to load appointment counts');
+      // Set default values on error
+      setAppointmentCounts({
+        total: 0,
+        Pending: 0,
+        Approved: 0,
+        'In-Progress': 0,
+        Completed: 0,
+        Cancelled: 0
+      });
+    }
+  };
 
   const fetchStaff = async () => {
     try {
@@ -57,16 +125,12 @@ const SalonAppointments = () => {
       const params = {
         page: currentPage,
         limit: 10,
-        ...(filter !== 'all' && { status: filter })
+        ...(filter !== 'all' && { status: filter }),
+        date: selectedDate
       };
 
       const res = await salonService.getAppointments(params);
       if (res?.success) {
-        console.log('🔧 Received appointments:', res.data?.map(apt => ({
-          id: apt._id,
-          status: apt.status,
-          customerName: apt.customerId?.name
-        })));
         setAppointments(res.data || []);
         setTotalPages(res.pagination?.totalPages || 1);
         setTotalAppointments(res.pagination?.totalItems || 0);
@@ -77,8 +141,6 @@ const SalonAppointments = () => {
       setLoading(false);
     }
   };
-
-  
 
   const getStatusIcon = (status) => {
     switch (status?.toLowerCase()) {
@@ -222,8 +284,9 @@ const SalonAppointments = () => {
       if (response?.success) {
         console.log('Appointment status updated successfully');
         toast.success('Appointment status updated successfully');
-        // Refresh the appointments list
+        // Refresh the appointments list and counts
         fetchAppointments();
+        fetchAppointmentCounts();
       }
     } catch (error) {
       console.error('Error updating appointment status:', error);
@@ -241,8 +304,9 @@ const SalonAppointments = () => {
       if (response?.success) {
         console.log('Staff assigned successfully');
         toast.success('Staff assigned successfully');
-        // Refresh the appointments list
+        // Refresh the appointments list and counts
         fetchAppointments();
+        fetchAppointmentCounts();
       }
     } catch (error) {
       console.error('Error assigning staff:', error);
@@ -290,6 +354,49 @@ const SalonAppointments = () => {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Date Selector */}
+        <div className="mb-6 bg-white rounded-lg shadow-sm p-4">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div className="flex items-center">
+              <label htmlFor="appointment-date" className="mr-2 text-sm font-medium text-gray-700">
+                Select Date:
+              </label>
+              <input
+                type="date"
+                id="appointment-date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              />
+              <button
+                onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
+                className="ml-2 px-3 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 text-sm"
+              >
+                Today
+              </button>
+            </div>
+            
+            {/* Appointment Status Counts */}
+            <div className="flex flex-wrap gap-2">
+              {[
+                { status: 'Pending', count: appointmentCounts.Pending, color: 'bg-yellow-100 text-yellow-800' },
+                { status: 'Approved', count: appointmentCounts.Approved, color: 'bg-green-100 text-green-800' },
+                { status: 'In-Progress', count: appointmentCounts['In-Progress'], color: 'bg-blue-100 text-blue-800' },
+                { status: 'Completed', count: appointmentCounts.Completed, color: 'bg-indigo-100 text-indigo-800' },
+                { status: 'Cancelled', count: appointmentCounts.Cancelled, color: 'bg-red-100 text-red-800' }
+              ].map((item) => (
+                <div 
+                  key={item.status}
+                  className={`px-3 py-1 rounded-lg ${item.color} font-medium flex items-center text-sm`}
+                >
+                  <span>{item.status}:</span>
+                  <span className="ml-1 font-bold">{item.count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
         {/* Filters and Search */}
         <div className="mb-6 flex flex-col sm:flex-row gap-4">
           <div className="flex-1">

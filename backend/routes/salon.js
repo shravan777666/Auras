@@ -28,7 +28,11 @@ import {
   markSalonNotificationAsRead,
   sendReplyToStaff,
   sendJobOffer,
-  rejectStaffApplication
+  rejectStaffApplication,
+  markStaffAttendance,
+  addStaffShift,
+  deleteAttendance,
+  getAppointmentCounts
 } from '../controllers/salonController.js';
 import * as appointmentController from '../controllers/appointmentController.js';
 import { requireSalonOwner, requireSalonSetup } from '../middleware/roleAuth.js';
@@ -85,6 +89,9 @@ router.get('/staff/availability', requireSalonSetup, getStaffAvailability);
 router.get('/staff/available', requireSalonSetup, validatePagination, getAvailableStaff);
 router.post('/staff/hire', requireSalonSetup, hireStaff);
 router.delete('/staff/:staffId', requireSalonSetup, validateObjectId('staffId'), removeStaff);
+router.post('/staff/:staffId/attendance', requireSalonSetup, validateObjectId('staffId'), markStaffAttendance);
+router.post('/staff/:staffId/shifts', requireSalonSetup, validateObjectId('staffId'), addStaffShift);
+router.delete('/staff/:staffId/attendance/:attendanceId', requireSalonSetup, validateObjectId('staffId'), validateObjectId('attendanceId'), deleteAttendance);
 
 // Service Management
 router.get('/services', requireSalonSetup, validatePagination, getServices);
@@ -92,6 +99,7 @@ router.post('/services', requireSalonSetup, addService);
 
 // Appointment Management
 router.get('/appointments', requireSalonSetup, validatePagination, getAppointments);
+router.get('/appointments/counts', requireSalonSetup, getAppointmentCounts);
 router.patch('/appointments/:appointmentId', 
   requireSalonSetup, 
   validateObjectId('appointmentId'), 

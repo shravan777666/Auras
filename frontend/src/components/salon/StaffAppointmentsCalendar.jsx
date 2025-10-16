@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { salonService } from '../../services/salon';
-import { Calendar, Clock, User, ChevronLeft, ChevronRight, CheckCircle, XCircle, MapPin } from 'lucide-react';
+import { Calendar, Clock, User, ChevronLeft, ChevronRight, CheckCircle, Plus, XCircle, MapPin } from 'lucide-react';
 import LoadingSpinner from '../common/LoadingSpinner';
 import { extractDatePart, formatDateToString, isSameDay, formatTimeForDisplay, extractTimePart } from '../../utils/dateUtils';
 
@@ -38,6 +38,67 @@ const StaffAppointmentsCalendar = ({ embedded = false, onRefresh }) => {
     }
   }, [onRefresh]);
 
+  // Function to mark staff attendance for today
+  const markAttendance = async (staffId, date) => {
+    try {
+      await salonService.markStaffAttendance(staffId, formatDateToString(date), {
+        status: 'Present',
+        checkInTime: new Date().toTimeString().slice(0, 5)
+      });
+      
+      // Refresh the calendar to show updated attendance status
+      fetchStaffAvailability();
+      
+      // Show success message
+      alert(`Attendance marked for staff member on ${date.toDateString()}`);
+    } catch (error) {
+      console.error('Error marking attendance:', error);
+      alert('Failed to mark attendance. Please try again.');
+    }
+  };
+
+  // Function to add a shift for a staff member
+  const addShift = async (staffId, date) => {
+    try {
+      const response = await salonService.addStaffShift(staffId, formatDateToString(date), {
+        startTime: '09:00',
+        endTime: '17:00',
+        notes: 'Regular shift'
+      });
+
+      if (response.success) {
+        // Instead of manually updating state, refresh all data from backend
+        // This ensures consistency and proper data structure
+        fetchStaffAvailability();
+        
+        alert(`Shift added for staff member on ${date.toDateString()}`);
+      } else {
+        throw new Error(response.message || 'Failed to add shift');
+      }
+    } catch (error) {
+      console.error('Error adding shift:', error);
+      alert(`Failed to add shift: ${error.message}`);
+    }
+  };
+
+  // Add event listener for shift swap approvals
+  useEffect(() => {
+    const handleShiftSwapApproved = (event) => {
+      console.log('Shift swap approved, refreshing salon calendar...');
+      
+      // Refresh the calendar
+      fetchStaffAvailability();
+    };
+
+    // Add event listener
+    window.addEventListener('shiftSwapApproved', handleShiftSwapApproved);
+
+    // Cleanup event listener
+    return () => {
+      window.removeEventListener('shiftSwapApproved', handleShiftSwapApproved);
+    };
+  }, []);
+
   const fetchStaffAvailability = async () => {
     try {
       setLoading(true);
@@ -47,8 +108,8 @@ const StaffAppointmentsCalendar = ({ embedded = false, onRefresh }) => {
       endDate.setMonth(endDate.getMonth() + 1, 0); // Last day of month
 
       const response = await salonService.getStaffAvailability({
-        startDate: startDate.toISOString().split('T')[0],
-        endDate: endDate.toISOString().split('T')[0]
+        startDate: formatDateToString(startDate),
+        endDate: formatDateToString(endDate)
       });
 
       if (response?.success) {
@@ -58,13 +119,18 @@ const StaffAppointmentsCalendar = ({ embedded = false, onRefresh }) => {
           staffData: response.data?.staffAppointments?.map(staff => ({
             staffName: staff.staff.name,
             appointmentCount: staff.appointments.length,
+            attendanceCount: staff.attendance?.length || 0,
             appointments: staff.appointments.map(apt => ({
               id: apt._id,
               customer: apt.customer,
               status: apt.status,
               date: apt.date,
               time: apt.time
-            }))
+            })),
+            attendance: staff.attendance?.map(record => ({
+              date: record.date,
+              status: record.status
+            })) || []
           }))
         });
         
@@ -111,33 +177,24 @@ const StaffAppointmentsCalendar = ({ embedded = false, onRefresh }) => {
   };
 
   const getAppointmentsForDay = (date, staffId = null) => {
+    console.log('🔍 Getting appointments for day:', date, 'and staff:', staffId);
     const appointments = [];
-    
     if (staffId) {
-      // Get appointments for specific staff
       const staffData = staffAvailability.find(sa => sa.staff._id === staffId);
+      console.log('👨‍⚕️ Found staffData:', staffData);
       if (staffData) {
-        appointments.push(...staffData.appointments.filter(apt => {
-          return isSameDay(apt.date, date);
-        }));
+        const filteredAppointments = staffData.appointments.filter(apt => {
+          const sameDay = isSameDay(apt.date, date);
+          console.log('🗓️ Comparing apt.date:', apt.date, 'with date:', date, 'isSameDay:', sameDay);
+          return sameDay;
+        });
+        appointments.push(...filteredAppointments);
       }
     } else {
       // Get appointments for all staff
       staffAvailability.forEach(staffData => {
         const staffAppointments = staffData.appointments.filter(apt => {
           const matches = isSameDay(apt.date, date);
-          
-          console.log('🗓️ Date comparison (using utility):', {
-            appointmentId: apt._id,
-            aptDateOriginal: apt.date,
-            aptTimeOriginal: apt.time,
-            aptDateStr: extractDatePart(apt.date),
-            aptTimeExtracted: extractTimePart(apt.time),
-            aptTimeFormatted: formatTimeForDisplay(apt.time),
-            targetDateStr: formatDateToString(date),
-            matches
-          });
-          
           return matches;
         });
         appointments.push(...staffAppointments.map(apt => ({
@@ -147,8 +204,24 @@ const StaffAppointmentsCalendar = ({ embedded = false, onRefresh }) => {
         })));
       });
     }
-
+    console.log('✅ Returning appointments:', appointments);
     return appointments.sort((a, b) => a.time.localeCompare(b.time));
+  };
+
+  // Function to get attendance status for a specific date and staff
+  const getAttendanceForDay = (date, staffId) => {
+    if (!staffId) return null;
+    
+    const staffData = staffAvailability.find(sa => sa.staff._id === staffId);
+    if (!staffData || !staffData.attendance) return null;
+    
+    const dateStr = formatDateToString(date);
+    return staffData.attendance.find(record => record.date === dateStr) || null;
+  };
+
+  // Function to check if a date is today
+  const isToday = (date) => {
+    return date.toDateString() === new Date().toDateString();
   };
 
   const getStaffColor = (staffId, staffName) => {
@@ -198,14 +271,13 @@ const StaffAppointmentsCalendar = ({ embedded = false, onRefresh }) => {
       
       if (response?.success) {
         console.log('✅ Staff assigned successfully:', response);
-        // Refresh the calendar data
-        await fetchStaffAvailability();
+        // Refresh the calendar after assignment
+        fetchStaffAvailability();
         setShowAssignModal(false);
         setSelectedAppointment(null);
       }
     } catch (error) {
-      console.error('❌ Error assigning staff:', error);
-      setError('Failed to assign staff to appointment');
+      console.error('Error assigning staff:', error);
     } finally {
       setLoading(false);
     }
@@ -233,6 +305,15 @@ const StaffAppointmentsCalendar = ({ embedded = false, onRefresh }) => {
   ];
 
   const selectedStaffData = staffAvailability.find(sa => sa.staff._id === selectedStaff);
+
+  // Function to get customer profile image with fallback
+  const getCustomerProfileImage = (customerProfilePic, customerName) => {
+    if (customerProfilePic) {
+      return customerProfilePic;
+    }
+    // Fallback to UI avatar if no profile picture
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(customerName || 'Customer')}&background=random&color=fff&rounded=true`;
+  };
 
   const calendarContent = (
     <>
@@ -363,23 +444,45 @@ const StaffAppointmentsCalendar = ({ embedded = false, onRefresh }) => {
             <div className="grid grid-cols-7 gap-1">
               {days.map((day, index) => {
                 if (!day) {
-                  return <div key={index} className="h-24"></div>;
+                  return <div key={index} className="h-40"></div>;
                 }
 
                 const appointments = getAppointmentsForDay(day, viewMode === 'individual' ? selectedStaff : null);
-                const isToday = day.toDateString() === new Date().toDateString();
+                const attendance = viewMode === 'individual' && selectedStaff ? getAttendanceForDay(day, selectedStaff) : null;
+                const isCurrentDay = isToday(day);
+
+                // Determine cell styling based on attendance
+                let cellClass = 'bg-gray-50';
+                if (attendance && attendance.status === 'Present') {
+                  cellClass = 'bg-green-100 border-green-200'; // Green background for Present
+                } else if (attendance && attendance.status === 'Absent') {
+                  cellClass = 'bg-red-100 border-red-200'; // Red background for Absent
+                } else if (isCurrentDay) {
+                  cellClass = 'bg-indigo-50 border-indigo-200'; // Light blue for today
+                }
 
                 return (
                   <div
                     key={index}
-                    className={`h-24 border rounded-lg p-2 text-xs ${
-                      isToday ? 'bg-indigo-50 border-indigo-200' : 'bg-gray-50'
-                    }`}
+                    className={`h-40 border rounded-lg p-2 text-xs relative ${cellClass}`}
                   >
                     <div className="font-medium text-gray-700 mb-1">
                       {day.getDate()}
+                      {/* Show red mark only for Absent attendance */}
+                      {attendance && attendance.status === 'Absent' && (
+                        <span className="absolute top-1 right-1">
+                          <div className="w-2 h-2 bg-red-500 rounded-full" title="Absent"></div>
+                        </span>
+                      )}
+                      {/* Show blue mark only for Present attendance */}
+                      {attendance && attendance.status === 'Present' && (
+                        <span className="absolute top-1 right-1">
+                          <div className="w-2 h-2 bg-green-500 rounded-full" title="Present"></div>
+                        </span>
+                      )}
                     </div>
-                    <div className="space-y-1 max-h-16 overflow-y-auto">
+                    
+                    <div className="space-y-1 max-h-20 overflow-y-auto">
                       {appointments.map((appointment, aptIndex) => (
                         <div
                           key={aptIndex}
@@ -401,8 +504,43 @@ const StaffAppointmentsCalendar = ({ embedded = false, onRefresh }) => {
                         </div>
                       ))}
                     </div>
+                    
+                    {/* Show attendance status if present */}
+                    {attendance && attendance.status !== 'Present' && (
+                      <div className="absolute top-1 left-1">
+                        <span className="text-xs font-medium px-1 py-0.5 rounded bg-red-500 text-white">
+                          {attendance.status}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {/* Attendance/Shift Actions */}
+                    {viewMode === 'individual' && selectedStaff && (
+                      <div className="absolute bottom-1 right-1 flex gap-1 z-10">
+                        {/* Show attendance button only if there are appointments for the selected staff on this date */}
+                        {appointments.length > 0 ? (
+                          <button
+                            onClick={() => markAttendance(selectedStaff, day)}
+                            className="p-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors shadow-md"
+                            title="Mark Present"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                          </button>
+                        ) : (
+                          /* Show add shift button only if there are no appointments for the selected staff on this date */
+                          <button
+                            onClick={() => addShift(selectedStaff, day)}
+                            className="p-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors shadow-md"
+                            title="Add Shift"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
+
               })}
             </div>
 
@@ -432,6 +570,14 @@ const StaffAppointmentsCalendar = ({ embedded = false, onRefresh }) => {
                   <div className="flex items-center gap-1">
                     <div className="w-3 h-3 bg-gray-100 border border-gray-200 rounded"></div>
                     <span>Completed</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 bg-green-100 border border-green-200 rounded"></div>
+                    <span>Present</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 bg-red-100 border border-red-200 rounded"></div>
+                    <span>Absent</span>
                   </div>
                 </>
               )}
@@ -514,6 +660,110 @@ const StaffAppointmentsCalendar = ({ embedded = false, onRefresh }) => {
                   Cancel
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Appointment Details Modal */}
+      {selectedAppointment && !showAssignModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h3 className="text-lg font-semibold text-gray-900">Appointment Details</h3>
+              <button
+                onClick={() => setSelectedAppointment(null)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <XCircle className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <div className="p-6">
+              {/* Customer Information */}
+              <div className="mb-6">
+                <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  Client Information
+                </h4>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="flex items-center gap-4">
+                    <img
+                      src={getCustomerProfileImage(selectedAppointment.customerProfilePic, selectedAppointment.customer)}
+                      alt={selectedAppointment.customer}
+                      className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(selectedAppointment.customer || 'Customer')}&background=random&color=fff&rounded=true`;
+                      }}
+                    />
+                    <div>
+                      <p className="font-medium text-gray-900">{selectedAppointment.customer}</p>
+                      {selectedAppointment.customerEmail && (
+                        <p className="text-sm text-gray-600 mt-1">{selectedAppointment.customerEmail}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Appointment Information */}
+              <div className="mb-6">
+                <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  Appointment Details
+                </h4>
+                <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Date:</span>
+                    <span className="font-medium">{extractDatePart(selectedAppointment.date)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Time:</span>
+                    <span className="font-medium">{formatAppointmentTime(selectedAppointment.time)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Status:</span>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      selectedAppointment.status === 'Approved' ? 'bg-green-100 text-green-800' :
+                      selectedAppointment.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                      selectedAppointment.status === 'Completed' ? 'bg-gray-100 text-gray-800' :
+                      selectedAppointment.status === 'Cancelled' ? 'bg-red-100 text-red-800' :
+                      'bg-blue-100 text-blue-800'
+                    }`}>
+                      {selectedAppointment.status}
+                    </span>
+                  </div>
+                  {selectedAppointment.services && selectedAppointment.services.length > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Services:</span>
+                      <span className="font-medium text-right">{selectedAppointment.services.join(', ')}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Staff Information */}
+              {selectedAppointment.staffName && (
+                <div className="mb-6">
+                  <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                    <User className="h-5 w-5" />
+                    Staff Member
+                  </h4>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <p className="font-medium text-gray-900">{selectedAppointment.staffName}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 p-6 border-t">
+              <button
+                onClick={() => setSelectedAppointment(null)}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

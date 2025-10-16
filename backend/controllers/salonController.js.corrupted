@@ -708,7 +708,7 @@ export const addStaffShift = asyncHandler(async (req, res) => {
       salonId: salon._id,
       customerId: DUMMY_CUSTOMER_ID,
       staffId: staff._id,
-      appointmentDate: date + 'T' + (startTime || '09:00'), // Ensure date and time are combined
+      appointmentDate: `${date}T${startTime || '09:00'}`, // Ensure date and time are combined
       appointmentTime: startTime || '09:00',
       estimatedDuration: startTime && endTime ? 
         // Calculate duration in minutes
@@ -926,6 +926,215 @@ export const getAvailableStaff = asyncHandler(async (req, res) => {
     totalPages,
     totalItems: totalStaff
   });
+});
+
+// Hire staff member
+export const hireStaff = asyncHandler(async (req, res) => {
+  const salonId = req.user.id;
+  const { staffId, salary, joiningDate } = req.body;
+
+  const [salon, staff] = await Promise.all([
+    Salon.findById(salonId),
+    Staff.findById(staffId)
+  ]);
+
+  if (!salon) {
+    return notFoundResponse(res, 'Salon');
+  }
+
+  if (!staff) {
+    return notFoundResponse(res, 'Staff member');
+  }
+
+  if (staff.employmentStatus !== 'Available') {
+    return errorResponse(res, 'Staff member is not available for hire', 400);
+  }
+
+  // Update staff employment details
+  staff.assignedSalon = salonId;
+  staff.employmentStatus = 'Employed';
+  staff.salary = salary;
+  staff.joiningDate = joiningDate || new Date();
+
+  await staff.save();
+
+  // Add staff to salon's staff array
+  await salon.addStaff(staffId);
+
+  return successResponse(res, staff, 'Staff member hired successfully');
+});
+
+// Remove staff member
+export const removeStaff = asyncHandler(async (req, res) => {
+  const salonId = req.user.id;
+  const { staffId } = req.params;
+
+  const [salon, staff] = await Promise.all([
+    Salon.findById(salonId),
+    Staff.findById(staffId)
+  ]);
+
+  if (!salon) {
+    return notFoundResponse(res, 'Salon');
+  }
+
+  if (!staff) {
+    return notFoundResponse(res, 'Staff member');
+  }
+
+  if (staff.assignedSalon.toString() !== salonId.toString()) {
+    return errorResponse(res, 'This staff member is not assigned to your salon', 403);
+  }
+
+  // Update staff employment status
+  staff.assignedSalon = null;
+  staff.employmentStatus = 'Available';
+  staff.salary = undefined;
+
+  await staff.save();
+
+  // Remove staff from salon's staff array
+  await salon.removeStaff(staffId);
+
+  return successResponse(res, null, 'Staff member removed successfully');
+});
+
+// Get salon appointments
+export const getAppointments = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const skip = (page - 1) * limit;
+
+  // Get user record to find salon
+  const User = (await import('../models/User.js')).default;
+  const user = await User.findById(userId);
+  
+  if (!user) {
+    return notFoundResponse(res, 'Salon user');
+  }
+  
+  if (user.type !== 'salon') {
+    return errorResponse(res, 'Access denied: Only salon owners can access appointments', 403);
+  }
+
+  // Find salon by email
+  const salon = await Salon.findOne({ email: user.email });
+  
+  if (!salon) {
+    return notFoundResponse(res, 'Salon profile');
+  }
+
+  const salonId = salon._id;
+  const filter = { salonId };
+
+  if (req.query.status) {
+    filter.status = req.query.status;
+  }
+
+  if (req.query.date) {
+    // Format the date to match the appointmentDate format (YYYY-MM-DDTHH:mm)
+    const dateStr = req.query.date; // This should be in YYYY-MM-DD format
+    filter.appointmentDate = {
+      $gte: dateStr + 'T00:00',
+      $lt: dateStr + 'T23:59'
+    };
+  }
+
+  console.log('🔧 Fetching appointments with filter:', filter);
+
+  const [appointments, totalAppointments] = await Promise.all([
+    Appointment.find(filter)
+      .populate('customerId', 'name email')
+      .populate('staffId', 'name skills')
+      .populate('services.serviceId', 'name price duration')
+      .skip(skip)
+      .limit(limit)
+      .sort({ appointmentDate: -1, appointmentTime: -1 }),
+    Appointment.countDocuments(filter)
+  ]);
+
+  console.log('🔧 Found ' + appointments.length + ' appointments for salon ' + salonId);
+  console.log('🔧 Appointment IDs:', appointments.map(apt => apt._id));
+  
+  // Debug: Log the first appointment to see the populated data structure
+  if (appointments.length > 0) {
+    console.log('🔧 Sample appointment data:', JSON.stringify(appointments[0], null, 2));
+    console.log('🔧 Customer data in first appointment:', appointments[0].customerId);
+  }
+
+  const totalPages = Math.ceil(totalAppointments / limit);
+
+  return paginatedResponse(res, appointments, {
+    page,
+    limit,
+    totalPages,
+    totalItems: totalAppointments
+  });
+});
+
+// Get appointment counts by status
+export const getAppointmentCounts = asyncHandler(async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Get user record to find salon
+    const User = (await import('../models/User.js')).default;
+    const user = await User.findById(userId);
+    
+    if (!user) {
+      return notFoundResponse(res, 'Salon user');
+    }
+    
+    if (user.type !== 'salon') {
+      return errorResponse(res, 'Access denied: Only salon owners can access appointments', 403);
+    }
+
+    // Find salon by email
+    const salon = await Salon.findOne({ email: user.email });
+    
+    if (!salon) {
+      return notFoundResponse(res, 'Salon profile');
+    }
+
+    const salonId = salon._id;
+    const { date } = req.query;
+
+    console.log('🔧 Appointment counts request:', { userId, salonId, date });
+
+    const filter = { salonId: salonId };
+
+    if (date) {
+      // Format the date to match the appointmentDate format (YYYY-MM-DDTHH:mm)
+      const dateStr = date; // This should be in YYYY-MM-DD format from the frontend
+      filter.appointmentDate = {
+        $gte: dateStr + 'T00:00',
+        $lt: dateStr + 'T23:59'
+      };
+    }
+
+    const counts = await Appointment.aggregate([
+      {
+        $match: filter
+      },
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const countsMap = counts.reduce((acc, item) => {
+      acc[item._id] = item.count;
+      return acc;
+    }, {});
+
+    return successResponse(res, countsMap, 'Appointment counts retrieved successfully');
+  } catch (error) {
+    console.error('Error fetching appointment counts:', error);
+    return errorResponse(res, 'Failed to retrieve appointment counts', 500);
+  }
 });
 
 // Hire staff member
@@ -1286,6 +1495,13 @@ export const getStaffAvailability = asyncHandler(async (req, res) => {
             }
           }
           
+          // Helper function to convert file path to full URL
+          const getFileUrl = (filePath) => {
+            if (!filePath) return null;
+            const baseUrl = process.env.BASE_URL || 'http://localhost:' + (process.env.PORT || 5002);
+            return `${baseUrl}/${filePath.replace(/\\/g, '/')}`;
+          };
+          
           return {
             _id: apt._id,
             date: apt.appointmentDate,
@@ -1321,6 +1537,13 @@ export const getStaffAvailability = asyncHandler(async (req, res) => {
           timeToDisplay = timePart.substring(0, 5); // Get HH:mm part
         }
       }
+      
+      // Helper function to convert file path to full URL
+      const getFileUrl = (filePath) => {
+        if (!filePath) return null;
+        const baseUrl = process.env.BASE_URL || 'http://localhost:' + (process.env.PORT || 5002);
+        return baseUrl + '/' + filePath.replace(/\\/g, '/');
+      };
       
       return {
         _id: apt._id,
@@ -1431,86 +1654,78 @@ export const updateAppointmentStatus = asyncHandler(async (req, res) => {
 // Get service categories with revenue breakdown for salon owner
 export const getServiceCategories = asyncHandler(async (req, res) => {
   const userId = req.user.id;
-
-  // Get user record to find salon
+  
+  // Find the salon of the owner
   const User = (await import('../models/User.js')).default;
   const user = await User.findById(userId);
   if (!user || user.type !== 'salon') {
     return notFoundResponse(res, 'Salon user');
   }
 
-  // Find salon by email
   const salon = await Salon.findOne({ email: user.email });
   if (!salon) {
-    return notFoundResponse(res, 'Salon profile');
+    return notFoundResponse(res, 'Salon');
   }
 
   const salonId = salon._id;
+  
+  // Get service categories with count and revenue
+  const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const endOfMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1);
 
-  // Get all services for this salon with their categories
-  const services = await Service.find({ salonId, isActive: true });
-
-  // Get completed appointments for revenue calculation
-  const completedAppointments = await Appointment.find({
-    salonId,
-    status: 'Completed'
-  }).populate('services.serviceId', 'category');
-
-  // Calculate revenue by category
-  const categoryRevenue = {};
-  const categoryBookings = {};
-
-  // Initialize categories from services
-  services.forEach(service => {
-    const category = service.category || 'Uncategorized';
-    if (!categoryRevenue[category]) {
-      categoryRevenue[category] = 0;
-      categoryBookings[category] = 0;
-    }
-  });
-
-  // Calculate revenue from completed appointments
-  completedAppointments.forEach(appointment => {
-    appointment.services.forEach(service => {
-      const serviceId = service.serviceId;
-      const category = serviceId?.category || 'Uncategorized';
-      const revenue = service.price || 0;
-      
-      if (!categoryRevenue[category]) {
-        categoryRevenue[category] = 0;
-        categoryBookings[category] = 0;
+  const categoryData = await Appointment.aggregate([
+    {
+      $match: {
+        salonId: salonId,
+        status: 'Completed',
+        createdAt: { $gte: startOfMonth, $lt: endOfMonth }
       }
-      
-      categoryRevenue[category] += revenue;
-      categoryBookings[category] += 1;
-    });
-  });
+    },
+    { $unwind: '$services' },
+    {
+      $lookup: {
+        from: 'services',
+        localField: 'services.serviceId',
+        foreignField: '_id',
+        as: 'serviceDetails'
+      }
+    },
+    { $unwind: { path: '$serviceDetails', preserveNullAndEmptyArrays: true } },
+    {
+      $group: {
+        _id: '$serviceDetails.category',
+        total_revenue: { $sum: '$services.price' },
+        service_count: { $sum: 1 },
+        services: { $addToSet: '$services.serviceName' }
+      }
+    },
+    { $sort: { total_revenue: -1 } }
+  ]);
 
-  // Format response
-  const categories = Object.keys(categoryRevenue).map(category => ({
-    name: category,
-    revenue: categoryRevenue[category],
-    bookings: categoryBookings[category],
-    averageRevenue: categoryBookings[category] > 0 ? 
-      (categoryRevenue[category] / categoryBookings[category]).toFixed(2) : '0.00'
+  if (categoryData.length === 0) {
+    return successResponse(res, [], 'No category data available for this salon');
+  }
+
+  const totalRevenue = categoryData.reduce((sum, cat) => sum + cat.total_revenue, 0);
+  const response = categoryData.map(cat => ({
+    category: cat._id || 'Uncategorized',
+    total_revenue: cat.total_revenue,
+    service_count: cat.service_count,
+    services: cat.services,
+    percentage: totalRevenue > 0 ? Math.round((cat.total_revenue / totalRevenue) * 100) : 0
   }));
 
-  return successResponse(res, categories, 'Service categories retrieved successfully');
+  return successResponse(res, response, 'Service categories retrieved successfully');
 });
-
-// Get revenue by service for salon owner
 export const getRevenueByService = asyncHandler(async (req, res) => {
-  const userId = req.user.id;
-  const { startDate, endDate } = req.query;
-
-  // Get user record to find salon
+  // Resolve authenticated salon owner -> salon profile
+  const userId = req.user?.id;
   const User = (await import('../models/User.js')).default;
   const user = await User.findById(userId);
   if (!user || user.type !== 'salon') {
-    return notFoundResponse(res, 'Salon user');
+    return errorResponse(res, 'Access denied: Only salon owners can view revenue', 403);
   }
 
-  // Find salon by email
   const salon = await Salon.findOne({ email: user.email });
   if (!salon) {
     return notFoundResponse(res, 'Salon profile');
@@ -1518,146 +1733,304 @@ export const getRevenueByService = asyncHandler(async (req, res) => {
 
   const salonId = salon._id;
 
-  // Build date filter
-  const dateFilter = { salonId, status: 'Completed' };
-  if (startDate && endDate) {
-    dateFilter.createdAt = {
-      $gte: new Date(startDate),
-      $lte: new Date(endDate)
-    };
+  // First try to get data from Revenue collection for current month
+  const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const endOfMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1);
+
+  let revenueData = await Revenue.aggregate([
+    { $match: { salonId: salonId, date: { $gte: startOfMonth, $lt: endOfMonth } } },
+    { $group: { _id: '$service', total: { $sum: '$amount' }, count: { $sum: 1 } } },
+    { $sort: { total: -1 } }
+  ]);
+
+  // Fallback for legacy records where salonId may be stored as string
+  if (revenueData.length === 0) {
+    revenueData = await Revenue.aggregate([
+      { $match: { salonId: salonId.toString(), date: { $gte: startOfMonth, $lt: endOfMonth } } },
+      { $group: { _id: '$service', total: { $sum: '$amount' }, count: { $sum: 1 } } },
+      { $sort: { total: -1 } }
+    ]);
   }
 
-  // Get completed appointments with service details
-  const appointments = await Appointment.find(dateFilter)
-    .populate('services.serviceId', 'name category price');
+  // If no Revenue records exist for current month, calculate from completed appointments
+  if (revenueData.length === 0) {
+    console.log('No Revenue records found for current month, calculating from completed appointments...');
+    
+    const appointmentRevenue = await Appointment.aggregate([
+      {
+        $match: {
+          salonId: salonId,
+          status: 'Completed',
+          createdAt: { $gte: startOfMonth, $lt: endOfMonth }
+        }
+      },
+      { $unwind: '$services' },
+      {
+        $group: {
+          _id: '$services.serviceName',
+          total: { $sum: '$services.price' },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { total: -1 } }
+    ]);
 
-  // Calculate revenue by service
-  const serviceRevenue = {};
+    revenueData = appointmentRevenue;
+  }
 
-  appointments.forEach(appointment => {
-    appointment.services.forEach(service => {
-      const serviceId = service.serviceId?._id?.toString() || 'unknown';
-      const serviceName = service.serviceId?.name || 'Unknown Service';
-      const serviceCategory = service.serviceId?.category || 'Uncategorized';
-      const revenue = service.price || 0;
-      const bookings = 1;
-
-      if (!serviceRevenue[serviceId]) {
-        serviceRevenue[serviceId] = {
-          name: serviceName,
-          category: serviceCategory,
-          revenue: 0,
-          bookings: 0
-        };
+  // If still no data for current month, get data for the most recent month with completed appointments
+  if (revenueData.length === 0) {
+    console.log('No revenue data for current month, checking for most recent month with data...');
+    
+    // Find the most recent completed appointment to determine the most recent month with data
+    const recentAppointment = await Appointment.findOne({
+      salonId: salonId,
+      status: 'Completed'
+    }).sort({ createdAt: -1 });
+    
+    if (recentAppointment && recentAppointment.createdAt) {
+      const recentDate = new Date(recentAppointment.createdAt);
+      const recentStartOfMonth = new Date(recentDate.getFullYear(), recentDate.getMonth(), 1);
+      const recentEndOfMonth = new Date(recentDate.getFullYear(), recentDate.getMonth() + 1, 1);
+      
+      console.log(`Checking revenue data for most recent month: ${recentStartOfMonth.toISOString()} to ${recentEndOfMonth.toISOString()}`);
+      
+      // Try to get data from Revenue collection for the most recent month
+      revenueData = await Revenue.aggregate([
+        { $match: { salonId: salonId, date: { $gte: recentStartOfMonth, $lt: recentEndOfMonth } } },
+        { $group: { _id: '$service', total: { $sum: '$amount' }, count: { $sum: 1 } } },
+        { $sort: { total: -1 } }
+      ]);
+      
+      // Fallback for legacy records where salonId may be stored as string
+      if (revenueData.length === 0) {
+        revenueData = await Revenue.aggregate([
+          { $match: { salonId: salonId.toString(), date: { $gte: recentStartOfMonth, $lt: recentEndOfMonth } } },
+          { $group: { _id: '$service', total: { $sum: '$amount' }, count: { $sum: 1 } } },
+          { $sort: { total: -1 } }
+        ]);
       }
+      
+      // If no Revenue records exist for the most recent month, calculate from completed appointments
+      if (revenueData.length === 0) {
+        const appointmentRevenue = await Appointment.aggregate([
+          {
+            $match: {
+              salonId: salonId,
+              status: 'Completed',
+              createdAt: { $gte: recentStartOfMonth, $lt: recentEndOfMonth }
+            }
+          },
+          { $unwind: '$services' },
+          {
+            $group: {
+              _id: '$services.serviceName',
+              total: { $sum: '$services.price' },
+              count: { $sum: 1 }
+            }
+          },
+          { $sort: { total: -1 } }
+        ]);
+        
+        revenueData = appointmentRevenue;
+      }
+    }
+  }
 
-      serviceRevenue[serviceId].revenue += revenue;
-      serviceRevenue[serviceId].bookings += bookings;
-    });
-  });
+  if (revenueData.length === 0) {
+    return successResponse(res, [], 'No revenue data available for this salon');
+  }
 
-  // Convert to array and sort by revenue
-  const services = Object.values(serviceRevenue)
-    .sort((a, b) => b.revenue - a.revenue);
+  const totalRevenue = revenueData.reduce((sum, item) => sum + item.total, 0);
+  const response = revenueData.map(item => ({
+    service: item._id || 'Unknown Service',
+    total_revenue: item.total,
+    transaction_count: item.count,
+    percentage: totalRevenue > 0 ? Math.round((item.total / totalRevenue) * 100) : 0
+  }));
 
-  return successResponse(res, services, 'Revenue by service retrieved successfully');
+  return successResponse(res, response, 'Revenue data retrieved successfully');
 });
 
-// Add expense
+// Add expense for salon
 export const addExpense = asyncHandler(async (req, res) => {
   const userId = req.user.id;
-  const { amount, category, description, date } = req.body;
-
+  
   // Get user record to find salon
   const User = (await import('../models/User.js')).default;
   const user = await User.findById(userId);
   if (!user || user.type !== 'salon') {
-    return notFoundResponse(res, 'Salon user');
+    return errorResponse(res, 'Access denied: Only salon owners can add expenses', 403);
   }
 
-  // Find salon by email
   const salon = await Salon.findOne({ email: user.email });
   if (!salon) {
     return notFoundResponse(res, 'Salon profile');
   }
 
-  const salonId = salon._id;
+  const { category, amount, description, date } = req.body;
 
-  // Create new expense
-  const newExpense = await Expense.create({
-    salonId,
-    amount,
+  const expense = await Expense.create({
+    salonId: salon._id,
     category,
+    amount,
     description,
-    date: date || new Date()
+    date: date ? new Date(date) : new Date()
   });
 
-  return successResponse(res, newExpense, 'Expense added successfully');
+  return successResponse(res, expense, 'Expense added successfully');
 });
 
-// Get expenses
+// Get salon expenses with trend analysis
 export const getExpenses = asyncHandler(async (req, res) => {
   const userId = req.user.id;
-  const { page = 1, limit = 10, category, startDate, endDate } = req.query;
-
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const skip = (page - 1) * limit;
+  
   // Get user record to find salon
   const User = (await import('../models/User.js')).default;
   const user = await User.findById(userId);
   if (!user || user.type !== 'salon') {
-    return notFoundResponse(res, 'Salon user');
+    return errorResponse(res, 'Access denied: Only salon owners can view expenses', 403);
   }
 
-  // Find salon by email
   const salon = await Salon.findOne({ email: user.email });
   if (!salon) {
     return notFoundResponse(res, 'Salon profile');
   }
 
   const salonId = salon._id;
-
-  // Build filter
-  const filter = { salonId };
-  if (category) {
-    filter.category = category;
+  const filter = { salonId: salonId };
+  
+  // Apply category filter if provided
+  if (req.query.category) {
+    filter.category = req.query.category;
   }
-  if (startDate && endDate) {
+  
+  // Apply date range filter if provided
+  if (req.query.startDate && req.query.endDate) {
     filter.date = {
-      $gte: new Date(startDate),
-      $lte: new Date(endDate)
+      $gte: new Date(req.query.startDate),
+      $lte: new Date(req.query.endDate)
     };
   }
 
   const [expenses, totalExpenses] = await Promise.all([
     Expense.find(filter)
-      .sort({ date: -1 })
-      .limit(parseInt(limit))
-      .skip((parseInt(page) - 1) * parseInt(limit)),
+      .skip(skip)
+      .limit(limit)
+      .sort({ date: -1 }),
     Expense.countDocuments(filter)
   ]);
 
   const totalPages = Math.ceil(totalExpenses / limit);
 
-  return paginatedResponse(res, expenses, {
-    page,
-    limit,
-    totalPages,
-    totalItems: totalExpenses
-  });
+  // Calculate monthly expenses for comparison
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  
+  // Previous month dates for comparison
+  const startOfPreviousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const endOfPreviousMonth = startOfMonth;
+
+  // Get current month's expenses
+  const currentMonthExpensesResult = await Expense.aggregate([
+    {
+      $match: { 
+        salonId: salonId, 
+        date: { $gte: startOfMonth, $lt: endOfMonth } 
+      } 
+    },
+    { $group: { _id: null, total: { $sum: '$amount' } } }
+  ]);
+
+  // Get previous month's expenses for comparison
+  const previousMonthExpensesResult = await Expense.aggregate([
+    {
+      $match: { 
+        salonId: salonId, 
+        date: { $gte: startOfPreviousMonth, $lt: endOfPreviousMonth } 
+      } 
+    },
+    { $group: { _id: null, total: { $sum: '$amount' } } }
+  ]);
+
+  const currentMonthExpenses = currentMonthExpensesResult.length > 0 ? currentMonthExpensesResult[0].total : 0;
+  const previousMonthExpenses = previousMonthExpensesResult.length > 0 ? previousMonthExpensesResult[0].total : 0;
+
+  // Calculate percentage change for monthly expenses
+  let monthlyExpensesChange = 0;
+  let monthlyExpensesChangeStatus = "N/A";
+  if (previousMonthExpenses > 0) {
+    monthlyExpensesChange = ((currentMonthExpenses - previousMonthExpenses) / previousMonthExpenses) * 100;
+    monthlyExpensesChangeStatus = monthlyExpensesChange >= 0 ? "negative" : "positive"; // Expenses increase is negative
+  } else if (previousMonthExpenses === 0 && currentMonthExpenses > 0) {
+    monthlyExpensesChange = "N/A"; // No previous data to compare
+    monthlyExpensesChangeStatus = "negative";
+  }
+
+  // Get 12-month historical trend data for total expenses
+  const twelveMonthsAgo = new Date(now.getFullYear() - 1, now.getMonth(), 1);
+  const expenseTrendData = await Expense.aggregate([
+    {
+      $match: { 
+        salonId: salonId, 
+        date: { $gte: twelveMonthsAgo } 
+      } 
+    },
+    {
+      $group: {
+        _id: {
+          year: { $year: "$date" },
+          month: { $month: "$date" }
+        },
+        total: { $sum: '$amount' }
+      }
+    },
+    { $sort: { "_id.year": 1, "_id.month": 1 } }
+  ]);
+
+  // Format trend data for sparkline
+  const expenseTrend = expenseTrendData.map(item => item.total);
+
+  // Get total expenses
+  const totalExpensesResult = await Expense.aggregate([
+    { $match: { salonId: salonId } },
+    { $group: { _id: null, total: { $sum: '$amount' } } }
+  ]);
+  
+  const totalExpensesAmount = totalExpensesResult.length > 0 ? totalExpensesResult[0].total : 0;
+
+  return successResponse(res, {
+    expenses,
+    currentMonthExpenses,
+    previousMonthExpenses,
+    monthlyExpensesChange,
+    monthlyExpensesChangeStatus,
+    expenseTrend,
+    totalExpenses: totalExpensesAmount,
+    pagination: {
+      page,
+      limit,
+      totalPages,
+      totalItems: totalExpenses
+    }
+  }, 'Expenses retrieved successfully');
 });
 
-// Get expense summary
+// Get expense summary by category
 export const getExpenseSummary = asyncHandler(async (req, res) => {
   const userId = req.user.id;
-  const { startDate, endDate } = req.query;
-
+  
   // Get user record to find salon
   const User = (await import('../models/User.js')).default;
   const user = await User.findById(userId);
   if (!user || user.type !== 'salon') {
-    return notFoundResponse(res, 'Salon user');
+    return errorResponse(res, 'Access denied: Only salon owners can view expense summary', 403);
   }
 
-  // Find salon by email
   const salon = await Salon.findOne({ email: user.email });
   if (!salon) {
     return notFoundResponse(res, 'Salon profile');
@@ -1665,69 +2038,60 @@ export const getExpenseSummary = asyncHandler(async (req, res) => {
 
   const salonId = salon._id;
 
-  // Build date filter
-  const dateFilter = { salonId };
-  if (startDate && endDate) {
-    dateFilter.date = {
-      $gte: new Date(startDate),
-      $lte: new Date(endDate)
-    };
-  }
-
-  // Get expenses grouped by category
+  // Get expense summary by category
   const expenseSummary = await Expense.aggregate([
-    { $match: dateFilter },
+    { $match: { salonId: salonId } },
     {
       $group: {
         _id: '$category',
-        totalAmount: { $sum: '$amount' },
+        total: { $sum: '$amount' },
         count: { $sum: 1 }
       }
     },
-    {
-      $project: {
-        category: '$_id',
-        totalAmount: 1,
-        count: 1,
-        _id: 0
-      }
-    }
+    { $sort: { total: -1 } }
   ]);
 
-  // Calculate total expenses
-  const totalExpenses = expenseSummary.reduce((total, category) => total + category.totalAmount, 0);
+  const totalExpenses = expenseSummary.reduce((sum, item) => sum + item.total, 0);
+  
+  const response = expenseSummary.map(item => ({
+    category: item._id,
+    total_amount: item.total,
+    transaction_count: item.count,
+    percentage: totalExpenses > 0 ? Math.round((item.total / totalExpenses) * 100) : 0
+  }));
 
-  return successResponse(res, {
-    summary: expenseSummary,
-    total: totalExpenses
-  }, 'Expense summary retrieved successfully');
+  return successResponse(res, response, 'Expense summary retrieved successfully');
 });
 
 // Update expense
 export const updateExpense = asyncHandler(async (req, res) => {
   const userId = req.user.id;
   const { expenseId } = req.params;
-  const { amount, category, description, date } = req.body;
-
-  // Get user record to find salon
+  
+  // Find user and verify salon owner
   const User = (await import('../models/User.js')).default;
   const user = await User.findById(userId);
   if (!user || user.type !== 'salon') {
-    return notFoundResponse(res, 'Salon user');
+    return errorResponse(res, 'Access denied: Only salon owners can update expenses', 403);
   }
 
-  // Find salon by email
   const salon = await Salon.findOne({ email: user.email });
   if (!salon) {
     return notFoundResponse(res, 'Salon profile');
   }
 
-  const salonId = salon._id;
+  const { category, amount, description, date } = req.body;
 
-  // Find and update expense
+  // Find and update the expense
   const expense = await Expense.findOneAndUpdate(
-    { _id: expenseId, salonId },
-    { amount, category, description, date },
+    { _id: expenseId, salonId: salon._id },
+    {
+      category,
+      amount,
+      description,
+      date: date ? new Date(date) : new Date(),
+      updatedAt: new Date()
+    },
     { new: true }
   );
 
@@ -1742,27 +2106,21 @@ export const updateExpense = asyncHandler(async (req, res) => {
 export const deleteExpense = asyncHandler(async (req, res) => {
   const userId = req.user.id;
   const { expenseId } = req.params;
-
-  // Get user record to find salon
+  
+  // Find user and verify salon owner
   const User = (await import('../models/User.js')).default;
   const user = await User.findById(userId);
   if (!user || user.type !== 'salon') {
-    return notFoundResponse(res, 'Salon user');
+    return errorResponse(res, 'Access denied: Only salon owners can delete expenses', 403);
   }
 
-  // Find salon by email
   const salon = await Salon.findOne({ email: user.email });
   if (!salon) {
     return notFoundResponse(res, 'Salon profile');
   }
 
-  const salonId = salon._id;
-
-  // Find and delete expense
-  const expense = await Expense.findOneAndDelete({
-    _id: expenseId,
-    salonId
-  });
+  // Find and delete the expense
+  const expense = await Expense.findOneAndDelete({ _id: expenseId, salonId: salon._id });
 
   if (!expense) {
     return notFoundResponse(res, 'Expense');
@@ -1771,244 +2129,543 @@ export const deleteExpense = asyncHandler(async (req, res) => {
   return successResponse(res, null, 'Expense deleted successfully');
 });
 
-// Get salon locations (for multi-location salons)
+// Get salon locations for map display
 export const getSalonLocations = asyncHandler(async (req, res) => {
-  const userId = req.user.id;
+  const salons = await Salon.find({ isActive: true, setupCompleted: true })
+    .select('salonName salonAddress')
+    .lean();
 
-  // Get user record to find salon
-  const User = (await import('../models/User.js')).default;
-  const user = await User.findById(userId);
-  if (!user || user.type !== 'salon') {
-    return notFoundResponse(res, 'Salon user');
-  }
-
-  // Find salon by email
-  const salon = await Salon.findOne({ email: user.email });
-  if (!salon) {
-    return notFoundResponse(res, 'Salon profile');
-  }
-
-  // For now, return the main salon location
-  // In the future, this could return multiple locations if the salon has branches
-  const locations = [{
-    _id: salon._id,
-    name: salon.salonName,
-    address: salon.salonAddress,
-    phone: salon.contactNumber
-  }];
-
-  return successResponse(res, locations, 'Salon locations retrieved successfully');
-});
-
-// Get notifications for salon owner
-export const getSalonNotifications = asyncHandler(async (req, res) => {
-  const userId = req.user.id;
-  const { page = 1, limit = 10, unreadOnly = false } = req.query;
-
-  // Get user record to find salon
-  const User = (await import('../models/User.js')).default;
-  const user = await User.findById(userId);
-  if (!user || user.type !== 'salon') {
-    return notFoundResponse(res, 'Salon user');
-  }
-
-  // Find salon by email
-  const salon = await Salon.findOne({ email: user.email });
-  if (!salon) {
-    return notFoundResponse(res, 'Salon profile');
-  }
-
-  const salonId = salon._id;
-
-  // Build filter
-  const filter = { recipientId: salonId, recipientType: 'salon' };
-  if (unreadOnly === 'true') {
-    filter.isRead = false;
-  }
-
-  const [notifications, totalNotifications] = await Promise.all([
-    StaffNotification.find(filter)
-      .sort({ createdAt: -1 })
-      .limit(parseInt(limit))
-      .skip((parseInt(page) - 1) * parseInt(limit)),
-    StaffNotification.countDocuments(filter)
-  ]);
-
-  const totalPages = Math.ceil(totalNotifications / limit);
-
-  return paginatedResponse(res, notifications, {
-    page,
-    limit,
-    totalPages,
-    totalItems: totalNotifications
-  });
-});
-
-// Mark notification as read
-export const markSalonNotificationAsRead = asyncHandler(async (req, res) => {
-  const userId = req.user.id;
-  const { notificationId } = req.params;
-
-  // Get user record to find salon
-  const User = (await import('../models/User.js')).default;
-  const user = await User.findById(userId);
-  if (!user || user.type !== 'salon') {
-    return notFoundResponse(res, 'Salon user');
-  }
-
-  // Find salon by email
-  const salon = await Salon.findOne({ email: user.email });
-  if (!salon) {
-    return notFoundResponse(res, 'Salon profile');
-  }
-
-  const salonId = salon._id;
-
-  // Find and update notification
-  const notification = await StaffNotification.findOneAndUpdate(
-    { _id: notificationId, recipientId: salonId, recipientType: 'salon' },
-    { isRead: true },
-    { new: true }
-  );
-
-  if (!notification) {
-    return notFoundResponse(res, 'Notification');
-  }
-
-  return successResponse(res, notification, 'Notification marked as read');
-});
-
-// Send reply to staff member
-export const sendReplyToStaff = asyncHandler(async (req, res) => {
-  const userId = req.user.id;
-  const { notificationId, message } = req.body;
-
-  // Get user record to find salon
-  const User = (await import('../models/User.js')).default;
-  const user = await User.findById(userId);
-  if (!user || user.type !== 'salon') {
-    return notFoundResponse(res, 'Salon user');
-  }
-
-  // Find salon by email
-  const salon = await Salon.findOne({ email: user.email });
-  if (!salon) {
-    return notFoundResponse(res, 'Salon profile');
-  }
-
-  const salonId = salon._id;
-
-  // Find the original notification
-  const originalNotification = await StaffNotification.findById(notificationId);
-  if (!originalNotification) {
-    return notFoundResponse(res, 'Notification');
-  }
-
-  // Create reply notification
-  const replyNotification = await StaffNotification.create({
-    senderId: salonId,
-    senderType: 'salon',
-    senderName: salon.salonName,
-    recipientId: originalNotification.senderId,
-    recipientType: originalNotification.senderType,
-    type: 'direct_message',
-    title: 'Reply from ' + salon.salonName,
-    message: message,
-    relatedId: originalNotification._id,
-    relatedType: 'staff_notification'
-  });
-
-  return successResponse(res, replyNotification, 'Reply sent successfully');
-});
-
-// Send job offer to staff member
-export const sendJobOffer = asyncHandler(async (req, res) => {
-  const userId = req.user.id;
-  const { staffId, message, salary, startDate } = req.body;
-
-  // Get user record to find salon
-  const User = (await import('../models/User.js')).default;
-  const user = await User.findById(userId);
-  if (!user || user.type !== 'salon') {
-    return notFoundResponse(res, 'Salon user');
-  }
-
-  // Find salon by email
-  const salon = await Salon.findOne({ email: user.email });
-  if (!salon) {
-    return notFoundResponse(res, 'Salon profile');
-  }
-
-  const salonId = salon._id;
-
-  // Verify staff member exists
-  const staff = await Staff.findById(staffId);
-  if (!staff) {
-    return notFoundResponse(res, 'Staff member');
-  }
-
-  // Create job offer notification
-  const jobOffer = await StaffNotification.create({
-    senderId: salonId,
-    senderType: 'salon',
-    senderName: salon.salonName,
-    recipientId: staffId,
-    recipientType: 'staff',
-    type: 'job_offer',
-    title: 'Job Offer from ' + salon.salonName,
-    message: message || 'We would like to offer you a position at our salon.',
-    additionalData: {
-      salary: salary,
-      startDate: startDate,
-      salonName: salon.salonName
+  const locations = (salons || []).map((s) => {
+    // Normalize address
+    let address = '';
+    if (typeof s.salonAddress === 'string') {
+      address = s.salonAddress;
+    } else if (s.salonAddress && typeof s.salonAddress === 'object') {
+      const { street, city, state, postalCode, addressLine1, addressLine2 } = s.salonAddress;
+      address = [addressLine1 || street, addressLine2, city, state, postalCode].filter(Boolean).join(', ');
     }
+
+    // Try common coordinate shapes inside salonAddress
+    const addr = s.salonAddress || {};
+    // Accept numbers or numeric strings
+    const rawLat = addr.lat ?? addr.latitude ?? addr?.geo?.lat ?? null;
+    const rawLng = addr.lng ?? addr.longitude ?? addr?.geo?.lng ?? null;
+    const lat = typeof rawLat === 'string' ? Number(rawLat) : rawLat;
+    const lng = typeof rawLng === 'string' ? Number(rawLng) : rawLng;
+
+    return {
+      name: s.salonName || 'Salon',
+      address: address || '',
+      lat,
+      lng,
+    };
   });
 
-  return successResponse(res, jobOffer, 'Job offer sent successfully');
+  return successResponse(res, locations, 'Salon locations retrieved');
+});
+
+// Get notifications for salon owner (replies from staff)
+export const getSalonNotifications = asyncHandler(async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { 
+      page = 1, 
+      limit = 20, 
+      unreadOnly = false, 
+      category = null,
+      includeArchived = false,
+      type = null
+    } = req.query;
+
+    // Get salon owner information
+    const User = (await import('../models/User.js')).default;
+    const user = await User.findById(userId);
+    if (!user) {
+      return errorResponse(res, 'User account not found. Please log in again.', 401);
+    }
+
+    if (user.type !== 'salon') {
+      return errorResponse(res, 'Access denied: Only salon owners can view notifications', 403);
+    }
+
+    // Try to find salon by email first (existing method)
+    let salon = await Salon.findOne({ email: user.email });
+    
+    // If not found, try to find by ownerId (more robust method)
+    if (!salon) {
+      salon = await Salon.findOne({ ownerId: userId });
+    }
+    
+    // If still not found, try to find by userId (another fallback)
+    if (!salon) {
+      salon = await Salon.findById(userId);
+    }
+    
+    if (!salon) {
+      console.warn('Salon profile missing for user', { userId, email: user.email });
+      return errorResponse(res, 'Salon profile not found.', 404);
+    }
+
+    console.log(`📬 Fetching notifications for salon owner: ${salon.salonName} (${salon.email})`);
+
+    // Get notifications using the static method
+    const options = {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      unreadOnly: unreadOnly === 'true',
+      category: category || null,
+      includeArchived: includeArchived === 'true',
+      type: type || null
+    };
+
+    const notifications = await StaffNotification.getForSalonOwner(salon._id, options);
+    
+    // Debug: Log the raw notifications to see what we're getting
+    console.log('Raw notifications count:', notifications.length);
+    if (notifications.length > 0) {
+      console.log('First notification raw data:', JSON.stringify(notifications[0].toObject(), null, 2));
+    }
+    
+    // Get total count for pagination
+    const totalFilter = { 
+      staffId: salon._id, // Salon owner is the recipient
+      ...(options.unreadOnly && { isRead: false }),
+      ...(options.category && { category: options.category }),
+      ...(!options.includeArchived && { isArchived: false }),
+      ...(options.type && { type: options.type })
+    };
+    
+    const totalNotifications = await StaffNotification.countDocuments(totalFilter);
+
+    // Get unread count
+    const unreadCount = await StaffNotification.getUnreadCountForSalonOwner(salon._id);
+
+    // Format notifications for response
+    const formattedNotifications = notifications.map(notification => {
+      // Debug: Log each notification being processed
+      console.log('Processing notification:', {
+        id: notification._id,
+        senderId: notification.senderId,
+        senderType: notification.senderType,
+        senderName: notification.senderName,
+        senderEmail: notification.senderEmail
+      });
+      
+      // Extract sender information from populated document or direct fields
+      let senderName = 'Staff Member';
+      let senderEmail = 'N/A';
+      let senderPosition = 'N/A';
+      let senderId = null;
+      
+      // Check if senderDocument is populated (object with data)
+      if (notification.senderId && typeof notification.senderId === 'object' && notification.senderId._id) {
+        // Populated document
+        senderName = notification.senderId.name || notification.senderName || 'Staff Member';
+        senderEmail = notification.senderId.email || notification.senderEmail || 'N/A';
+        senderPosition = notification.senderId.position || 'N/A';
+        senderId = notification.senderId._id.toString();
+        console.log('Using populated sender data:', { senderName, senderEmail, senderPosition });
+      } else if (notification.senderId) {
+        // SenderId exists but not populated, use direct fields
+        senderName = notification.senderName || 'Staff Member';
+        senderEmail = notification.senderEmail || 'N/A';
+        senderPosition = 'N/A'; // Position not available without population
+        senderId = notification.senderId.toString();
+        console.log('Using direct sender fields:', { senderName, senderEmail, senderPosition });
+      } else {
+        // Fallback to direct fields
+        senderName = notification.senderName || 'Staff Member';
+        senderEmail = notification.senderEmail || 'N/A';
+        senderPosition = 'N/A';
+        senderId = notification.senderId;
+        console.log('Using fallback sender fields:', { senderName, senderEmail, senderPosition });
+      }
+
+      return {
+        id: notification._id,
+        subject: notification.subject,
+        message: notification.message,
+        category: notification.category,
+        priority: notification.priority,
+        targetSkill: notification.targetSkill,
+        isRead: notification.isRead,
+        isArchived: notification.isArchived,
+        sentAt: notification.sentAt,
+        readAt: notification.readAt,
+        deliveredAt: notification.deliveredAt,
+        timeSinceSent: notification.timeSinceSent,
+        type: notification.type,
+        staff: {
+          name: senderName,
+          email: senderEmail,
+          position: senderPosition,
+          id: senderId
+        },
+        broadcast: notification.broadcastId ? {
+          id: notification.broadcastId._id,
+          subject: notification.broadcastId.subject,
+          targetSkill: notification.broadcastId.targetSkill,
+          sentAt: notification.broadcastId.sentAt
+        } : null
+      };
+    });
+
+    console.log(`✅ Retrieved ${formattedNotifications.length} notifications for ${salon.salonName}`);
+
+    const pagination = {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      total: totalNotifications,
+      pages: Math.ceil(totalNotifications / parseInt(limit))
+    };
+
+    paginatedResponse(res, {
+      notifications: formattedNotifications,
+      pagination,
+      unreadCount,
+      salonInfo: {
+        name: salon.salonName,
+        email: salon.email
+      }
+    }, 'Notifications retrieved successfully');
+
+  } catch (error) {
+    console.error('Error fetching salon notifications:', error);
+    errorResponse(res, 'Failed to fetch notifications', 500);
+  }
+});
+
+// Mark notification as read (for salon owner)
+export const markSalonNotificationAsRead = asyncHandler(async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { notificationId } = req.params;
+
+    // Get salon owner information
+    const User = (await import('../models/User.js')).default;
+    const user = await User.findById(userId);
+    if (!user || user.type !== 'salon') {
+      return errorResponse(res, 'Access denied: Only salon owners can mark notifications as read', 403);
+    }
+
+    // Try to find salon by email first (existing method)
+    let salon = await Salon.findOne({ email: user.email });
+    
+    // If not found, try to find by ownerId (more robust method)
+    if (!salon) {
+      salon = await Salon.findOne({ ownerId: userId });
+    }
+    
+    // If still not found, try to find by userId (another fallback)
+    if (!salon) {
+      salon = await Salon.findById(userId);
+    }
+    
+    if (!salon) {
+      return errorResponse(res, 'Salon profile not found', 404);
+    }
+
+    // Find the notification (must be sent to this salon owner)
+    const notification = await StaffNotification.findOne({
+      _id: notificationId,
+      staffId: salon._id // Salon owner is the recipient
+    });
+
+    if (!notification) {
+      return errorResponse(res, 'Notification not found', 404);
+    }
+
+    // Mark as read if not already read
+    if (!notification.isRead) {
+      const metadata = {
+        readAt: new Date(),
+        userAgent: req.get('User-Agent'),
+        ipAddress: req.ip
+      };
+
+      await notification.markAsRead(metadata);
+      console.log(`📖 Notification marked as read: ${notification.subject} for ${salon.salonName}`);
+    }
+
+    successResponse(res, {
+      notificationId: notification._id,
+      isRead: true,
+      readAt: notification.readAt
+    }, 'Notification marked as read');
+
+  } catch (error) {
+    console.error('Error marking notification as read:', error);
+    errorResponse(res, 'Failed to mark notification as read', 500);
+  }
+});
+
+// Send reply to staff notification
+export const sendReplyToStaff = asyncHandler(async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { notificationId } = req.params;
+    const { message } = req.body;
+
+    // Validate input
+    if (!message || message.trim().length === 0) {
+      return errorResponse(res, 'Message is required', 400);
+    }
+
+    // Get salon owner information
+    const User = (await import('../models/User.js')).default;
+    const user = await User.findById(userId);
+    if (!user || user.type !== 'salon') {
+      return errorResponse(res, 'Access denied: Only salon owners can send replies', 403);
+    }
+
+    const salon = await Salon.findOne({ email: user.email });
+    if (!salon) {
+      return errorResponse(res, 'Salon profile not found', 404);
+    }
+
+    // Find the notification (must be sent to this salon owner)
+    const notification = await StaffNotification.findOne({
+      _id: notificationId,
+      staffId: salon._id // Salon owner is the recipient
+    });
+
+    if (!notification) {
+      return errorResponse(res, 'Notification not found', 404);
+    }
+
+    // Create a reply notification for the staff member
+    const replyNotification = new StaffNotification({
+      staffId: notification.senderId, // Original sender (staff) becomes recipient of reply
+      staffName: notification.senderName,
+      staffEmail: notification.senderEmail,
+      senderId: salon._id, // Current salon becomes sender
+      senderType: 'Salon', // Specify that the sender is a salon
+      senderName: salon.salonName,
+      senderEmail: salon.email,
+      senderSalonName: salon.salonName,
+      broadcastId: notification.broadcastId,
+      type: 'direct_message',
+      subject: `Re: ${notification.subject}`,
+      message: message,
+      targetSkill: notification.targetSkill,
+      status: 'sent',
+      priority: 'medium',
+      category: notification.category
+    });
+
+    await replyNotification.save();
+
+    console.log(`✅ Reply sent from ${salon.salonName} to ${notification.senderName}`);
+
+    successResponse(res, {
+      replyId: replyNotification._id,
+      message: 'Reply sent successfully'
+    }, 'Reply sent successfully');
+
+  } catch (error) {
+    console.error('Error sending reply to staff:', error);
+    errorResponse(res, 'Failed to send reply', 500);
+  }
+});
+
+// Send job offer to staff
+export const sendJobOffer = asyncHandler(async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { 
+      staffId, 
+      salary, 
+      commissionRate, 
+      startDate, 
+      position, 
+      notes 
+    } = req.body;
+
+    // Validate required fields
+    if (!staffId || !salary || !startDate || !position) {
+      return errorResponse(res, 'Staff ID, salary, start date, and position are required', 400);
+    }
+
+    // Get salon owner information
+    const User = (await import('../models/User.js')).default;
+    const user = await User.findById(userId);
+    if (!user || user.type !== 'salon') {
+      return errorResponse(res, 'Access denied: Only salon owners can send job offers', 403);
+    }
+
+    const salon = await Salon.findOne({ email: user.email });
+    if (!salon) {
+      return errorResponse(res, 'Salon profile not found', 404);
+    }
+
+    // Find the staff member
+    const staff = await Staff.findById(staffId);
+    if (!staff) {
+      return errorResponse(res, 'Staff member not found', 404);
+    }
+
+    // Create a job offer notification for the staff member
+    const offerDetails = {
+      salary,
+      commissionRate: commissionRate || null,
+      startDate,
+      position,
+      notes: notes || '',
+      offeredBy: {
+        salonId: salon._id,
+        salonName: salon.salonName,
+        contactEmail: salon.email,
+        contactPhone: salon.contactNumber
+      }
+    };
+
+    const jobOfferNotification = new StaffNotification({
+      staffId: staff._id,
+      staffName: staff.name,
+      staffEmail: staff.email,
+      senderId: salon._id,
+      senderType: 'Salon', // Specify that the sender is a salon
+      senderName: salon.salonName,
+      senderEmail: salon.email,
+      senderSalonName: salon.salonName,
+      broadcastId: null, // This is a direct job offer, not related to a broadcast
+      type: 'direct_message',
+      subject: `Job Offer: ${position} at ${salon.salonName}`,
+      message: `You have received a job offer for the position of ${position} at ${salon.salonName}.
+
+Offer Details:
+- Salary: ₹${salary}
+${commissionRate ? `- Commission: ${commissionRate}%
+` : ''}- Start Date: ${new Date(startDate).toLocaleDateString()}
+${notes ? `
+Additional Notes:
+${notes}
+` : ''}
+Please respond to this offer at your earliest convenience.`,
+      targetSkill: position, // Using position as target skill for categorization
+      status: 'sent',
+      priority: 'high',
+      category: 'opportunity',
+      metadata: {
+        jobOffer: offerDetails
+      }
+    });
+
+    await jobOfferNotification.save();
+
+    console.log(`✅ Job offer sent from ${salon.salonName} to ${staff.name}`);
+
+    successResponse(res, {
+      offerId: jobOfferNotification._id,
+      message: 'Job offer sent successfully'
+    }, 'Job offer sent successfully');
+
+  } catch (error) {
+    console.error('Error sending job offer:', error);
+    errorResponse(res, 'Failed to send job offer', 500);
+  }
 });
 
 // Reject staff application
 export const rejectStaffApplication = asyncHandler(async (req, res) => {
-  const userId = req.user.id;
-  const { notificationId, rejectionReason } = req.body;
+  try {
+    const userId = req.user.id;
+    const { notificationId } = req.params;
 
-  // Get user record to find salon
-  const User = (await import('../models/User.js')).default;
-  const user = await User.findById(userId);
-  if (!user || user.type !== 'salon') {
-    return notFoundResponse(res, 'Salon user');
+    // Get salon owner information
+    const User = (await import('../models/User.js')).default;
+    const user = await User.findById(userId);
+    if (!user || user.type !== 'salon') {
+      return errorResponse(res, 'Access denied: Only salon owners can reject applications', 403);
+    }
+
+    const salon = await Salon.findOne({ email: user.email });
+    if (!salon) {
+      return errorResponse(res, 'Salon profile not found', 404);
+    }
+
+    // Find the notification (must be sent to this salon owner)
+    const notification = await StaffNotification.findOne({
+      _id: notificationId,
+      staffId: salon._id // Salon owner is the recipient
+    });
+
+    if (!notification) {
+      return errorResponse(res, 'Notification not found', 404);
+    }
+
+    // Update the notification status to indicate rejection
+    notification.metadata = {
+      ...notification.metadata,
+      rejected: true,
+      rejectedAt: new Date(),
+      rejectedBy: {
+        salonId: salon._id,
+        salonName: salon.salonName
+      }
+    };
+
+    await notification.save();
+
+    console.log(`❌ Staff application rejected by ${salon.salonName} for ${notification.senderName}`);
+
+    successResponse(res, {
+      notificationId: notification._id,
+      message: 'Application marked as unsuitable'
+    }, 'Application marked as unsuitable');
+
+  } catch (error) {
+    console.error('Error rejecting staff application:', error);
+    errorResponse(res, 'Failed to reject application', 500);
   }
+});
 
-  // Find salon by email
-  const salon = await Salon.findOne({ email: user.email });
-  if (!salon) {
-    return notFoundResponse(res, 'Salon profile');
+// DEBUG: Check specific notification
+export const debugNotification = asyncHandler(async (req, res) => {
+  try {
+    const { notificationId } = req.params;
+    
+    // Find the specific notification
+    const notification = await StaffNotification.findById(notificationId);
+    
+    if (!notification) {
+      return errorResponse(res, 'Notification not found', 404);
+    }
+    
+    // Get salon owner information
+    const User = (await import('../models/User.js')).default;
+    const user = await User.findById(req.user.id);
+    const salon = await Salon.findOne({ email: user.email });
+    
+    // Test different query approaches
+    const directQuery = await StaffNotification.find({ 
+      staffId: salon._id,
+      type: 'direct_message'
+    });
+    
+    const methodQuery = await StaffNotification.getForSalonOwner(salon._id, { type: 'direct_message' });
+    
+    const count = await StaffNotification.countDocuments({ 
+      staffId: salon._id,
+      type: 'direct_message'
+    });
+    
+    const notificationInDirectQuery = directQuery.some(n => n._id.toString() === notificationId);
+    const notificationInMethodQuery = methodQuery.some(n => n._id.toString() === notificationId);
+    
+    successResponse(res, {
+      notification,
+      salonId: salon._id,
+      directQueryCount: directQuery.length,
+      methodQueryCount: methodQuery.length,
+      totalCount: count,
+      notificationInDirectQuery,
+      notificationInMethodQuery
+    }, 'Debug info retrieved');
+  } catch (error) {
+    console.error('Debug error:', error);
+    errorResponse(res, 'Debug failed', 500);
   }
-
-  const salonId = salon._id;
-
-  // Find the application notification
-  const notification = await StaffNotification.findById(notificationId);
-  if (!notification) {
-    return notFoundResponse(res, 'Notification');
-  }
-
-  // Update notification status
-  notification.status = 'rejected';
-  notification.rejectedAt = new Date();
-  notification.rejectedBy = {
-    salonId: salon._id,
-    salonName: salon.salonName
-  };
-
-  await notification.save();
-
-  console.log('❌ Staff application rejected by ' + salon.salonName + ' for ' + notification.senderName);
-
-  successResponse(res, {
-    notificationId: notification._id,
-    message: 'Application marked as unsuitable'
-  }, 'Application marked as unsuitable');
 });
 
 // Delete staff attendance record
@@ -2058,6 +2715,8 @@ export const deleteAttendance = asyncHandler(async (req, res) => {
   }
 });
 
+
+
 export default {
   register,
   updateDetails,
@@ -2089,8 +2748,5 @@ export default {
   sendJobOffer,
   rejectStaffApplication,
   deleteAttendance,
-  getAppointmentCounts,
-  getStaffAvailability,
-  markStaffAttendance,
-  addStaffShift
+  getAppointmentCounts
 };

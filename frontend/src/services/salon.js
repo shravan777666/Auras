@@ -73,6 +73,21 @@ export const salonService = {
     return response.data?.data || [];
   },
 
+  async getAppointmentCounts({ date } = {}) {
+    try {
+      const params = new URLSearchParams();
+      if (date) {
+        params.set('date', date);
+      }
+
+      const response = await api.get(`/salon/appointments/counts?${params.toString()}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching appointment counts:', error);
+      throw error;
+    }
+  },
+
   async getAppointments({ page = 1, limit = 5, status, date } = {}) {
     const params = new URLSearchParams();
     params.set('page', page);
@@ -354,5 +369,44 @@ export const salonService = {
   async rejectScheduleRequest(requestId, rejectionReason) {
     const response = await api.patch(`/schedule-requests/${requestId}/reject`, { rejectionReason });
     return response.data;
-  }
-};
+  },
+
+  // Mark staff attendance for a specific date
+  async markStaffAttendance(staffId, date, attendanceData = {}) {
+    try {
+      const response = await api.post(`/salon/staff/${staffId}/attendance`, { 
+        date, 
+        ...attendanceData 
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error marking staff attendance:', error);
+      throw error;
+    }
+  },
+
+  // Add shift for staff member
+    async addStaffShift(staffId, date, shiftData = {}) {
+      try {
+        const response = await api.post(`/salon/staff/${staffId}/shifts`, {
+          date,
+          ...shiftData
+        });
+        return response.data;
+      } catch (error) {
+        console.error('Error adding staff shift:', error);
+        throw error;
+      }
+    },
+  
+    // Delete staff attendance record
+    async deleteAttendance(staffId, attendanceId) {
+      try {
+        const response = await api.delete(`/salon/staff/${staffId}/attendance/${attendanceId}`);
+        return response.data;
+      } catch (error) {
+        console.error('Error deleting staff attendance:', error);
+        throw error;
+      }
+    }
+  };

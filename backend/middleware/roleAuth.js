@@ -67,7 +67,7 @@ export const requireSalonSetup = async (req, res, next) => {
     
     if (!user) {
       console.log('requireSalonSetup - User not found');
-      return res.status(403).json({ success: false, message: 'User not found' });
+      return res.status(401).json({ success: false, message: 'User not found' });
     }
     
     if (user.type !== 'salon') {

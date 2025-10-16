@@ -363,11 +363,24 @@ export const getPendingRequestsForOwner = asyncHandler(async (req, res) => {
 
     // Find all pending schedule requests for these staff members
     // Updated query to handle both cases: requests with salonId and without
+    // Include both 'pending' requests and 'peer-approved' shift swap requests
     const query = {
-      status: 'pending',
-      $or: [
-        { staffId: { $in: staffIds } },
-        { salonId: salon._id }
+      $and: [
+        {
+          $or: [
+            { staffId: { $in: staffIds } },
+            { salonId: salon._id }
+          ]
+        },
+        {
+          $or: [
+            { status: 'pending' },
+            { 
+              type: 'shift-swap',
+              status: 'peer-approved'
+            }
+          ]
+        }
       ]
     };
 
@@ -443,10 +456,44 @@ export const approveRequest = asyncHandler(async (req, res) => {
     scheduleRequest.status = 'approved';
     scheduleRequest.approvedBy = approverId;
     scheduleRequest.approvedAt = new Date();
+    
+    // If this is a shift swap request, perform the actual shift swap
+    if (scheduleRequest.type === 'shift-swap') {
+      try {
+        // Get the appointment IDs from the shift swap request
+        const { requesterShiftId, targetStaffId, targetShiftId } = scheduleRequest.shiftSwap;
+        
+        // Get the requester staff
+        const requesterStaff = await Staff.findById(scheduleRequest.staffId);
+        
+        // Swap the staff assignments for the appointments
+        const [requesterAppointment, targetAppointment] = await Promise.all([
+          Appointment.findById(requesterShiftId),
+          Appointment.findById(targetShiftId)
+        ]);
+        
+        if (requesterAppointment && targetAppointment) {
+          // Swap staff assignments
+          requesterAppointment.staffId = targetStaffId;
+          targetAppointment.staffId = requesterStaff._id;
+          
+          // Save both appointments
+          await Promise.all([
+            requesterAppointment.save(),
+            targetAppointment.save()
+          ]);
+          
+          console.log('Successfully swapped appointments between staff members');
+        } else {
+          console.error('Could not find one or both appointments for shift swap');
+        }
+      } catch (swapError) {
+        console.error('Error swapping appointments:', swapError);
+        // Don't fail the entire request if the swap fails, but log the error
+      }
+    }
+    
     await scheduleRequest.save();
-
-    // TODO: Implement actual schedule updates based on request type
-    // For example, update staff availability, swap shifts, etc.
 
     // Send notification to staff
     const staff = await Staff.findById(scheduleRequest.staffId);
@@ -463,6 +510,12 @@ export const approveRequest = asyncHandler(async (req, res) => {
           }
         }
         
+        // Customize message based on request type
+        let message = `Your ${scheduleRequest.type} request has been approved.`;
+        if (scheduleRequest.type === 'shift-swap') {
+          message = 'Your shift swap request has been approved. The shifts have been successfully swapped.';
+        }
+        
         await StaffNotification.create({
           staffId: staff._id,
           staffName: staff.name,
@@ -474,11 +527,34 @@ export const approveRequest = asyncHandler(async (req, res) => {
           senderSalonName: salonName,
           type: 'broadcast',
           subject: 'Request Approved',
-          message: `Your ${scheduleRequest.type} request has been approved.`,
+          message: message,
           targetSkill: 'All Staff',
-          category: 'announcement', // Changed from 'schedule' to valid category
+          category: 'announcement',
           priority: 'medium'
         });
+        
+        // If this is a shift swap, also notify the target staff member
+        if (scheduleRequest.type === 'shift-swap') {
+          const targetStaff = await Staff.findById(scheduleRequest.shiftSwap.targetStaffId);
+          if (targetStaff && targetStaff.user) {
+            await StaffNotification.create({
+              staffId: targetStaff._id,
+              staffName: targetStaff.name,
+              staffEmail: targetStaff.email,
+              senderId: approverId,
+              senderType: 'Salon',
+              senderName: salonOwnerName,
+              senderEmail: targetStaff.email,
+              senderSalonName: salonName,
+              type: 'broadcast',
+              subject: 'Shift Swap Approved',
+              message: 'A shift swap request you were involved in has been approved by the manager.',
+              targetSkill: 'All Staff',
+              category: 'announcement',
+              priority: 'medium'
+            });
+          }
+        }
       } catch (notificationError) {
         console.error('Error creating staff notification:', notificationError);
         // Don't fail the entire request if notification fails
@@ -544,7 +620,7 @@ export const rejectRequest = asyncHandler(async (req, res) => {
           subject: 'Request Rejected',
           message: `Your ${scheduleRequest.type} request has been rejected. Reason: ${rejectionReason || 'No reason provided'}`,
           targetSkill: 'All Staff',
-          category: 'announcement', // Changed from 'schedule' to valid category
+          category: 'announcement',
           priority: 'medium'
         });
       } catch (notificationError) {
@@ -624,7 +700,7 @@ export const peerApproveShiftSwap = asyncHandler(async (req, res) => {
         subject: 'Shift Swap Request Peer Approved',
         message: `${targetStaff.name} has approved your shift swap request. It is now pending manager approval.`,
         targetSkill: 'All Staff',
-        category: 'announcement', // Changed from 'schedule' to valid category
+        category: 'announcement',
         priority: 'medium'
       });
     }
@@ -704,7 +780,7 @@ export const peerRejectShiftSwap = asyncHandler(async (req, res) => {
         subject: 'Shift Swap Request Peer Rejected',
         message: `${targetStaff.name} has rejected your shift swap request. Reason: ${rejectionReason || 'No reason provided'}`,
         targetSkill: 'All Staff',
-        category: 'announcement', // Changed from 'schedule' to valid category
+        category: 'announcement',
         priority: 'medium'
       });
     }

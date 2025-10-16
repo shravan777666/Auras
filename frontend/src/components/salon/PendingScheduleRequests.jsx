@@ -38,8 +38,20 @@ const PendingScheduleRequests = () => {
 
   const handleApprove = async (id) => {
     try {
-      await scheduleRequestService.approveRequest(id);
-      toast.success('Request approved successfully!');
+      const response = await scheduleRequestService.approveRequest(id);
+      
+      // Check if this was a shift swap request
+      const request = requests.find(req => req._id === id);
+      if (request && request.type === 'shift-swap') {
+        toast.success('Shift Swap Approved! The appointments have been updated.');
+        // Emit a custom event to notify other components to refresh their data
+        window.dispatchEvent(new CustomEvent('shiftSwapApproved', {
+          detail: { requestId: id }
+        }));
+      } else {
+        toast.success('Request approved successfully!');
+      }
+      
       loadPendingRequests(); // Refresh the list
     } catch (error) {
       console.error('Error approving request:', error);
@@ -90,9 +102,28 @@ const PendingScheduleRequests = () => {
       case 'leave':
         return `${request.leave.startDate} to ${request.leave.endDate} (${request.leave.reason})`;
       case 'shift-swap':
-        return 'Shift swap request with colleague';
+        // For shift swap requests, show more details
+        if (request.status === 'peer-approved') {
+          return 'Peer approved shift swap request - Ready for final approval';
+        }
+        return 'Shift swap request with colleague - Awaiting peer approval';
       default:
         return 'Details not available';
+    }
+  };
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'pending':
+        return <span className="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800">Pending</span>;
+      case 'peer-approved':
+        return <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">Peer Approved</span>;
+      case 'approved':
+        return <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Approved</span>;
+      case 'rejected':
+        return <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">Rejected</span>;
+      default:
+        return <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">{status}</span>;
     }
   };
 
@@ -155,6 +186,7 @@ const PendingScheduleRequests = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Staff</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
@@ -194,6 +226,9 @@ const PendingScheduleRequests = () => {
                     <div className="text-sm text-gray-900">
                       {getRequestDetails(request)}
                     </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    {getStatusBadge(request.status)}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {new Date(request.createdAt).toLocaleDateString()}
