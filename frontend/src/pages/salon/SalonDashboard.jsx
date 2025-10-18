@@ -100,6 +100,18 @@ const ExpenseTrackingCard = ({ expenses = [], totalExpenses = 0, onAddExpense, o
     return acc;
   }, {});
 
+  // Calculate this month's expenses
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  
+  const thisMonthExpenses = expenses.reduce((sum, expense) => {
+    const expenseDate = new Date(expense.date);
+    if (expenseDate >= startOfMonth) {
+      return sum + (expense.amount || 0);
+    }
+    return sum;
+  }, 0);
+
   const expenseCategories = Object.keys(expensesByCategory);
   const expenseValues = Object.values(expensesByCategory);
 
@@ -140,7 +152,7 @@ const ExpenseTrackingCard = ({ expenses = [], totalExpenses = 0, onAddExpense, o
         </div>
         <div className="bg-gradient-to-r from-green-50 to-green-100 p-5 rounded-xl border border-green-200">
           <p className="text-sm text-green-700">This Month</p>
-          <p className="text-2xl font-bold text-green-900">₹{(totalExpenses * 0.5).toLocaleString()}</p>
+          <p className="text-2xl font-bold text-green-900">₹{thisMonthExpenses.toLocaleString()}</p>
         </div>
         <div className="bg-gradient-to-r from-purple-50 to-purple-100 p-5 rounded-xl border border-purple-200">
           <p className="text-sm text-purple-700">Categories</p>
@@ -394,29 +406,22 @@ const SalonDashboard = () => {
     const fetchExpenses = async () => {
       try {
         // Fetch expense summary for the dashboard card
-        const summaryResponse = await salonService.getExpenseSummary();
-        const summaryData = summaryResponse || [];
+        const expenseResponse = await salonService.getExpenses({ limit: 100 });
+        const expensesData = expenseResponse.data?.expenses || [];
         
-        // For the dashboard card, we'll show a summary
-        // In a real implementation, you might want to fetch recent expenses
-        const recentExpenses = summaryData.slice(0, 5); // Show top 5 categories
-        const total = summaryData.reduce((sum, item) => sum + (item.total_amount || 0), 0);
+        // Calculate total expenses
+        const total = expensesData.reduce((sum, expense) => sum + (expense.amount || 0), 0);
+        
+        // For the dashboard card, we'll show recent expenses
+        const recentExpenses = expensesData.slice(0, 5); // Show top 5 recent expenses
         
         setExpenses(recentExpenses);
         setTotalExpenses(total);
       } catch (error) {
         console.error('Error fetching expense data:', error);
-        // Use mock data as fallback
-        const mockExpenses = [
-          { id: 1, category: 'Supplies', amount: 5000, date: '2023-05-15', description: 'Hair products' },
-          { id: 2, category: 'Rent', amount: 25000, date: '2023-05-01', description: 'Monthly rent' },
-          { id: 3, category: 'Utilities', amount: 8000, date: '2023-05-10', description: 'Electricity and water' },
-          { id: 4, category: 'Marketing', amount: 3000, date: '2023-05-20', description: 'Social media ads' },
-          { id: 5, category: 'Salaries', amount: 80000, date: '2023-05-05', description: 'Staff salaries' },
-        ];
-        
-        setExpenses(mockExpenses);
-        setTotalExpenses(mockExpenses.reduce((sum, expense) => sum + expense.amount, 0));
+        // Use empty data instead of mock data
+        setExpenses([]);
+        setTotalExpenses(0);
       }
     };
 

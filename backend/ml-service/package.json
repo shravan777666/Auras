@@ -1,0 +1,23 @@
+{
+  "name": "auracares-ml-service",
+  "version": "1.0.0",
+  "description": "Financial prediction ML service for AuraCares salon management system",
+  "main": "app.py",
+  "scripts": {
+    "start": "python app.py",
+    "setup": "python init_model.py",
+    "test": "python -m pytest tests/",
+    "dev": "python app.py"
+  },
+  "keywords": [
+    "machine-learning",
+    "linear-regression",
+    "financial-prediction",
+    "salon-management"
+  ],
+  "author": "AuraCares Team",
+  "license": "MIT",
+  "dependencies": {
+    "python": "^3.7"
+  }
+}

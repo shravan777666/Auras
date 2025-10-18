@@ -51,7 +51,10 @@ const AppointmentSchema = new mongoose.Schema(
       staff: { type: Number, min: 1, max: 5 },
       ambiance: { type: Number, min: 1, max: 5 }
     },
-    feedback: { type: String }
+    feedback: { type: String },
+    pointsEarned: { type: Number, default: 0 },
+    pointsRedeemed: { type: Number, default: 0 },
+    discountFromPoints: { type: Number, default: 0 }
   },
   { 
     timestamps: true,
@@ -134,7 +137,7 @@ AppointmentSchema.methods.updateStatus = async function (newStatus) {
   // Ensure appointmentDate is in correct format before saving
   this.appointmentDate = ensureCorrectDateFormat(this.appointmentDate);
 
-  // Create revenue records when appointment is completed
+  // Create revenue records and handle loyalty points when appointment is completed
   if (newStatus === 'Completed' && oldStatus !== 'Completed') {
     try {
       // Get salon to find owner
@@ -154,9 +157,35 @@ AppointmentSchema.methods.updateStatus = async function (newStatus) {
           });
         }
       }
+
+      // Calculate and award loyalty points
+      const pointsEarned = Math.floor(this.finalAmount / 10);
+      if (pointsEarned > 0) {
+        // Update appointment with earned points
+        this.pointsEarned = pointsEarned;
+        
+        // Update customer loyalty points
+        const Customer = (await import('./Customer.js')).default;
+        const customer = await Customer.findById(this.customerId);
+        if (customer) {
+          customer.loyaltyPoints = (customer.loyaltyPoints || 0) + pointsEarned;
+          customer.totalPointsEarned = (customer.totalPointsEarned || 0) + pointsEarned;
+          
+          // Update loyalty tier based on total points earned
+          if (customer.totalPointsEarned >= 5000) {
+            customer.loyaltyTier = 'Platinum';
+          } else if (customer.totalPointsEarned >= 2000) {
+            customer.loyaltyTier = 'Gold';
+          } else if (customer.totalPointsEarned >= 500) {
+            customer.loyaltyTier = 'Silver';
+          }
+          
+          await customer.save();
+        }
+      }
     } catch (error) {
-      console.error('Error creating revenue records:', error);
-      // Don't fail the status update if revenue creation fails
+      console.error('Error creating revenue records or awarding loyalty points:', error);
+      // Don't fail the status update if revenue creation or loyalty points fails
     }
   }
 

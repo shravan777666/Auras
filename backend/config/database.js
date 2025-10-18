@@ -6,34 +6,40 @@ let memoryServerInstance = null;
 const connectDB = async () => {
   let mongoUri = process.env.MONGODB_URI;
 
-  try {
-    if (!mongoUri) {
-      console.warn('MONGODB_URI not set. Starting in-memory MongoDB for development...');
+  if (!mongoUri) {
+    console.warn('********************************************************************************');
+    console.warn('** WARNING: MONGODB_URI is not set.                                           **');
+    console.warn('** Using a temporary, in-memory database. Data will NOT be saved.             **');
+    console.warn('** To connect to a real database, set the MONGODB_URI environment variable.   **');
+    console.warn('********************************************************************************');
+    
+    try {
       memoryServerInstance = await MongoMemoryServer.create();
       mongoUri = memoryServerInstance.getUri();
+      await mongoose.connect(mongoUri, {
+        dbName: process.env.DB_NAME || 'auracare-temp',
+      });
+      console.log('✅ In-memory MongoDB connected.');
+    } catch (err) {
+      console.error('❌ Failed to start in-memory MongoDB:', err.message);
+      process.exit(1);
     }
 
-    // Try primary connection (Atlas or provided URI)
-    await mongoose.connect(mongoUri, {
-      dbName: process.env.DB_NAME || 'auracare',
-      serverSelectionTimeoutMS: 8000
-    });
-    console.log('✅ MongoDB connected');
-  } catch (err) {
-    console.error('❌ MongoDB connection error:', err.message);
-    // Fallback to in-memory MongoDB if Atlas/remote is unreachable
+  } else {
+    // MONGODB_URI is set, so we expect to connect to it.
     try {
-      console.warn('⚠️ Falling back to in-memory MongoDB...');
-      if (!memoryServerInstance) {
-        memoryServerInstance = await MongoMemoryServer.create();
-      }
-      const memoryUri = memoryServerInstance.getUri();
-      await mongoose.connect(memoryUri, {
-        dbName: process.env.DB_NAME || 'auracare'
+      await mongoose.connect(mongoUri, {
+        dbName: process.env.DB_NAME || 'auracare',
+        serverSelectionTimeoutMS: 8000
       });
-      console.log('✅ In-memory MongoDB started and connected');
-    } catch (memoryErr) {
-      console.error('❌ Failed to start in-memory MongoDB:', memoryErr.message);
+      console.log('✅ MongoDB connected successfully to the database specified by MONGODB_URI.');
+    } catch (err) {
+      console.error('********************************************************************************');
+      console.error('** FATAL: Could not connect to the MongoDB database specified by MONGODB_URI. **');
+      console.error(`** URI: ${mongoUri}                                                        **`);
+      console.error(`** Error: ${err.message}                                                    **`);
+      console.error('** Please check your MONGODB_URI environment variable and database status.    **');
+      console.error('********************************************************************************');
       process.exit(1);
     }
   }

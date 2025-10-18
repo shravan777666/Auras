@@ -32,7 +32,8 @@ import {
   markStaffAttendance,
   addStaffShift,
   deleteAttendance,
-  getAppointmentCounts
+  getAppointmentCounts,
+  getSalonLocationsPublic
 } from '../controllers/salonController.js';
 import * as appointmentController from '../controllers/appointmentController.js';
 import { requireSalonOwner, requireSalonSetup } from '../middleware/roleAuth.js';
@@ -44,7 +45,7 @@ const router = express.Router();
 
 // Public routes
 router.post('/register', register);
-router.get('/locations', getSalonLocations);
+router.get('/locations', getSalonLocationsPublic);
 // Revenue by service (requires auth + setup)
 router.get('/dashboard/revenue-by-service', requireSalonOwner, requireSalonSetup, getRevenueByService);
 router.get('/dashboard/service-categories', requireSalonOwner, requireSalonSetup, getServiceCategories);
@@ -116,6 +117,25 @@ router.patch('/appointments/:appointmentId/status',
   requireSalonSetup, 
   validateObjectId('appointmentId'), 
   updateAppointmentStatus
+);
+
+// Reschedule appointment
+router.patch('/appointments/:appointmentId/reschedule',
+  requireSalonSetup,
+  validateObjectId('appointmentId'),
+  async (req, res) => {
+    try {
+      // Import the controller function
+      const { rescheduleAppointment } = await import('../controllers/appointmentController.js');
+      await rescheduleAppointment(req, res);
+    } catch (error) {
+      console.error('Error in reschedule route:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      });
+    }
+  }
 );
 
 export default router;

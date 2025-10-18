@@ -37,6 +37,21 @@ A complete, production-ready MERN stack application for beauty parlor booking an
 - Booking history and management
 - Rating and review system
 
+### 💰 Financial Prediction System
+- **Next Week Revenue Forecasting**: Predict next week's revenue using Linear Regression
+- **Historical Data Analysis**: Train model with actual salon appointment data
+- **Confidence Scoring**: Get confidence levels for predictions
+- **Trend Analysis**: Visualize revenue trends and percentage changes
+- **Dashboard Integration**: Seamlessly integrated into the financial dashboard
+
+### 🏆 Loyalty Points Program
+- **Points Earning**: Customers earn 1 point for every ₹10 spent
+- **Points Redemption**: 100 points = ₹100 discount on future bookings
+- **Tiered Rewards**: Standard, Silver, Gold, and Platinum tiers with exclusive benefits
+- **Real-time Tracking**: Live points balance in customer dashboard
+- **Analytics Dashboard**: Owner insights on loyalty program performance
+- **Top Customers Recognition**: Highlight most loyal customers
+
 ### 📱 Technical Features
 - Responsive design (mobile-first)
 - Real-time notifications
@@ -143,6 +158,7 @@ auracare/
 │   ├── models/          # MongoDB schemas
 │   ├── routes/          # API routes
 │   ├── utils/           # Helper functions
+│   ├── ml-service/      # Financial prediction ML service
 │   ├── .env             # Environment variables
 │   ├── server.js        # Main server file
 │   └── package.json
@@ -158,6 +174,8 @@ auracare/
 │   ├── .env             # Environment variables
 │   ├── package.json
 │   └── vite.config.js
+├── FINANCIAL_PREDICTION_SYSTEM.md      # Financial prediction documentation
+├── LOYALTY_POINTS_SYSTEM.md            # Loyalty program documentation
 └── README.md
 ```
 
@@ -208,6 +226,20 @@ GET    /api/salon/appointments    # Salon appointments
 GET    /api/customer/salons       # Browse salons
 POST   /api/appointment/book      # Book appointment
 GET    /api/customer/bookings     # Customer bookings
+```
+
+### Financial Prediction
+```
+GET    /api/financial-forecast/forecast  # Get next week's revenue prediction
+POST   /api/financial-forecast/train     # Train the model with new data
+```
+
+### Loyalty Program
+```
+POST   /api/loyalty/customer/redeem               # Redeem loyalty points
+GET    /api/loyalty/customer/:id/details          # Get customer loyalty details
+GET    /api/loyalty/salon/dashboard-metrics       # Get loyalty analytics
+GET    /api/loyalty/salon/top-customers           # Get top loyalty customers
 ```
 
 ## 🎨 UI/UX Features
@@ -349,6 +381,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [ ] Video consultations
 - [ ] Loyalty program
 - [ ] Advanced reporting
+- [ ] Enhanced financial prediction with more sophisticated ML models
+- [ ] Seasonal and trend analysis for financial forecasting
 
 ## 📞 Support
 

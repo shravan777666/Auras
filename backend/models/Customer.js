@@ -40,6 +40,9 @@ const CustomerSchema = new mongoose.Schema(
     },
     totalBookings: { type: Number, default: 0 },
     loyaltyPoints: { type: Number, default: 0 },
+    totalPointsEarned: { type: Number, default: 0 },
+    totalPointsRedeemed: { type: Number, default: 0 },
+    loyaltyTier: { type: String, default: 'Standard' },
   },
   { timestamps: true }
 );

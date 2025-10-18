@@ -219,6 +219,17 @@ export const salonService = {
     return response.data;
   },
 
+  // Reschedule appointment
+  async rescheduleAppointment(appointmentId, data) {
+    try {
+      const response = await api.patch(`/salon/appointments/${appointmentId}/reschedule`, data);
+      return response.data;
+    } catch (error) {
+      console.error('Error rescheduling appointment:', error);
+      throw error;
+    }
+  },
+
   async getNotifications(options = {}) {
     try {
       const { 

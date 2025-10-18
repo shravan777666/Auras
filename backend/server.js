@@ -45,6 +45,12 @@ import alertsRoutes from './routes/alerts.js';
 // Add the new import for schedule requests
 import scheduleRequestsRoutes from './routes/scheduleRequests.js';
 
+// Import financial forecast routes
+import financialForecastRoutes from './routes/financialForecast.js';
+
+// Import loyalty routes
+import loyaltyRoutes from './routes/loyalty.js';
+
 // Create Express app
 const app = express();
 
@@ -314,6 +320,12 @@ app.use('/api/alerts', alertsRoutes);
 
 // Add the new route for schedule requests
 app.use('/api/schedule-requests', scheduleRequestsRoutes);
+
+// Add financial forecast routes
+app.use('/api/financial-forecast', financialForecastRoutes);
+
+// Add loyalty routes
+app.use('/api/loyalty', loyaltyRoutes);
 
 // Handle undefined routes
 app.all('*', (req, res) => {

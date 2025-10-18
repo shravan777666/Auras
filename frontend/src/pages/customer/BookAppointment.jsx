@@ -1,14 +1,18 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Link, useParams, useNavigate, useLocation } from "react-router-dom";
 import { customerService } from "../../services/customer";
+import { loyaltyService } from "../../services/loyalty";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import SalonAvailabilityDisplay from "../../components/customer/SalonAvailabilityDisplay";
+import LoyaltyRedemptionWidget from "../../components/customer/LoyaltyRedemptionWidget";
 import toast from "react-hot-toast";
+import { useAuth } from "../../contexts/AuthContext";
 
 const BookAppointment = () => {
   const { salonId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [salon, setSalon] = useState(null);
   const [salonList, setSalonList] = useState([]);
@@ -18,8 +22,13 @@ const BookAppointment = () => {
   const [appointmentTime, setAppointmentTime] = useState("");
   const [customerNotes, setCustomerNotes] = useState("");
   const [dateError, setDateError] = useState("");
+  const [redemptionData, setRedemptionData] = useState({
+    usePoints: false,
+    pointsToRedeem: 0,
+    discountAmount: 0
+  });
 
-  // Check for pre-filled data from one-click booking widget
+  // Check for pre-filled data from one-click booking widget or loyalty redemption
   useEffect(() => {
     const preselectedData = location.state;
     if (preselectedData) {
@@ -35,6 +44,14 @@ const BookAppointment = () => {
       }
       if (preselectedData.preselectedTime) {
         setAppointmentTime(preselectedData.preselectedTime);
+      }
+      
+      // Check if loyalty points redemption was preselected
+      if (preselectedData.redeemPoints) {
+        setRedemptionData(prev => ({
+          ...prev,
+          usePoints: true
+        }));
       }
     }
   }, [location, salonId, navigate]);
@@ -126,6 +143,32 @@ const BookAppointment = () => {
     }
   };
 
+  // Use useCallback to prevent unnecessary re-renders
+  const handleRedemptionChange = useCallback((data) => {
+    // Only update if the data actually changed
+    setRedemptionData(prev => {
+      if (prev.usePoints === data.usePoints && 
+          prev.pointsToRedeem === data.pointsToRedeem && 
+          prev.discountAmount === data.discountAmount) {
+        return prev; // No change needed
+      }
+      return data;
+    });
+  }, []);
+
+  const calculateServiceTotal = () => {
+    if (!salon || selectedServices.length === 0) return 0;
+    
+    return selectedServices.reduce((total, selected) => {
+      const service = salon.services.find(s => s._id === selected.serviceId);
+      if (service) {
+        const price = service.discountedPrice ?? service.price ?? 0;
+        return total + Number(price);
+      }
+      return total;
+    }, 0);
+  };
+
   const submitBooking = async () => {
     if (!salon?._id || selectedServices.length === 0 || !appointmentDate || !appointmentTime) {
       toast.error("Please select services, date, and time");
@@ -137,21 +180,59 @@ const BookAppointment = () => {
       toast.error("Please select a valid date. Past dates are not allowed.");
       return;
     }
+    
     try {
+      const serviceTotal = calculateServiceTotal();
+      
+      // Validate redemption data
+      if (redemptionData.usePoints && redemptionData.pointsToRedeem > 0) {
+        if (redemptionData.pointsToRedeem > serviceTotal) {
+          toast.error("Points value cannot exceed service total");
+          return;
+        }
+        
+        if (redemptionData.pointsToRedeem < 100) {
+          toast.error("Minimum redemption is 100 points");
+          return;
+        }
+        
+        if (redemptionData.pointsToRedeem % 100 !== 0) {
+          toast.error("Points must be redeemed in multiples of 100");
+          return;
+        }
+      }
+      
       const payload = {
         salonId: salon._id,
         services: selectedServices,
         appointmentDate,
         appointmentTime,
-        customerNotes
+        customerNotes,
+        ...(redemptionData.usePoints && redemptionData.pointsToRedeem > 0 && {
+          pointsToRedeem: redemptionData.pointsToRedeem,
+          discountAmount: redemptionData.discountAmount
+        })
       };
+      
       const res = await customerService.bookAppointment(payload);
       if (res?.success) {
         toast.success("Appointment booked successfully!");
+        
+        // If points were redeemed, show a success message
+        if (redemptionData.usePoints && redemptionData.pointsToRedeem > 0) {
+          toast.success(`Successfully redeemed ${redemptionData.pointsToRedeem} points for ₹${redemptionData.discountAmount} discount!`);
+        }
+        
         setSelectedServices([]);
         setAppointmentDate("");
         setAppointmentTime("");
         setCustomerNotes("");
+        setRedemptionData({
+          usePoints: false,
+          pointsToRedeem: 0,
+          discountAmount: 0
+        });
+        
         // Navigate to My Bookings page to show the new booking
         setTimeout(() => {
           navigate("/customer/my-bookings");
@@ -163,6 +244,11 @@ const BookAppointment = () => {
       toast.error(e?.response?.data?.message || "Failed to book appointment");
     }
   };
+
+  const serviceTotal = calculateServiceTotal();
+  const finalAmount = redemptionData.usePoints 
+    ? Math.max(0, serviceTotal - redemptionData.discountAmount) 
+    : serviceTotal;
 
   if (loading) return <LoadingSpinner />;
 
@@ -227,6 +313,18 @@ const BookAppointment = () => {
                   <p className="text-sm text-gray-500">No services available.</p>
                 )}
               </div>
+              
+              {/* Loyalty Redemption Widget */}
+              {selectedServices.length > 0 && user?.id && (
+                <div className="mt-4">
+                  <LoyaltyRedemptionWidget
+                    customerId={user.id}
+                    serviceTotal={serviceTotal}
+                    onRedemptionChange={handleRedemptionChange}
+                    initialRedeemPoints={redemptionData.usePoints}
+                  />
+                </div>
+              )}
             </div>
             <div>
               <h3 className="font-medium mb-2">Select Date & Time</h3>
@@ -248,6 +346,7 @@ const BookAppointment = () => {
                 </div>
                 <input type="time" value={appointmentTime} onChange={(e)=>setAppointmentTime(e.target.value)} className="w-full border rounded px-3 py-2" />
                 <textarea placeholder="Notes (optional)" value={customerNotes} onChange={(e)=>setCustomerNotes(e.target.value)} className="w-full border rounded px-3 py-2" rows={3} />
+                
                 <button 
                   onClick={submitBooking} 
                   disabled={!!dateError}

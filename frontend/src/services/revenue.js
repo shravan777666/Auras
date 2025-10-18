@@ -107,6 +107,17 @@ class RevenueService {
     link.click();
     document.body.removeChild(link);
   }
+
+  // Get financial forecast for next week
+  async getFinancialForecast() {
+    try {
+      const response = await api.get('/financial-forecast/forecast');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching financial forecast:', error);
+      throw error;
+    }
+  }
 }
 
 export const revenueService = new RevenueService();

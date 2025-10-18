@@ -96,7 +96,8 @@ export const getNeedsAttentionAlerts = async (req, res) => {
     // that have low total bookings (as a proxy for needing reorder)
     const lowStockServices = await Service.find({
       salonId: salonId,
-      totalBookings: { $lt: 5 }
+      totalBookings: { $lt: 5 },
+      isActive: true  // Only count active services to match the services page filter
     });
     
     if (lowStockServices.length > 0) {

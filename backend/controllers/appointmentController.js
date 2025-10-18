@@ -52,7 +52,9 @@ export const bookAppointment = asyncHandler(async (req, res) => {
       appointmentTime,
       staffId,
       customerNotes,
-      specialRequests
+      specialRequests,
+      pointsToRedeem,
+      discountAmount
     } = req.body;
 
     // Validate required fields
@@ -136,6 +138,46 @@ export const bookAppointment = asyncHandler(async (req, res) => {
       });
     }
 
+    // Handle loyalty points redemption
+    let finalAmount = Number(totalAmount) || 0;
+    let pointsRedeemed = 0;
+    let discountFromPoints = 0;
+    
+    if (pointsToRedeem && discountAmount) {
+      // Validate points redemption
+      if (pointsToRedeem < 100) {
+        return errorResponse(res, 'Minimum redemption is 100 points', 400);
+      }
+      
+      if (pointsToRedeem % 100 !== 0) {
+        return errorResponse(res, 'Points must be redeemed in multiples of 100', 400);
+      }
+      
+      if (pointsToRedeem > customerProfile.loyaltyPoints) {
+        return errorResponse(res, `Insufficient points. You have ${customerProfile.loyaltyPoints} points available.`, 400);
+      }
+      
+      // Validate discount amount (100 points = ₹100 discount)
+      if (discountAmount !== pointsToRedeem) {
+        return errorResponse(res, 'Invalid discount amount. Points redemption value must equal points count.', 400);
+      }
+      
+      // Check if discount exceeds total amount
+      if (discountAmount > finalAmount) {
+        return errorResponse(res, 'Discount amount cannot exceed service total', 400);
+      }
+      
+      // Apply discount
+      finalAmount = Math.max(0, finalAmount - discountAmount);
+      pointsRedeemed = pointsToRedeem;
+      discountFromPoints = discountAmount;
+      
+      // Update customer's loyalty points
+      customerProfile.loyaltyPoints = customerProfile.loyaltyPoints - pointsToRedeem;
+      customerProfile.totalPointsRedeemed = (customerProfile.totalPointsRedeemed || 0) + pointsToRedeem;
+      await customerProfile.save();
+    }
+
     // Verify staff availability if specified
     if (staffId) {
       const staff = await Staff.findOne({
@@ -195,11 +237,13 @@ export const bookAppointment = asyncHandler(async (req, res) => {
       appointmentTime,
       estimatedDuration: totalDuration,
       totalAmount: Number(totalAmount) || 0,
-      finalAmount: Number(totalAmount) || 0,
+      finalAmount: finalAmount,
       customerNotes,
       specialRequests,
       status: 'Pending',
-      source: 'Website'
+      source: 'Website',
+      pointsRedeemed: pointsRedeemed,
+      discountFromPoints: discountFromPoints
     });
 
     await appointment.save();
@@ -230,7 +274,11 @@ export const bookAppointment = asyncHandler(async (req, res) => {
         date: appointmentDate,
         time: appointmentTime,
         services: serviceDetails.map(s => s.serviceName),
-        totalAmount
+        totalAmount: finalAmount,
+        ...(pointsRedeemed > 0 && {
+          pointsRedeemed: pointsRedeemed,
+          discountFromPoints: discountFromPoints
+        })
       };
 
       await sendAppointmentConfirmation(
@@ -286,8 +334,8 @@ export const getAppointmentDetails = asyncHandler(async (req, res) => {
 
   const appointment = await Appointment.findOne(filter)
     .populate('customerId', 'name email')
-    .populate('salonId', 'salonName salonAddress contactNumber businessHours')
-    .populate('staffId', 'name skills contactNumber')
+    .populate('salonId', 'salonName salonAddress contactNumber')
+    .populate('staffId', 'name skills')
     .populate('services.serviceId', 'name description category price duration');
 
   if (!appointment) {
@@ -606,6 +654,138 @@ export const submitReview = asyncHandler(async (req, res) => {
   return successResponse(res, appointment, 'Review submitted successfully');
 });
 
+// Reschedule appointment
+export const rescheduleAppointment = asyncHandler(async (req, res) => {
+  try {
+    const { appointmentId } = req.params;
+    const { newDateTime, newStaffId, newStatus, notes } = req.body;
+    const salonOwnerId = req.user.id;
+
+    console.log('Rescheduling appointment:', {
+      appointmentId,
+      newDateTime,
+      newStaffId,
+      newStatus,
+      notes,
+      salonOwnerId
+    });
+
+    // Find the appointment
+    const appointment = await Appointment.findById(appointmentId)
+      .populate('staffId', 'name')
+      .populate('customerId', 'name email')
+      .populate('salonId', 'salonName');
+
+    if (!appointment) {
+      return notFoundResponse(res, 'Appointment');
+    }
+
+    // Check if salon owner has permission to reschedule this appointment
+    const salon = await Salon.findById(appointment.salonId);
+    if (!salon || salon.ownerId.toString() !== salonOwnerId) {
+      return errorResponse(res, 'You do not have permission to reschedule this appointment', 403);
+    }
+
+    // Validate staff availability if staff is being changed
+    if (newStaffId && newStaffId !== appointment.staffId?._id.toString()) {
+      const newStaff = await Staff.findById(newStaffId);
+      if (!newStaff) {
+        return errorResponse(res, 'New staff member not found', 400);
+      }
+
+      // Debug logging to help identify the issue
+      console.log('Staff validation debug info:', {
+        newStaffId,
+        newStaffAssignedSalon: newStaff.assignedSalon,
+        appointmentSalonId: appointment.salonId,
+        newStaffAssignedSalonType: typeof newStaff.assignedSalon,
+        appointmentSalonIdType: typeof appointment.salonId
+      });
+
+      // Check if new staff belongs to the same salon
+      // Ensure both values are properly converted to strings for comparison
+      const staffSalonId = newStaff.assignedSalon ? newStaff.assignedSalon.toString() : null;
+      const appointmentSalonId = appointment.salonId ? appointment.salonId.toString() : null;
+      
+      console.log('Comparison values:', { staffSalonId, appointmentSalonId });
+      
+      if (!staffSalonId || !appointmentSalonId || staffSalonId !== appointmentSalonId) {
+        console.log('Staff salon validation failed:', { staffSalonId, appointmentSalonId });
+        return errorResponse(res, 'Selected staff member does not belong to this salon', 400);
+      }
+
+      // Check if new staff has required skills
+      if (appointment.services && appointment.services.length > 0) {
+        const serviceIds = appointment.services.map(s => s.serviceId);
+        const services = await Service.find({ _id: { $in: serviceIds } });
+        
+        const requiredSkills = services.map(s => s.category);
+        const hasRequiredSkills = requiredSkills.some(skill => 
+          newStaff.skills.includes(skill) || newStaff.skills.includes('All')
+        );
+
+        if (!hasRequiredSkills) {
+          return errorResponse(res, 'Selected staff member does not have required skills for these services', 400);
+        }
+      }
+
+      // Check for time conflicts for new staff
+      const conflictFilter = {
+        staffId: newStaffId,
+        appointmentDate: newDateTime,
+        status: { $in: ['Pending', 'Approved', 'In-Progress', 'STAFF_BLOCKED'] },
+        _id: { $ne: appointmentId } // Exclude current appointment
+      };
+
+      const conflictingAppointments = await Appointment.find(conflictFilter);
+      
+      if (conflictingAppointments.length > 0) {
+        return errorResponse(res, 'New staff member is not available at the selected time', 409);
+      }
+    }
+
+    // Update appointment fields
+    const updates = {};
+    
+    if (newDateTime) {
+      updates.appointmentDate = newDateTime;
+    }
+    
+    if (newStaffId) {
+      updates.staffId = newStaffId;
+    }
+    
+    if (newStatus) {
+      updates.status = newStatus;
+    }
+    
+    // Add rescheduling notes
+    if (notes) {
+      const timestamp = new Date().toISOString();
+      const rescheduleNote = `\n[Rescheduled on ${timestamp}] ${notes}`;
+      updates.salonNotes = appointment.salonNotes 
+        ? `${appointment.salonNotes}${rescheduleNote}` 
+        : rescheduleNote;
+    }
+
+    // Apply updates
+    Object.assign(appointment, updates);
+    await appointment.save();
+
+    // Populate the updated appointment
+    const populatedAppointment = await Appointment.findById(appointment._id)
+      .populate('staffId', 'name email position')
+      .populate('customerId', 'name email phone')
+      .populate('salonId', 'salonName')
+      .populate('services.serviceId', 'name duration price');
+
+    return successResponse(res, populatedAppointment, 'Appointment rescheduled successfully');
+  } catch (error) {
+    console.error('Error rescheduling appointment:', error);
+    return errorResponse(res, `Failed to reschedule appointment: ${error.message}`, 500);
+  }
+});
+
 // Block time slot for staff
 export const blockTimeSlot = asyncHandler(async (req, res) => {
   const { staffId, salonId, appointmentDate, appointmentTime, estimatedDuration, reason } = req.body;
@@ -640,4 +820,5 @@ export default {
   getAppointmentsSummary,
   submitReview,
   blockTimeSlot,
+  rescheduleAppointment
 };

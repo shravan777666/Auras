@@ -1614,6 +1614,7 @@ export const getExpenses = asyncHandler(async (req, res) => {
   }
 
   const salonId = salon._id;
+  const skip = (parseInt(page) - 1) * parseInt(limit);
 
   // Build filter
   const filter = { salonId };
@@ -1631,18 +1632,104 @@ export const getExpenses = asyncHandler(async (req, res) => {
     Expense.find(filter)
       .sort({ date: -1 })
       .limit(parseInt(limit))
-      .skip((parseInt(page) - 1) * parseInt(limit)),
+      .skip(skip),
     Expense.countDocuments(filter)
   ]);
 
   const totalPages = Math.ceil(totalExpenses / limit);
 
-  return paginatedResponse(res, expenses, {
-    page,
-    limit,
-    totalPages,
-    totalItems: totalExpenses
-  });
+  // Calculate monthly expenses for comparison
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  
+  // Previous month dates for comparison
+  const startOfPreviousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const endOfPreviousMonth = startOfMonth;
+
+  // Get current month's expenses
+  const currentMonthExpensesResult = await Expense.aggregate([
+    {
+      $match: { 
+        salonId: salonId, 
+        date: { $gte: startOfMonth, $lt: endOfMonth } 
+      } 
+    },
+    { $group: { _id: null, total: { $sum: '$amount' } } }
+  ]);
+
+  // Get previous month's expenses for comparison
+  const previousMonthExpensesResult = await Expense.aggregate([
+    {
+      $match: { 
+        salonId: salonId, 
+        date: { $gte: startOfPreviousMonth, $lt: endOfPreviousMonth } 
+      } 
+    },
+    { $group: { _id: null, total: { $sum: '$amount' } } }
+  ]);
+
+  const currentMonthExpenses = currentMonthExpensesResult.length > 0 ? currentMonthExpensesResult[0].total : 0;
+  const previousMonthExpenses = previousMonthExpensesResult.length > 0 ? previousMonthExpensesResult[0].total : 0;
+
+  // Calculate percentage change for monthly expenses
+  let monthlyExpensesChange = 0;
+  let monthlyExpensesChangeStatus = "N/A";
+  if (previousMonthExpenses > 0) {
+    monthlyExpensesChange = ((currentMonthExpenses - previousMonthExpenses) / previousMonthExpenses) * 100;
+    monthlyExpensesChangeStatus = monthlyExpensesChange >= 0 ? "negative" : "positive"; // Expenses increase is negative
+  } else if (previousMonthExpenses === 0 && currentMonthExpenses > 0) {
+    monthlyExpensesChange = "N/A"; // No previous data to compare
+    monthlyExpensesChangeStatus = "negative";
+  }
+
+  // Get 12-month historical trend data for total expenses
+  const twelveMonthsAgo = new Date(now.getFullYear() - 1, now.getMonth(), 1);
+  const expenseTrendData = await Expense.aggregate([
+    {
+      $match: { 
+        salonId: salonId, 
+        date: { $gte: twelveMonthsAgo } 
+      } 
+    },
+    {
+      $group: {
+        _id: {
+          year: { $year: "$date" },
+          month: { $month: "$date" }
+        },
+        total: { $sum: '$amount' }
+      }
+    },
+    { $sort: { "_id.year": 1, "_id.month": 1 } }
+  ]);
+
+  // Format trend data for sparkline
+  const expenseTrend = expenseTrendData.map(item => item.total);
+
+  // Get total expenses
+  const totalExpensesResult = await Expense.aggregate([
+    { $match: { salonId: salonId } },
+    { $group: { _id: null, total: { $sum: '$amount' } } }
+  ]);
+  
+  const totalExpensesAmount = totalExpensesResult.length > 0 ? totalExpensesResult[0].total : 0;
+
+  return successResponse(res, {
+    expenses,
+    currentMonthExpenses,
+    previousMonthExpenses,
+    monthlyExpensesChange,
+    monthlyExpensesChangeStatus,
+    expenseTrend,
+    totalExpenses: totalExpensesAmount,
+    pagination: {
+      page,
+      limit,
+      totalPages,
+      totalItems: totalExpenses
+    }
+  }, 'Expenses retrieved successfully');
 });
 
 // Get expense summary
@@ -1771,7 +1858,49 @@ export const deleteExpense = asyncHandler(async (req, res) => {
   return successResponse(res, null, 'Expense deleted successfully');
 });
 
-// Get salon locations (for multi-location salons)
+// Get salon locations (for multi-location salons) - PUBLIC VERSION
+export const getSalonLocationsPublic = asyncHandler(async (req, res) => {
+  try {
+    // Get all active salons with completed setup
+    const salons = await Salon.find({ 
+      isActive: true, 
+      setupCompleted: true,
+      approvalStatus: 'approved'
+    })
+    .select('salonName salonAddress contactNumber')
+    .lean();
+
+    // Format locations for the map
+    const locations = (salons || []).map((salon) => {
+      // Handle different address formats
+      let address = '';
+      if (typeof salon.salonAddress === 'string') {
+        address = salon.salonAddress;
+      } else if (salon.salonAddress && typeof salon.salonAddress === 'object') {
+        address = [
+          salon.salonAddress.street,
+          salon.salonAddress.city,
+          salon.salonAddress.state,
+          salon.salonAddress.postalCode
+        ].filter(Boolean).join(', ');
+      }
+
+      return {
+        _id: salon._id,
+        name: salon.salonName,
+        address: address,
+        phone: salon.contactNumber
+      };
+    });
+
+    return successResponse(res, locations, 'Salon locations retrieved successfully');
+  } catch (error) {
+    console.error('Error fetching salon locations:', error);
+    return errorResponse(res, 'Failed to fetch salon locations', 500);
+  }
+});
+
+// Get salon locations (for multi-location salons) - AUTHENTICATED VERSION
 export const getSalonLocations = asyncHandler(async (req, res) => {
   const userId = req.user.id;
 

@@ -30,6 +30,7 @@ const ExpenseTracking = () => {
   const [editingExpense, setEditingExpense] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingExpense, setDeletingExpense] = useState(null);
+  const [operationLoading, setOperationLoading] = useState(false);
 
   // Fetch expense data from API
   useEffect(() => {
@@ -38,7 +39,14 @@ const ExpenseTracking = () => {
         setLoading(true);
         // Fetch expenses
         const expenseResponse = await salonService.getExpenses();
+        console.log('Expense response data:', expenseResponse);
         const expensesData = expenseResponse.data || [];
+        console.log('Expenses data array:', expensesData);
+        
+        // Log the structure of the first few expenses to understand their format
+        if (expensesData.length > 0) {
+          console.log('Sample expense structure:', expensesData[0]);
+        }
         
         // Fetch expense summary for categories
         const summaryResponse = await salonService.getExpenseSummary();
@@ -115,64 +123,102 @@ const ExpenseTracking = () => {
   };
 
   const handleEditExpense = (expense) => {
+    console.log('Edit expense clicked:', expense);
+    if (operationLoading) return; // Prevent action during operation
+    if (!expense || !expense._id) {
+      toast.error('Invalid expense data');
+      return;
+    }
     setEditingExpense(expense);
     setShowEditExpense(true);
   };
 
   const handleUpdateExpense = async (expenseData) => {
+    if (operationLoading) return; // Prevent action during operation
+    if (!editingExpense || !editingExpense._id) {
+      toast.error('No expense selected for update');
+      return;
+    }
+    
     try {
-      await salonService.updateExpense(editingExpense._id, expenseData);
+      setOperationLoading(true);
+      const response = await salonService.updateExpense(editingExpense._id, expenseData);
+      console.log('Expense update response:', response);
+      
+      // Close modal and reset state
       setShowEditExpense(false);
       setEditingExpense(null);
-      toast.success('Expense updated successfully!');
       
-      // Refresh the expense list
+      // Refresh expense list
       const expenseResponse = await salonService.getExpenses();
       const expensesData = expenseResponse.data || [];
       setExpenses(expensesData);
       setFilteredExpenses(expensesData);
       
-      // Recalculate total expenses
-      const total = expensesData.reduce((sum, expense) => sum + (expense.amount || 0), 0);
-      setTotalExpenses(total);
-      
-      // Update categories if new category was added
-      const uniqueCategories = [...new Set(expensesData.map(e => e.category))];
-      setCategories(uniqueCategories);
-    } catch (error) {
-      console.error('Error updating expense:', error);
-      toast.error('Failed to update expense');
-    }
-  };
-
-  const handleDeleteExpense = (expense) => {
-    setDeletingExpense(expense);
-    setShowDeleteConfirm(true);
-  };
-
-  const confirmDeleteExpense = async () => {
-    try {
-      await salonService.deleteExpense(deletingExpense._id);
-      setShowDeleteConfirm(false);
-      setDeletingExpense(null);
-      toast.success('Expense deleted successfully!');
-      
-      // Refresh the expense list
-      const expenseResponse = await salonService.getExpenses();
-      const expensesData = expenseResponse.data || [];
-      setExpenses(expensesData);
-      setFilteredExpenses(expensesData);
-      
-      // Recalculate total expenses
+      // Recalculate totals
       const total = expensesData.reduce((sum, expense) => sum + (expense.amount || 0), 0);
       setTotalExpenses(total);
       
       // Update categories
       const uniqueCategories = [...new Set(expensesData.map(e => e.category))];
       setCategories(uniqueCategories);
+      
+      toast.success('Expense updated successfully!');
+    } catch (error) {
+      console.error('Error updating expense:', error);
+      toast.error('Failed to update expense: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setOperationLoading(false);
+    }
+  };
+
+  const handleDeleteExpense = (expense) => {
+    console.log('Delete expense clicked:', expense);
+    if (operationLoading) return; // Prevent action during operation
+    if (!expense || !expense._id) {
+      toast.error('Invalid expense data');
+      return;
+    }
+    setDeletingExpense(expense);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteExpense = async () => {
+    if (operationLoading) return; // Prevent action during operation
+    if (!deletingExpense || !deletingExpense._id) {
+      toast.error('No expense selected for deletion');
+      return;
+    }
+    
+    try {
+      setOperationLoading(true);
+      const response = await salonService.deleteExpense(deletingExpense._id);
+      console.log('Expense delete response:', response);
+      
+      // Close modal and reset state
+      setShowDeleteConfirm(false);
+      setDeletingExpense(null);
+      
+      // Refresh expense list
+      const expenseResponse = await salonService.getExpenses();
+      const expensesData = expenseResponse.data || [];
+      setExpenses(expensesData);
+      setFilteredExpenses(expensesData);
+      
+      // Recalculate totals
+      const total = expensesData.reduce((sum, expense) => sum + (expense.amount || 0), 0);
+      setTotalExpenses(total);
+      
+      // Update categories
+      const uniqueCategories = [...new Set(expensesData.map(e => e.category))];
+      setCategories(uniqueCategories);
+      
+      toast.success('Expense deleted successfully!');
     } catch (error) {
       console.error('Error deleting expense:', error);
-      toast.error('Failed to delete expense');
+      toast.error('Failed to delete expense: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setOperationLoading(false);
     }
   };
 
@@ -185,6 +231,20 @@ const ExpenseTracking = () => {
     acc[category] += expense.amount || 0;
     return acc;
   }, {});
+
+  // Calculate this month's expenses
+  const calculateThisMonthExpenses = () => {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    
+    return expenses.reduce((sum, expense) => {
+      const expenseDate = new Date(expense.date);
+      if (expenseDate >= startOfMonth) {
+        return sum + (expense.amount || 0);
+      }
+      return sum;
+    }, 0);
+  };
 
   const categoryKeys = Object.keys(expensesByCategory);
   const categoryTotals = Object.values(expensesByCategory);
@@ -199,6 +259,12 @@ const ExpenseTracking = () => {
       </div>
     );
   }
+
+  // Test function to verify modal functionality
+  const testModal = () => {
+    console.log('Test modal function called');
+    setShowAddExpense(true);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -252,7 +318,7 @@ const ExpenseTracking = () => {
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">This Month</dt>
                     <dd className="flex items-baseline">
-                      <div className="text-2xl font-semibold text-gray-900">₹{(totalExpenses * 0.6).toLocaleString()}</div>
+                      <div className="text-2xl font-semibold text-gray-900">₹{calculateThisMonthExpenses().toLocaleString()}</div>
                     </dd>
                   </dl>
                 </div>
@@ -388,20 +454,34 @@ const ExpenseTracking = () => {
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          <div className="flex space-x-2">
+                          <div className="flex items-center space-x-2">
                             <button
+                              type="button"
                               onClick={() => handleEditExpense(expense)}
-                              className="text-indigo-600 hover:text-indigo-900 p-1 rounded"
-                              title="Edit expense"
+                              disabled={operationLoading}
+                              className={`inline-flex items-center p-2 rounded-md ${
+                                operationLoading 
+                                  ? 'text-gray-400 cursor-not-allowed' 
+                                  : 'text-indigo-600 hover:text-indigo-900 hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 transition-colors'
+                              }`}
+                              title={operationLoading ? "Operation in progress" : "Edit expense"}
+                              aria-label="Edit expense"
                             >
-                              <Edit className="h-4 w-4" />
+                              <Edit size={16} className="h-4 w-4" />
                             </button>
                             <button
+                              type="button"
                               onClick={() => handleDeleteExpense(expense)}
-                              className="text-red-600 hover:text-red-900 p-1 rounded"
-                              title="Delete expense"
+                              disabled={operationLoading}
+                              className={`inline-flex items-center p-2 rounded-md ${
+                                operationLoading 
+                                  ? 'text-gray-400 cursor-not-allowed' 
+                                  : 'text-red-600 hover:text-red-900 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 transition-colors'
+                              }`}
+                              title={operationLoading ? "Operation in progress" : "Delete expense"}
+                              aria-label="Delete expense"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 size={16} className="h-4 w-4" />
                             </button>
                           </div>
                         </td>
@@ -596,11 +676,25 @@ const EditExpenseModal = ({ expense, onClose, onUpdate }) => {
     date: expense?.date ? new Date(expense.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
   });
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const categories = ['Supplies', 'Rent', 'Utilities', 'Marketing', 'Salaries', 'Equipment', 'Insurance', 'Maintenance', 'Other'];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError(null);
+    
+    // Validation
+    if (!formData.category || !formData.amount || !formData.description || !formData.date) {
+      setError('All fields are required');
+      return;
+    }
+    
+    if (parseFloat(formData.amount) <= 0) {
+      setError('Amount must be greater than 0');
+      return;
+    }
+    
     setLoading(true);
     try {
       await onUpdate({
@@ -608,7 +702,8 @@ const EditExpenseModal = ({ expense, onClose, onUpdate }) => {
         amount: parseFloat(formData.amount)
       });
     } catch (error) {
-      console.error('Error in modal submit:', error);
+      console.error('Error in edit modal submit:', error);
+      setError(error.message || 'Failed to update expense');
     } finally {
       setLoading(false);
     }
@@ -623,6 +718,7 @@ const EditExpenseModal = ({ expense, onClose, onUpdate }) => {
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-500"
+              disabled={loading}
             >
               <span className="sr-only">Close</span>
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -630,6 +726,13 @@ const EditExpenseModal = ({ expense, onClose, onUpdate }) => {
               </svg>
             </button>
           </div>
+          
+          {error && (
+            <div className="mt-4 p-2 bg-red-50 text-red-700 text-sm rounded">
+              {error}
+            </div>
+          )}
+          
           <form className="mt-4 space-y-4" onSubmit={handleSubmit}>
             <div>
               <label htmlFor="edit-category" className="block text-sm font-medium text-gray-700">
@@ -641,6 +744,7 @@ const EditExpenseModal = ({ expense, onClose, onUpdate }) => {
                 value={formData.category}
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                 className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                disabled={loading}
               >
                 <option value="">Select a category</option>
                 {categories.map(category => (
@@ -662,6 +766,7 @@ const EditExpenseModal = ({ expense, onClose, onUpdate }) => {
                 value={formData.amount}
                 onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                 className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                disabled={loading}
               />
             </div>
             
@@ -676,6 +781,7 @@ const EditExpenseModal = ({ expense, onClose, onUpdate }) => {
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                disabled={loading}
               />
             </div>
             
@@ -690,6 +796,7 @@ const EditExpenseModal = ({ expense, onClose, onUpdate }) => {
                 value={formData.date}
                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                 className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                disabled={loading}
               />
             </div>
             
@@ -721,13 +828,16 @@ const EditExpenseModal = ({ expense, onClose, onUpdate }) => {
 // Delete Confirmation Modal Component
 const DeleteConfirmModal = ({ expense, onClose, onConfirm }) => {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const handleConfirm = async () => {
+    setError(null);
     setLoading(true);
     try {
       await onConfirm();
     } catch (error) {
       console.error('Error in delete confirm:', error);
+      setError(error.message || 'Failed to delete expense');
     } finally {
       setLoading(false);
     }
@@ -742,6 +852,7 @@ const DeleteConfirmModal = ({ expense, onClose, onConfirm }) => {
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-500"
+              disabled={loading}
             >
               <span className="sr-only">Close</span>
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -749,6 +860,13 @@ const DeleteConfirmModal = ({ expense, onClose, onConfirm }) => {
               </svg>
             </button>
           </div>
+          
+          {error && (
+            <div className="mt-4 p-2 bg-red-50 text-red-700 text-sm rounded">
+              {error}
+            </div>
+          )}
+          
           <div className="mt-4">
             <p className="text-sm text-gray-500">
               Are you sure you want to delete this expense? This action cannot be undone.

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { salonService } from '../../services/salon';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import ClientProfileCard from '../../components/salon/ClientProfileCard';
+import RescheduleModal from '../../components/salon/RescheduleModal';
 import { toast } from 'react-hot-toast';
 import {
   Calendar,
@@ -18,7 +19,8 @@ import {
   Filter,
   Search,
   Users,
-  MessageCircle
+  MessageCircle,
+  Edit3
 } from 'lucide-react';
 
 const SalonAppointments = () => {
@@ -33,10 +35,6 @@ const SalonAppointments = () => {
     Cancelled: 0
   });
   
-  useEffect(() => {
-    // Remove the debugging useEffect
-  }, [appointmentCounts]);
-
   const [filter, setFilter] = useState('all'); // all, Pending, Approved, In-Progress, Completed, Cancelled
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -47,6 +45,8 @@ const SalonAppointments = () => {
   const [assigningStaff, setAssigningStaff] = useState(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState(null);
   const [showClientProfile, setShowClientProfile] = useState(false);
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
 
   // Set default to today's date
   const today = new Date().toISOString().split('T')[0];
@@ -326,6 +326,30 @@ const SalonAppointments = () => {
     setSelectedCustomerId(null);
   };
 
+  // Handle reschedule button click
+  const handleReschedule = (appointment) => {
+    setSelectedAppointment(appointment);
+    setShowRescheduleModal(true);
+  };
+
+  // Handle reschedule form submission
+  const handleRescheduleSubmit = async (appointmentId, data) => {
+    try {
+      const response = await salonService.rescheduleAppointment(appointmentId, data);
+      if (response?.success) {
+        toast.success('Appointment rescheduled successfully');
+        // Refresh the appointments list and counts
+        fetchAppointments();
+        fetchAppointmentCounts();
+        return response;
+      }
+    } catch (error) {
+      console.error('Error rescheduling appointment:', error);
+      toast.error(error.response?.data?.message || 'Failed to reschedule appointment. Please try again.');
+      throw error;
+    }
+  };
+
   if (loading) {
     return <LoadingSpinner text="Loading appointments..." />;
   }
@@ -567,6 +591,13 @@ const SalonAppointments = () => {
                           <button className="px-3 py-1 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50">
                             View Details
                           </button>
+                          <button 
+                            onClick={() => handleReschedule(appointment)}
+                            className="px-3 py-1 text-sm text-indigo-600 hover:text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-md hover:bg-indigo-100 flex items-center space-x-1"
+                          >
+                            <Edit3 className="h-3 w-3" />
+                            <span>Reschedule</span>
+                          </button>
                           {appointment.status === 'Pending' && (
                             <>
                               <button 
@@ -668,6 +699,15 @@ const SalonAppointments = () => {
         customerId={selectedCustomerId}
         isOpen={showClientProfile}
         onClose={handleCloseClientProfile}
+      />
+
+      {/* Reschedule Modal */}
+      <RescheduleModal
+        isOpen={showRescheduleModal}
+        onClose={() => setShowRescheduleModal(false)}
+        appointment={selectedAppointment}
+        onSubmit={handleRescheduleSubmit}
+        staffList={staffList}
       />
     </div>
   );
