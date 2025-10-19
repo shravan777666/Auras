@@ -5,6 +5,8 @@ import User from '../models/User.js';
 import Customer from '../models/Customer.js';
 import Appointment from '../models/Appointment.js';
 import Service from '../models/Service.js';
+import Expense from '../models/Expense.js';
+import Revenue from '../models/Revenue.js';
 import { 
   successResponse, 
   errorResponse, 
@@ -261,6 +263,35 @@ export const getAllSalonsDetails = asyncHandler(async (req, res) => {
   } catch (error) {
     console.error('Error in getAllSalonsDetails:', error);
     return errorResponse(res, `Failed to fetch all salon details: ${error.message}`, 500);
+  }
+});
+
+// Get salon by ID
+export const getSalonById = asyncHandler(async (req, res) => {
+  try {
+    const { salonId } = req.params;
+    
+    // Find the salon by ID
+    const salon = await Salon.findById(salonId)
+      .populate('services', 'name category price duration') // Populate service details
+      .populate('staff', 'name email skills employmentStatus') // Populate staff details
+      .select('salonName ownerName email contactNumber salonAddress businessHours description documents services staff approvalStatus isVerified createdAt')
+      .lean();
+
+    if (!salon) {
+      return notFoundResponse(res, 'Salon');
+    }
+
+    // Ensure ownerName exists for older records and convert document URLs
+    const salonWithOwnerName = {
+      ...salon,
+      ownerName: salon.ownerName || salon.salonName || 'Unknown Owner'
+    };
+
+    return successResponse(res, salonWithOwnerName, 'Salon details retrieved successfully');
+  } catch (error) {
+    console.error('Error fetching salon by ID:', error);
+    return errorResponse(res, 'Failed to retrieve salon details', 500);
   }
 });
 
@@ -598,6 +629,12 @@ export const getAllAppointments = asyncHandler(async (req, res) => {
   const skip = (page - 1) * limit;
 
   const filter = {};
+  
+  // Filter by salonId if provided
+  if (req.query.salonId) {
+    filter.salonId = req.query.salonId;
+  }
+  
   if (req.query.status) {
     filter.status = req.query.status;
   }
@@ -758,6 +795,310 @@ export const rejectSalon = asyncHandler(async (req, res) => {
   return successResponse(res, salon, 'Salon rejected successfully');
 });
 
+// Get salon financial data
+export const getSalonFinancialData = asyncHandler(async (req, res) => {
+  try {
+    const { salonId } = req.params;
+    const { startDate, endDate } = req.query;
+    
+    // Validate date range
+    let start = startDate ? new Date(startDate) : new Date();
+    start.setDate(start.getDate() - 30); // Default to last 30 days
+    
+    let end = endDate ? new Date(endDate) : new Date();
+    
+    // Ensure end date is not before start date
+    if (end < start) {
+      return errorResponse(res, 'End date cannot be before start date', 400);
+    }
+    
+    // Find the salon
+    const salon = await Salon.findById(salonId);
+    if (!salon) {
+      return notFoundResponse(res, 'Salon');
+    }
+    
+    // Calculate total revenue for this salon
+    const revenueResult = await Revenue.aggregate([
+      {
+        $match: {
+          salonId: salon._id,
+          date: { $gte: start, $lte: end }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: '$amount' }
+        }
+      }
+    ]);
+    
+    const totalRevenue = revenueResult.length > 0 ? revenueResult[0].total : 0;
+    
+    // Calculate total expenses for this salon
+    const expenseResult = await Expense.aggregate([
+      {
+        $match: {
+          salonId: salon._id,
+          date: { $gte: start, $lte: end }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: '$amount' }
+        }
+      }
+    ]);
+    
+    const totalExpenses = expenseResult.length > 0 ? expenseResult[0].total : 0;
+    
+    // Calculate profit/loss
+    const totalProfit = totalRevenue - totalExpenses;
+    
+    // Calculate profit margin
+    const profitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+    
+    // Calculate average revenue per day
+    const daysDiff = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+    const avgRevenuePerDay = daysDiff > 0 ? totalRevenue / daysDiff : 0;
+    
+    // For comparison, get data from previous period
+    const prevStart = new Date(start);
+    const prevEnd = new Date(end);
+    const periodDiff = end - start;
+    prevStart.setTime(prevStart.getTime() - periodDiff);
+    prevEnd.setTime(prevEnd.getTime() - periodDiff);
+    
+    // Previous period revenue
+    const prevRevenueResult = await Revenue.aggregate([
+      {
+        $match: {
+          salonId: salon._id,
+          date: { $gte: prevStart, $lte: prevEnd }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: '$amount' }
+        }
+      }
+    ]);
+    
+    const prevTotalRevenue = prevRevenueResult.length > 0 ? prevRevenueResult[0].total : 0;
+    
+    // Previous period expenses
+    const prevExpenseResult = await Expense.aggregate([
+      {
+        $match: {
+          salonId: salon._id,
+          date: { $gte: prevStart, $lte: prevEnd }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: '$amount' }
+        }
+      }
+    ]);
+    
+    const prevTotalExpenses = prevExpenseResult.length > 0 ? prevExpenseResult[0].total : 0;
+    
+    // Calculate changes
+    const revenueChange = prevTotalRevenue > 0 
+      ? ((totalRevenue - prevTotalRevenue) / prevTotalRevenue) * 100 
+      : (totalRevenue > 0 ? 100 : 0);
+      
+    const profitChange = (prevTotalRevenue - prevTotalExpenses) > 0 
+      ? ((totalProfit - (prevTotalRevenue - prevTotalExpenses)) / (prevTotalRevenue - prevTotalExpenses)) * 100 
+      : (totalProfit > 0 ? 100 : 0);
+      
+    const marginChange = prevTotalRevenue > 0 
+      ? (((totalProfit / totalRevenue) - ((prevTotalRevenue - prevTotalExpenses) / prevTotalRevenue)) * 100)
+      : (profitMargin > 0 ? profitMargin : 0);
+
+    return successResponse(res, {
+      totalRevenue,
+      totalExpenses,
+      totalProfit,
+      profitMargin,
+      avgRevenuePerDay,
+      revenueChange,
+      profitChange,
+      marginChange
+    }, 'Salon financial data retrieved successfully');
+  } catch (error) {
+    console.error('Error fetching salon financial data:', error);
+    return errorResponse(res, 'Failed to retrieve salon financial data', 500);
+  }
+});
+
+// Get salon revenue trend data
+export const getSalonRevenueTrend = asyncHandler(async (req, res) => {
+  try {
+    const { salonId } = req.params;
+    const { startDate, endDate, period = 'monthly' } = req.query;
+    
+    // Validate date range
+    let start = startDate ? new Date(startDate) : new Date();
+    start.setDate(start.getDate() - 180); // Default to last 6 months
+    
+    let end = endDate ? new Date(endDate) : new Date();
+    
+    // Ensure end date is not before start date
+    if (end < start) {
+      return errorResponse(res, 'End date cannot be before start date', 400);
+    }
+    
+    // Find the salon
+    const salon = await Salon.findById(salonId);
+    if (!salon) {
+      return notFoundResponse(res, 'Salon');
+    }
+    
+    let groupBy, dateFormat;
+    
+    switch (period) {
+      case 'daily':
+        groupBy = { $dateToString: { format: '%Y-%m-%d', date: '$date' } };
+        dateFormat = '%Y-%m-%d';
+        break;
+      case 'weekly':
+        groupBy = { 
+          $dateToString: { 
+            format: '%Y-%U', 
+            date: '$date' 
+          } 
+        };
+        dateFormat = '%Y-%U';
+        break;
+      case 'monthly':
+      default:
+        groupBy = { $dateToString: { format: '%Y-%m', date: '$date' } };
+        dateFormat = '%Y-%m';
+        break;
+    }
+    
+    // Get revenue trend data for this salon
+    const revenueTrend = await Revenue.aggregate([
+      {
+        $match: {
+          salonId: salon._id,
+          date: { $gte: start, $lte: end }
+        }
+      },
+      {
+        $group: {
+          _id: groupBy,
+          revenue: { $sum: '$amount' }
+        }
+      },
+      {
+        $sort: {
+          _id: 1
+        }
+      }
+    ]);
+    
+    // Get expense trend data for this salon
+    const expenseTrend = await Expense.aggregate([
+      {
+        $match: {
+          salonId: salon._id,
+          date: { $gte: start, $lte: end }
+        }
+      },
+      {
+        $group: {
+          _id: groupBy,
+          expenses: { $sum: '$amount' }
+        }
+      },
+      {
+        $sort: {
+          _id: 1
+        }
+      }
+    ]);
+    
+    // Combine revenue and expense data
+    const trendData = revenueTrend.map(revenueItem => {
+      const expenseItem = expenseTrend.find(e => e._id === revenueItem._id);
+      return {
+        period: revenueItem._id,
+        revenue: revenueItem.revenue,
+        costs: expenseItem ? expenseItem.expenses : 0,
+        profit: revenueItem.revenue - (expenseItem ? expenseItem.expenses : 0)
+      };
+    });
+    
+    return successResponse(res, trendData, 'Salon revenue trend data retrieved successfully');
+  } catch (error) {
+    console.error('Error fetching salon revenue trend:', error);
+    return errorResponse(res, 'Failed to retrieve salon revenue trend data', 500);
+  }
+});
+
+// Get salon expense breakdown data
+export const getSalonExpenseBreakdown = asyncHandler(async (req, res) => {
+  try {
+    const { salonId } = req.params;
+    const { startDate, endDate } = req.query;
+    
+    // Validate date range
+    let start = startDate ? new Date(startDate) : new Date();
+    start.setDate(start.getDate() - 30); // Default to last 30 days
+    
+    let end = endDate ? new Date(endDate) : new Date();
+    
+    // Ensure end date is not before start date
+    if (end < start) {
+      return errorResponse(res, 'End date cannot be before start date', 400);
+    }
+    
+    // Find the salon
+    const salon = await Salon.findById(salonId);
+    if (!salon) {
+      return notFoundResponse(res, 'Salon');
+    }
+    
+    // Get expense data grouped by category for this salon
+    const expenseData = await Expense.aggregate([
+      {
+        $match: {
+          salonId: salon._id,
+          date: { $gte: start, $lte: end }
+        }
+      },
+      {
+        $group: {
+          _id: '$category',
+          amount: { $sum: '$amount' }
+        }
+      },
+      {
+        $sort: {
+          amount: -1
+        }
+      }
+    ]);
+    
+    // Format the data for the frontend
+    const formattedData = expenseData.map(item => ({
+      category: item._id,
+      amount: item.amount
+    }));
+    
+    return successResponse(res, formattedData, 'Salon expense breakdown data retrieved successfully');
+  } catch (error) {
+    console.error('Error fetching salon expense breakdown:', error);
+    return errorResponse(res, 'Failed to retrieve salon expense breakdown data', 500);
+  }
+});
+
 export default {
   getDashboardStats,
   getApprovedSalonsCount,
@@ -773,5 +1114,8 @@ export default {
   getAllAppointments,
   getPendingSalons,
   approveSalon,
-  rejectSalon
+  rejectSalon,
+  getSalonFinancialData,
+  getSalonRevenueTrend,
+  getSalonExpenseBreakdown
 };

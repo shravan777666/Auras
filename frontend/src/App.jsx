@@ -17,6 +17,8 @@ const ManageSalons = React.lazy(() => import('./pages/admin/ManageSalons'))
 const AdminManageStaff = React.lazy(() => import('./pages/admin/ManageStaff'))
 const PendingApprovals = React.lazy(() => import('./pages/admin/PendingApprovals'))
 const ApprovedSalons = React.lazy(() => import('./pages/admin/ApprovedSalons'))
+const FinancialSummary = React.lazy(() => import('./pages/admin/FinancialSummary'))
+const SalonDetailsPage = React.lazy(() => import('./pages/admin/SalonDetailsPage'))
 
 // Salon Pages
 const SalonDashboard = React.lazy(() => import('./pages/salon/SalonDashboard'))
@@ -182,6 +184,8 @@ function App() {
                   <Route path="pending-approvals" element={<PendingApprovals />} />
                   <Route path="staff" element={<AdminManageStaff />} />
                   <Route path="approved-salons" element={<ApprovedSalons />} />
+                  <Route path="financial-summary" element={<FinancialSummary />} />
+                  <Route path="salon/:id/details" element={<SalonDetailsPage />} />
                 </Routes>
               </ProtectedRoute>
             }

@@ -5,6 +5,7 @@ import {
   getTotalSalonsCount,
   getAllSalons,
   getAllSalonsDetails,
+  getSalonById,
   updateSalonStatus,
   deleteSalon,
   getAllStaff,
@@ -15,7 +16,10 @@ import {
   getAllAppointments,
   getPendingSalons,
   approveSalon,
-  rejectSalon
+  rejectSalon,
+  getSalonFinancialData,
+  getSalonRevenueTrend,
+  getSalonExpenseBreakdown
 } from '../controllers/adminController.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { verifyRoles } from '../middleware/roleAuth.js';
@@ -37,6 +41,10 @@ router.get('/salons/total-count', getTotalSalonsCount);
 router.get('/salons', validatePagination, getAllSalons);
 router.get('/salons/all-details', getAllSalonsDetails);
 router.get('/salons/pending', validatePagination, getPendingSalons);
+router.get('/salons/:salonId', validateObjectId('salonId'), getSalonById);
+router.get('/salons/:salonId/financial-data', validateObjectId('salonId'), getSalonFinancialData);
+router.get('/salons/:salonId/revenue-trend', validateObjectId('salonId'), getSalonRevenueTrend);
+router.get('/salons/:salonId/expense-breakdown', validateObjectId('salonId'), getSalonExpenseBreakdown);
 router.patch('/salons/:salonId/status', validateObjectId('salonId'), updateSalonStatus);
 router.delete('/salons/:salonId', validateObjectId('salonId'), deleteSalon);
 router.post('/salons/:salonId/approve', validateObjectId('salonId'), approveSalon);

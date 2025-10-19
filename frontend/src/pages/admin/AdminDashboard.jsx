@@ -10,7 +10,8 @@ import {
   User,
   LogOut,
   Home,
-  ChevronRight
+  ChevronRight,
+  TrendingUp
 } from 'lucide-react';
 import { adminService } from '../../services/adminService';
 import toast from 'react-hot-toast';
@@ -468,7 +469,9 @@ const AdminDashboard = () => {
           <div onClick={() => navigate('/admin/staff')} className="cursor-pointer">
             <StatCard title="Total Staff" value={stats.totalStaff} icon={Users} color="border-secondary-500" />
           </div>
-          <StatCard title="Total Revenue" value={stats.totalRevenue} icon={DollarSign} color="border-warning-500" unit="₹" />
+          <div onClick={() => navigate('/admin/financial-summary')} className="cursor-pointer">
+            <StatCard title="Total Revenue" value={stats.totalRevenue} icon={DollarSign} color="border-warning-500" unit="₹" />
+          </div>
         </div>
 
         

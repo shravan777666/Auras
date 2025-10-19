@@ -48,6 +48,9 @@ import scheduleRequestsRoutes from './routes/scheduleRequests.js';
 // Import financial forecast routes
 import financialForecastRoutes from './routes/financialForecast.js';
 
+// Add financial summary routes
+import financialSummaryRoutes from './routes/financialSummary.js';
+
 // Add loyalty routes
 import loyaltyRoutes from './routes/loyalty.js';
 
@@ -302,33 +305,27 @@ app.get('/', (req, res) => {
 });
 
 // API routes
-app.use('/api/auth', authRoutes);
-app.use('/auth', oauthRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/customer', customerRoutes);
 app.use('/api/salon', salonRoutes);
 app.use('/api/staff', staffRoutes);
-app.use('/api/customer', customerRoutes);
-app.use('/api/service', serviceRoutes);
 app.use('/api/appointment', appointmentRoutes);
-app.use('/api/forgot-password', forgotPasswordRoutes);
+app.use('/api/service', serviceRoutes);
+app.use('/api/schedule-requests', scheduleRequestsRoutes);
+app.use('/api/revenue', revenueRoutes);
+app.use('/api/financial-forecast', financialForecastRoutes);
+// Move financial summary routes under admin
+app.use('/api/admin/financial-summary', financialSummaryRoutes);
+app.use('/api/loyalty', loyaltyRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/recommendations', recommendationRoutes);
 app.use('/api/client-profiles', clientProfileRoutes);
 app.use('/api/customer/messages', customerMessageRoutes);
-app.use('/api/revenue', revenueRoutes);
 app.use('/api/broadcast', broadcastRoutes);
 app.use('/api/staff-invitations', staffInvitationRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/alerts', alertsRoutes);
-
-// Add the new route for schedule requests
-app.use('/api/schedule-requests', scheduleRequestsRoutes);
-
-// Add financial forecast routes
-app.use('/api/financial-forecast', financialForecastRoutes);
-
-// Add loyalty routes
-app.use('/api/loyalty', loyaltyRoutes);
 
 // Add internal feedback routes
 app.use('/api/internal-feedback', internalFeedbackRoutes);
@@ -350,7 +347,8 @@ app.all('*', (req, res) => {
       reviews: '/api/reviews',
       recommendations: '/api/recommendations',
       users: '/api/users',
-      staffInvitations: '/api/staff-invitations'
+      staffInvitations: '/api/staff-invitations',
+      financialSummary: '/api/admin/financial-summary'
     }
   });
 });

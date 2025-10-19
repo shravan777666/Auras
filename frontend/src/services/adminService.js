@@ -17,6 +17,48 @@ export const adminService = {
     return response.data?.data || {};
   },
 
+  // Financial Summary
+  async getFinancialSummary(params = {}) {
+    const response = await api.get('/admin/financial-summary/summary', { params });
+    return response.data;
+  },
+
+  async getSalonPerformance(params = {}) {
+    const response = await api.get('/admin/financial-summary/salon-performance', { params });
+    return response.data;
+  },
+
+  async getRevenueTrendData(params = {}) {
+    const response = await api.get('/admin/financial-summary/revenue-trend', { params });
+    return response.data;
+  },
+
+  async getExpenseBreakdown(params = {}) {
+    const response = await api.get('/admin/financial-summary/expense-breakdown', { params });
+    return response.data;
+  },
+
+  // Salon Details
+  async getSalonById(salonId) {
+    const response = await api.get(`/admin/salons/${salonId}`);
+    return response.data;
+  },
+
+  async getSalonFinancialData(salonId, params = {}) {
+    const response = await api.get(`/admin/salons/${salonId}/financial-data`, { params });
+    return response.data;
+  },
+
+  async getSalonRevenueTrend(salonId, params = {}) {
+    const response = await api.get(`/admin/salons/${salonId}/revenue-trend`, { params });
+    return response.data;
+  },
+
+  async getSalonExpenseBreakdown(salonId, params = {}) {
+    const response = await api.get(`/admin/salons/${salonId}/expense-breakdown`, { params });
+    return response.data;
+  },
+
   // Salon Management
   async getAllSalons(params = {}) {
     const response = await api.get('/admin/salons', { params });
@@ -91,6 +133,16 @@ export const adminService = {
   // Appointment Management
   async getAllAppointments(params = {}) {
     const response = await api.get('/admin/appointments', { params });
+    return response.data;
+  },
+
+  async getSalonAppointments(salonId, params = {}) {
+    const response = await api.get('/admin/appointments', { 
+      params: { 
+        ...params,
+        salonId: salonId
+      } 
+    });
     return response.data;
   },
 };

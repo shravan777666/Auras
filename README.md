@@ -37,6 +37,14 @@ A complete, production-ready MERN stack application for beauty parlor booking an
 - Booking history and management
 - Rating and review system
 
+### 💰 Financial Management System
+- **Admin Financial Dashboard**: Comprehensive profit/loss analytics
+- **Revenue Trend Analysis**: Visualize revenue trends over time
+- **Salon Performance Tracking**: Compare performance across salons
+- **Expense Breakdown**: Detailed categorization of business expenses
+- **Interactive Visualizations**: Charts and graphs for data analysis
+- **Export Functionality**: Generate reports in PDF/Excel formats
+
 ### 💰 Financial Prediction System
 - **Next Week Revenue Forecasting**: Predict next week's revenue using Linear Regression
 - **Historical Data Analysis**: Train model with actual salon appointment data
@@ -175,6 +183,7 @@ auracare/
 │   ├── package.json
 │   └── vite.config.js
 ├── FINANCIAL_PREDICTION_SYSTEM.md      # Financial prediction documentation
+├── FINANCIAL_SUMMARY.md                # Financial summary documentation
 ├── LOYALTY_POINTS_SYSTEM.md            # Loyalty program documentation
 └── README.md
 ```
@@ -213,6 +222,20 @@ GET    /api/admin/staff            # All staff
 GET    /api/admin/customers        # All customers
 ```
 
+### Financial Management
+```
+GET    /api/admin/financial-summary/summary          # Financial summary data
+GET    /api/admin/financial-summary/salon-performance # Salon performance data
+GET    /api/admin/financial-summary/revenue-trend     # Revenue trend data
+GET    /api/admin/financial-summary/expense-breakdown # Expense breakdown data
+```
+
+### Financial Prediction
+```
+GET    /api/financial-forecast/forecast  # Get next week's revenue prediction
+POST   /api/financial-forecast/train     # Train the model with new data
+```
+
 ### Salon Management
 ```
 POST   /api/salon/setup           # Complete salon setup
@@ -226,12 +249,6 @@ GET    /api/salon/appointments    # Salon appointments
 GET    /api/customer/salons       # Browse salons
 POST   /api/appointment/book      # Book appointment
 GET    /api/customer/bookings     # Customer bookings
-```
-
-### Financial Prediction
-```
-GET    /api/financial-forecast/forecast  # Get next week's revenue prediction
-POST   /api/financial-forecast/train     # Train the model with new data
 ```
 
 ### Loyalty Program
@@ -383,6 +400,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [ ] Advanced reporting
 - [ ] Enhanced financial prediction with more sophisticated ML models
 - [ ] Seasonal and trend analysis for financial forecasting
+- [ ] Real-time financial data updates
+- [ ] Custom financial report templates
+- [ ] Budget planning and forecasting tools
 
 ## 📞 Support
 
