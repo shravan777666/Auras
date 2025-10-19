@@ -551,6 +551,60 @@ export const rateAppointment = asyncHandler(async (req, res) => {
   return successResponse(res, appointment, 'Rating submitted successfully');
 });
 
+// @desc    Update customer's favorite salon
+// @route   PATCH /api/customers/favorite-salon
+// @access  Private
+export const updateFavoriteSalon = asyncHandler(async (req, res) => {
+  const customerId = req.user.id;
+  const { salonId } = req.body;
+
+  const customer = await Customer.findById(customerId);
+
+  if (!customer) {
+    return notFoundResponse(res, 'Customer');
+  }
+
+  // If salonId is provided, set it as favorite. If null or empty, clear it.
+  customer.favoriteSalon = salonId ? salonId : null;
+  await customer.save();
+
+  return successResponse(res, { favoriteSalon: customer.favoriteSalon }, 'Favorite salon updated successfully');
+});
+
+// @desc    Get customer's recent salons
+// @route   GET /api/customers/recent-salons
+// @access  Private
+export const getRecentSalons = asyncHandler(async (req, res) => {
+  const customerId = req.user.id;
+
+  const recentAppointments = await Appointment.find({ customerId })
+    .sort({ appointmentDate: -1 })
+    .populate('salonId', 'salonName salonAddress rating profileImage salonImage documents.salonLogo documents.salonImages')
+    .limit(20); // Fetch more to ensure we get 3-5 unique salons
+
+  if (!recentAppointments) {
+    return successResponse(res, [], 'No recent salons found');
+  }
+
+  const uniqueSalons = [];
+  const salonIds = new Set();
+
+  for (const appointment of recentAppointments) {
+    if (appointment.salonId && !salonIds.has(appointment.salonId._id.toString())) {
+      salonIds.add(appointment.salonId._id.toString());
+      uniqueSalons.push({
+        ...appointment.salonId.toObject(),
+        lastVisited: appointment.appointmentDate,
+      });
+    }
+    if (uniqueSalons.length >= 5) {
+      break;
+    }
+  }
+
+  return successResponse(res, uniqueSalons, 'Recent salons retrieved successfully');
+});
+
 export default {
   getDashboard,
   getProfile,

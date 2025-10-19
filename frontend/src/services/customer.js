@@ -90,6 +90,16 @@ export const customerService = {
   async getSalonSlots(salonId, date) {
     const response = await api.get(`/appointment/slots/available?salonId=${salonId}&date=${date}`);
     return response.data;
+  },
+
+  async updateFavoriteSalon(salonId) {
+    const response = await api.patch('/customer/favorite-salon', { salonId });
+    return response.data;
+  },
+
+  async getRecentSalons() {
+    const response = await api.get('/customer/recent-salons');
+    return response.data;
   }
 };
 

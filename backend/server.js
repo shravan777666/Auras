@@ -48,8 +48,11 @@ import scheduleRequestsRoutes from './routes/scheduleRequests.js';
 // Import financial forecast routes
 import financialForecastRoutes from './routes/financialForecast.js';
 
-// Import loyalty routes
+// Add loyalty routes
 import loyaltyRoutes from './routes/loyalty.js';
+
+// Import internal feedback routes
+import internalFeedbackRoutes from './routes/internalFeedbackRoutes.js';
 
 // Create Express app
 const app = express();
@@ -326,6 +329,9 @@ app.use('/api/financial-forecast', financialForecastRoutes);
 
 // Add loyalty routes
 app.use('/api/loyalty', loyaltyRoutes);
+
+// Add internal feedback routes
+app.use('/api/internal-feedback', internalFeedbackRoutes);
 
 // Handle undefined routes
 app.all('*', (req, res) => {

@@ -43,6 +43,7 @@ const CustomerSchema = new mongoose.Schema(
     totalPointsEarned: { type: Number, default: 0 },
     totalPointsRedeemed: { type: Number, default: 0 },
     loyaltyTier: { type: String, default: 'Standard' },
+    favoriteSalon: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon' },
   },
   { timestamps: true }
 );

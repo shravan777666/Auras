@@ -9,7 +9,9 @@ import {
   getBookings,
   cancelBooking,
   rateAppointment,
-  getSalonAvailability
+  getSalonAvailability,
+  updateFavoriteSalon,
+  getRecentSalons
 } from '../controllers/customerController.js';
 import { requireCustomer } from '../middleware/roleAuth.js';
 import { upload } from '../middleware/upload.js';
@@ -44,5 +46,9 @@ router.post('/bookings/:appointmentId/rate',
   validateObjectId('appointmentId'), 
   rateAppointment
 );
+
+// Favorite and Recent Salons
+router.patch('/favorite-salon', updateFavoriteSalon);
+router.get('/recent-salons', getRecentSalons);
 
 export default router;

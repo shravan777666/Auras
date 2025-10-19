@@ -1,7 +1,7 @@
 // Check existing data and create test appointments
 const axios = require('axios');
 
-const BASE_URL = 'http://localhost:5005/api';
+const BASE_URL = 'http://localhost:5008/api';
 
 async function checkExistingData() {
   try {

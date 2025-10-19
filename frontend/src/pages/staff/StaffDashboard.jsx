@@ -27,6 +27,7 @@ import {
 import { Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import PeerShiftSwapReview from '../../components/ScheduleRequestForms/PeerShiftSwapReview';
+import FeedbackSubmissionModal from '../../components/staff/FeedbackSubmissionModal';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -62,6 +63,7 @@ const StaffDashboard = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [pendingInvitations, setPendingInvitations] = useState(0);
   const [showPeerReview, setShowPeerReview] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
 
   // Load notifications and invitations
   const loadNotifications = async () => {
@@ -150,6 +152,10 @@ const StaffDashboard = () => {
   // Add handler for peer review
   const handlePeerReview = () => {
     setShowPeerReview(true);
+  };
+
+  const handleFeedbackSubmit = () => {
+    setShowFeedbackModal(true);
   };
 
   if (loading) {
@@ -526,6 +532,13 @@ const StaffDashboard = () => {
                 <Bell size={24} className="text-gray-600 mb-2" />
                 <span className="font-semibold text-gray-800">Send Reminder</span>
               </button>
+              <button
+                onClick={handleFeedbackSubmit}
+                className="flex-1 min-w-[200px] flex flex-col items-center p-6 bg-gray-100 rounded-lg shadow-sm hover:bg-gray-200 transition-colors"
+              >
+                <MessageSquare size={24} className="text-gray-600 mb-2" />
+                <span className="font-semibold text-gray-800">Submit Feedback</span>
+              </button>
             </div>
           </DashboardCard>
 
@@ -563,6 +576,11 @@ const StaffDashboard = () => {
           // Refresh notifications when an action is completed
           loadNotifications();
         }}
+      />
+
+      <FeedbackSubmissionModal
+        isOpen={showFeedbackModal}
+        onClose={() => setShowFeedbackModal(false)}
       />
     </div>
   );

@@ -23,6 +23,8 @@ import { customerMessageService } from '../../services/customerMessage'
 import MessageNotificationBadge from '../../components/customer/MessageNotificationBadge'
 import OneClickBookingWidget from '../../components/customer/OneClickBookingWidget'
 import CustomerLoyaltyCard from '../../components/customer/CustomerLoyaltyCard'
+import FavoriteSalonCard from '../../components/customer/FavoriteSalonCard';
+import RecentSalonsCarousel from '../../components/customer/RecentSalonsCarousel';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002'
 const IMAGE_BASE = (API_URL || '').replace(/\/+$/, '').replace(/\/api\/?$/, '')
@@ -214,6 +216,14 @@ const CustomerDashboard = () => {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome back, {dashboardData.customerInfo?.name || 'Valued Customer'}!</h1>
           <p className="text-gray-600">Manage your appointments and discover new beauty experiences</p>
+        </div>
+
+        {/* Favorite and Recent Salons */}
+        <div className="mb-8">
+          <FavoriteSalonCard />
+        </div>
+        <div className="mb-8">
+          <RecentSalonsCarousel />
         </div>
 
         {/* Stats and Loyalty Card */}

@@ -45,6 +45,7 @@ import AssignStaffModal from '../../components/salon/AssignStaffModal';
 import ClientRecommendations from '../../components/salon/ClientRecommendations';
 import NeedsAttentionAlerts from '../../components/salon/NeedsAttentionAlerts';
 import PendingScheduleRequests from '../../components/salon/PendingScheduleRequests';
+import StaffFeedbackInbox from '../../components/salon/StaffFeedbackInbox';
 
 // A reusable card for displaying statistics
 const StatCard = ({ icon, title, value, color, onClick }) => (
@@ -722,6 +723,9 @@ const SalonDashboard = () => {
             )}
           </div>
         </div>
+
+        {/* Staff Feedback Inbox */}
+        <StaffFeedbackInbox salonId={salonInfo?._id} />
 
         {/* Upcoming Appointments */}
         <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 mb-8">
