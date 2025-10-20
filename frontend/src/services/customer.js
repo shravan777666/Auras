@@ -100,6 +100,31 @@ export const customerService = {
   async getRecentSalons() {
     const response = await api.get('/customer/recent-salons');
     return response.data;
+  },
+
+  // Addon functionality
+  async detectIdleSlots(salonId, date, staffId = null) {
+    let url = `/addon/idle-slots?salonId=${salonId}&date=${date}`;
+    if (staffId) {
+      url += `&staffId=${staffId}`;
+    }
+    const response = await api.get(url);
+    return response.data;
+  },
+
+  async getCustomerHistory(customerId, salonId) {
+    const response = await api.get(`/addon/customer-history?customerId=${customerId}&salonId=${salonId}`);
+    return response.data;
+  },
+
+  async predictAddonAcceptance(predictionData) {
+    const response = await api.post('/addon/predict', predictionData);
+    return response.data;
+  },
+
+  async calculateCommission(commissionData) {
+    const response = await api.post('/addon/calculate-commission', commissionData);
+    return response.data;
   }
 };
 

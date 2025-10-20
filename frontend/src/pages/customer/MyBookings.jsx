@@ -20,7 +20,7 @@ const MyBookings = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [bookings, setBookings] = useState([]);
-  const [filter, setFilter] = useState('all'); // all, pending, confirmed, completed, cancelled
+  const [filter, setFilter] = useState('recent'); // recent, thisMonth, lastMonth, older
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
 
@@ -92,10 +92,35 @@ const MyBookings = () => {
     }
   };
 
-  const filteredBookings = bookings.filter(booking => {
-    if (filter === 'all') return true;
-    return booking.status?.toLowerCase() === filter;
-  });
+  // Function to filter bookings by time period
+  const filterBookingsByTime = (bookings, filterType) => {
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+
+    return bookings.filter(booking => {
+      if (!booking.appointmentDate) return false;
+      
+      const bookingDate = new Date(booking.appointmentDate);
+      
+      switch (filterType) {
+        case 'recent':
+          return bookingDate >= sevenDaysAgo;
+        case 'thisMonth':
+          return bookingDate >= startOfThisMonth;
+        case 'lastMonth':
+          return bookingDate >= startOfLastMonth && bookingDate <= endOfLastMonth;
+        case 'older':
+          return bookingDate < startOfLastMonth;
+        default:
+          return true;
+      }
+    });
+  };
+
+  const filteredBookings = filterBookingsByTime(bookings, filter);
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -117,7 +142,18 @@ const MyBookings = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50" style={{ animation: 'fadeIn 0.3s ease-in' }}>
+      <style>
+        {`
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+          .animate-fadeIn {
+            animation: fadeIn 0.3s ease-in;
+          }
+        `}
+      </style>
       {isRatingModalOpen && selectedBooking && (
         <RateExperience
           appointment={selectedBooking}
@@ -148,20 +184,19 @@ const MyBookings = () => {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Filter Tabs */}
+        {/* Time Filter Tabs */}
         <div className="mb-6">
           <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
             {[
-              { key: 'all', label: 'All Bookings' },
-              { key: 'pending', label: 'Pending' },
-              { key: 'confirmed', label: 'Confirmed' },
-              { key: 'completed', label: 'Completed' },
-              { key: 'cancelled', label: 'Cancelled' }
+              { key: 'recent', label: 'Recent (7 days)' },
+              { key: 'thisMonth', label: 'This Month' },
+              { key: 'lastMonth', label: 'Last Month' },
+              { key: 'older', label: 'Older' }
             ].map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setFilter(tab.key)}
-                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-all duration-300 ease-in-out ${
                   filter === tab.key
                     ? 'bg-white text-gray-900 shadow-sm'
                     : 'text-gray-600 hover:text-gray-900'
@@ -179,10 +214,13 @@ const MyBookings = () => {
             <Calendar className="h-16 w-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No bookings found</h3>
             <p className="text-gray-500 mb-6">
-              {filter === 'all' 
-                ? "You haven't made any bookings yet." 
-                : `No ${filter} bookings found.`
-              }
+              {filter === 'recent' 
+                ? "You haven't made any bookings in the last 7 days."
+                : filter === 'thisMonth'
+                ? "You haven't made any bookings this month."
+                : filter === 'lastMonth'
+                ? "You didn't have any bookings last month."
+                : "You don't have any older bookings."}
             </p>
             <Link
               to="/customer/book-appointment"
@@ -200,7 +238,7 @@ const MyBookings = () => {
               const staffName = booking.staffId?.name || 'Not Assigned';
               
               return (
-                <div key={booking._id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div key={booking._id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 animate-fadeIn">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center mb-3">

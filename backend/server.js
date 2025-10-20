@@ -57,6 +57,15 @@ import loyaltyRoutes from './routes/loyalty.js';
 // Import internal feedback routes
 import internalFeedbackRoutes from './routes/internalFeedbackRoutes.js';
 
+// Import salon settings routes
+import salonSettingsRoutes from './routes/salonSettings.js';
+
+// Import addon routes
+import addonRoutes from './routes/addon.js';
+
+// Import addon dashboard routes
+import addonDashboardRoutes from './routes/addonDashboard.js';
+
 // Create Express app
 const app = express();
 
@@ -326,6 +335,9 @@ app.use('/api/broadcast', broadcastRoutes);
 app.use('/api/staff-invitations', staffInvitationRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/alerts', alertsRoutes);
+app.use('/api/salon-settings', salonSettingsRoutes);
+app.use('/api/addon', addonRoutes);
+app.use('/api/addon-dashboard', addonDashboardRoutes);
 
 // Add internal feedback routes
 app.use('/api/internal-feedback', internalFeedbackRoutes);
@@ -348,7 +360,10 @@ app.all('*', (req, res) => {
       recommendations: '/api/recommendations',
       users: '/api/users',
       staffInvitations: '/api/staff-invitations',
-      financialSummary: '/api/admin/financial-summary'
+      financialSummary: '/api/admin/financial-summary',
+      salonSettings: '/api/salon-settings',
+      addon: '/api/addon',
+      addonDashboard: '/api/addon-dashboard'
     }
   });
 });

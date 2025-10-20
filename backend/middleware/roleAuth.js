@@ -59,6 +59,16 @@ export const requireSalonOwner = (req, res, next) => {
   });
 };
 
+export const requireAdmin = (req, res, next) => {
+  authenticateToken(req, res, (err) => {
+    if (err) return next(err);
+    if (req.user.type !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
+    next();
+  });
+};
+
 export const requireSalonSetup = async (req, res, next) => {
   try {
     console.log('requireSalonSetup - checking user:', req.user.id);

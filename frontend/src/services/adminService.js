@@ -17,6 +17,17 @@ export const adminService = {
     return response.data?.data || {};
   },
 
+  // Add-on Dashboard
+  async getAddonDashboardStats() {
+    const response = await api.get('/addon-dashboard/admin');
+    return response.data?.data || {};
+  },
+
+  async getAddonStaffPerformance() {
+    const response = await api.get('/addon-dashboard/staff-performance');
+    return response.data?.data || [];
+  },
+
   // Financial Summary
   async getFinancialSummary(params = {}) {
     const response = await api.get('/admin/financial-summary/summary', { params });

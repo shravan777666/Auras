@@ -230,7 +230,7 @@ export const getSalonDetails = asyncHandler(async (req, res) => {
     .populate({
       path: 'staff',
       match: { isActive: true },
-      select: 'name skills experience rating profilePicture availability'
+      select: 'name skills experience rating profilePicture availability position'
     });
 
   if (!salon) {

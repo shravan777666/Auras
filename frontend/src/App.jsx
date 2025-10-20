@@ -19,6 +19,7 @@ const PendingApprovals = React.lazy(() => import('./pages/admin/PendingApprovals
 const ApprovedSalons = React.lazy(() => import('./pages/admin/ApprovedSalons'))
 const FinancialSummary = React.lazy(() => import('./pages/admin/FinancialSummary'))
 const SalonDetailsPage = React.lazy(() => import('./pages/admin/SalonDetailsPage'))
+const AddonDashboard = React.lazy(() => import('./pages/admin/AddonDashboard'))
 
 // Salon Pages
 const SalonDashboard = React.lazy(() => import('./pages/salon/SalonDashboard'))
@@ -56,6 +57,7 @@ const SalonDetails = React.lazy(() => import('./pages/customer/SalonDetails'))
 const MyBookings = React.lazy(() => import('./pages/customer/MyBookings'))
 const EditCustomerProfile = React.lazy(() => import('./pages/customer/EditCustomerProfile'))
 const CustomerMessages = React.lazy(() => import('./pages/customer/CustomerMessages'))
+const ExploreSalons = React.lazy(() => import('./pages/customer/ExploreSalons'))
 
 // Common Pages
 const About = React.lazy(() => import('./pages/common/About'))
@@ -180,6 +182,7 @@ function App() {
               <ProtectedRoute allowedRoles={['admin']}>
                 <Routes>
                   <Route path="dashboard" element={<AdminDashboard />} />
+                  <Route path="addon-dashboard" element={<AddonDashboard />} />
                   <Route path="salons" element={<ManageSalons />} />
                   <Route path="pending-approvals" element={<PendingApprovals />} />
                   <Route path="staff" element={<AdminManageStaff />} />
@@ -377,7 +380,7 @@ function App() {
             }
           />
           <Route
-            path="/staff/profile/edit"
+            path="/staff/edit-profile"
             element={
               <ProtectedRoute allowedRoles={['staff']}>
                 <SetupRequiredRoute setupPath="/staff/setup">
@@ -430,7 +433,9 @@ function App() {
             path="/staff/invitations"
             element={
               <ProtectedRoute allowedRoles={['staff']}>
-                <StaffInvitations />
+                <SetupRequiredRoute setupPath="/staff/setup">
+                  <StaffInvitations />
+                </SetupRequiredRoute>
               </ProtectedRoute>
             }
           />
@@ -441,6 +446,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['customer']}>
                 <CustomerDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/customer/book"
+            element={
+              <ProtectedRoute allowedRoles={['customer']}>
+                <BookAppointment />
               </ProtectedRoute>
             }
           />
@@ -469,7 +482,7 @@ function App() {
             }
           />
           <Route
-            path="/customer/my-bookings"
+            path="/customer/bookings"
             element={
               <ProtectedRoute allowedRoles={['customer']}>
                 <MyBookings />
@@ -492,14 +505,22 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/customer/explore-salons"
+            element={
+              <ProtectedRoute allowedRoles={['customer']}>
+                <ExploreSalons />
+              </ProtectedRoute>
+            }
+          />
 
-          {/* 404 Route */}
+          {/* Catch-all Route */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
       </ErrorBoundary>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

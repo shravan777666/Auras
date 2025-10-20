@@ -11,10 +11,14 @@ import {
   LogOut,
   Home,
   ChevronRight,
-  TrendingUp
+  TrendingUp,
+  Package,
+  BarChart3
 } from 'lucide-react';
 import { adminService } from '../../services/adminService';
 import toast from 'react-hot-toast';
+import AddonDashboardStats from '../../components/admin/AddonDashboardStats';
+import AddonStaffPerformance from '../../components/admin/AddonStaffPerformance';
 
 // Utility function to determine file type
 const getFileType = (url) => {
@@ -474,7 +478,15 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        
+        {/* Add-on Dashboard Stats */}
+        <div className="mb-12">
+          <AddonDashboardStats />
+        </div>
+
+        {/* Add-on Staff Performance */}
+        <div className="mb-12">
+          <AddonStaffPerformance />
+        </div>
 
         {/* Pending Staff Approvals Card */}
         <div className="mb-12">
@@ -507,6 +519,14 @@ const AdminDashboard = () => {
             />
             <ActionButton title="Manage Salons" icon={Store} onClick={() => navigate('/admin/salons')} />
             <ActionButton title="Manage Staff" icon={Users} onClick={() => navigate('/admin/staff')} />
+            <ActionButton 
+              title="Add-on Dashboard" 
+              icon={BarChart3} 
+              onClick={() => {
+                // This could navigate to a dedicated add-on dashboard page if we create one
+                // For now, the add-on stats are shown directly on this page
+              }} 
+            />
           </div>
         </div>
       </main>

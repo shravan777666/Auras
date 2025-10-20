@@ -3,6 +3,7 @@ import numpy as np
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from sklearn.linear_model import LinearRegression
+from sklearn.tree import DecisionTreeClassifier
 import joblib
 import os
 from datetime import datetime, timedelta
@@ -11,14 +12,20 @@ import calendar
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
-# Load the trained model and feature list
+# Load the trained models and feature lists
 try:
-    model = joblib.load('revenue_regression_model.pkl')
-    feature_columns = joblib.load('model_features.pkl')
-    model_loaded = True
+    # Revenue prediction model
+    revenue_model = joblib.load('revenue_regression_model.pkl')
+    revenue_feature_columns = joblib.load('model_features.pkl')
+    
+    # Add-on prediction model
+    addon_model = joblib.load('addon_decision_tree_model.pkl')
+    addon_feature_columns = joblib.load('addon_model_features.pkl')
+    
+    models_loaded = True
 except FileNotFoundError:
-    print("Model files not found. Please train the model first.")
-    model_loaded = False
+    print("Model files not found. Please train the models first.")
+    models_loaded = False
 
 def prepare_features(df):
     """
@@ -47,7 +54,7 @@ def predict_next_week_revenue():
     """
     Predict next week's revenue based on the trained model
     """
-    if not model_loaded:
+    if not models_loaded:
         return None, None
     
     # Get next week number
@@ -84,15 +91,15 @@ def predict_next_week_revenue():
     X_pred = pd.DataFrame(prediction_data)
     
     # Ensure all feature columns are present
-    for col in feature_columns:
+    for col in revenue_feature_columns:
         if col not in X_pred.columns:
             X_pred[col] = 0
     
     # Reorder columns to match training data
-    X_pred = X_pred[feature_columns]
+    X_pred = X_pred[revenue_feature_columns]
     
     # Make predictions for each day
-    daily_predictions = model.predict(X_pred)
+    daily_predictions = revenue_model.predict(X_pred)
     
     # Sum up for the week
     total_prediction = np.sum(daily_predictions)
@@ -109,7 +116,7 @@ def health_check():
     """
     return jsonify({
         'status': 'healthy',
-        'model_loaded': model_loaded,
+        'models_loaded': models_loaded,
         'timestamp': datetime.now().isoformat()
     })
 
@@ -149,6 +156,74 @@ def predict_revenue():
             'message': f'Error generating prediction: {str(e)}'
         }), 500
 
+@app.route('/predict-addon', methods=['POST'])
+def predict_addon():
+    """
+    Predict if a customer will accept an add-on offer
+    """
+    try:
+        if not models_loaded:
+            return jsonify({
+                'success': False,
+                'message': 'Add-on model not available. Please train the model first.'
+            }), 500
+        
+        # Get data from request
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                'success': False,
+                'message': 'No data provided'
+            }), 400
+        
+        # Extract required fields
+        required_fields = ['time_gap_size', 'discount_offered', 'customer_loyalty', 'past_add_on_history', 'day_of_week']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({
+                    'success': False,
+                    'message': f'Missing required field: {field}'
+                }), 400
+        
+        # Create DataFrame for prediction
+        prediction_data = {
+            'time_gap_size': [data['time_gap_size']],
+            'discount_offered': [data['discount_offered']],
+            'customer_loyalty': [data['customer_loyalty']],
+            'past_add_on_history': [data['past_add_on_history']],
+            'day_of_week': [data['day_of_week']]
+        }
+        
+        X_pred = pd.DataFrame(prediction_data)
+        
+        # Ensure all feature columns are present
+        for col in addon_feature_columns:
+            if col not in X_pred.columns:
+                X_pred[col] = 0
+        
+        # Reorder columns to match training data
+        X_pred = X_pred[addon_feature_columns]
+        
+        # Make prediction
+        prediction = addon_model.predict(X_pred)[0]
+        probability = addon_model.predict_proba(X_pred)[0].max()
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'prediction': int(prediction),
+                'probability': round(probability, 2),
+                'message': 'Add-on acceptance predicted successfully'
+            }
+        })
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error generating add-on prediction: {str(e)}'
+        }), 500
+
 @app.route('/train', methods=['POST'])
 def train_model_endpoint():
     """
@@ -171,16 +246,16 @@ def train_model_endpoint():
         df = prepare_features(df)
         
         # Define features and target
-        X = df[feature_columns]
+        X = df[revenue_feature_columns]
         y = df['revenue']
         
         # Retrain the model
-        global model
-        model = LinearRegression()
-        model.fit(X, y)
+        global revenue_model
+        revenue_model = LinearRegression()
+        revenue_model.fit(X, y)
         
         # Save the updated model
-        joblib.dump(model, 'revenue_regression_model.pkl')
+        joblib.dump(revenue_model, 'revenue_regression_model.pkl')
         
         return jsonify({
             'success': True,
@@ -191,6 +266,55 @@ def train_model_endpoint():
         return jsonify({
             'success': False,
             'message': f'Error training model: {str(e)}'
+        }), 500
+
+@app.route('/train-addon', methods=['POST'])
+def train_addon_model_endpoint():
+    """
+    Train the add-on prediction model with new data
+    """
+    try:
+        # Get data from request
+        data = request.get_json()
+        
+        if not data or 'records' not in data:
+            return jsonify({
+                'success': False,
+                'message': 'No training data provided'
+            }), 400
+        
+        # Create DataFrame from training data
+        df = pd.DataFrame(data['records'])
+        
+        # Define features and target
+        feature_columns = ['time_gap_size', 'discount_offered', 'customer_loyalty', 'past_add_on_history', 'day_of_week']
+        X = df[feature_columns]
+        y = df['conversion_outcome']
+        
+        # Train the Decision Tree model
+        global addon_model
+        addon_model = DecisionTreeClassifier(random_state=42, max_depth=5)
+        addon_model.fit(X, y)
+        
+        # Save the updated model and feature list
+        joblib.dump(addon_model, 'addon_decision_tree_model.pkl')
+        joblib.dump(feature_columns, 'addon_model_features.pkl')
+        
+        # Calculate accuracy
+        accuracy = addon_model.score(X, y)
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'accuracy': round(accuracy, 2)
+            },
+            'message': 'Add-on model trained successfully'
+        })
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error training add-on model: {str(e)}'
         }), 500
 
 if __name__ == '__main__':
