@@ -20,6 +20,7 @@ import {
 } from '@mui/material';
 import { adminService } from '../../services/admin';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import BackButton from '../../components/common/BackButton';
 
 const ManageSalons = () => {
   const [salons, setSalons] = useState([]);
@@ -256,9 +257,12 @@ const ManageSalons = () => {
 
   return (
     <Box p={3}>
-      <Typography variant="h4" gutterBottom>
-        Manage Salons
-      </Typography>
+      <Box display="flex" alignItems="center" mb={2}>
+        <BackButton fallbackPath="/admin/dashboard" />
+        <Typography variant="h4" gutterBottom ml={2}>
+          Manage Salons
+        </Typography>
+      </Box>
 
       <Box mb={3}>
         <TextField

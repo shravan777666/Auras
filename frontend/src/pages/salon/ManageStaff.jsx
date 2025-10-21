@@ -1,10 +1,11 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { salonService } from '../../services/salon';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import BackButton from '../../components/common/BackButton';
 import { toast } from 'react-hot-toast';
-import { User, Mail, Phone, Briefcase, CalendarDays, MapPin, BadgeCheck, Globe, ArrowRight, RefreshCw, UserPlus } from 'lucide-react';
+import { User, Mail, Phone, Briefcase, CalendarDays, MapPin, BadgeCheck, Globe, ArrowRight, RefreshCw, UserPlus, DollarSign } from 'lucide-react';
+import SalaryConfigurationModal from '../../components/salon/SalaryConfigurationModal';
 
 const ManageStaff = () => {
   const navigate = useNavigate();
@@ -13,6 +14,8 @@ const ManageStaff = () => {
   const [error, setError] = useState(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [previousStaffCount, setPreviousStaffCount] = useState(0);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedStaff, setSelectedStaff] = useState(null);
 
   useEffect(() => {
     const fetchStaff = async () => {
@@ -39,6 +42,29 @@ const ManageStaff = () => {
     fetchStaff();
   }, [refreshTrigger, previousStaffCount]);
 
+  const handleManageSalary = (staff) => {
+    setSelectedStaff(staff);
+    setIsModalOpen(true);
+  };
+
+  const handleSaveSalary = async (staffId, salaryData) => {
+    try {
+      const response = await salonService.updateStaffSalary(staffId, salaryData);
+      if (response.success) {
+        toast.success('Salary information updated successfully');
+        // Update the staff list with the new salary information
+        setStaffList(prev => prev.map(staff => 
+          staff._id === staffId ? { ...staff, ...salaryData } : staff
+        ));
+        setIsModalOpen(false);
+      } else {
+        toast.error(response.message || 'Failed to update salary information');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'An error occurred while updating salary');
+    }
+  };
+
   if (loading) {
     return <LoadingSpinner />;
   }
@@ -52,6 +78,7 @@ const ManageStaff = () => {
       {/* Header with Global Staff Directory link */}
       <div className="flex items-center justify-between mb-6">
         <div>
+          <BackButton fallbackPath="/salon/dashboard" className="mb-2" />
           <h1 className="text-2xl font-bold text-gray-900">Manage Staff</h1>
           <p className="text-gray-600 mt-1">Manage your salon's current staff members</p>
         </div>
@@ -101,7 +128,16 @@ const ManageStaff = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {staffList.map((staff) => (
-            <div key={staff._id} className="bg-white rounded-lg shadow-md p-6">
+            <div key={staff._id} className="bg-white rounded-lg shadow-md p-6 relative">
+              {/* Manage Salary Button */}
+              <button
+                onClick={() => handleManageSalary(staff)}
+                className="absolute top-4 right-4 p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors"
+                title="Manage Salary"
+              >
+                <DollarSign className="h-4 w-4" />
+              </button>
+              
               <div className="flex items-center mb-4">
                 {staff.profilePicture ? (
                   <img src={staff.profilePicture} alt={staff.name} className="h-12 w-12 rounded-full object-cover mr-3 border" onError={(e)=>{e.currentTarget.style.display='none'}} />
@@ -158,10 +194,32 @@ const ManageStaff = () => {
                   )}
                 </div>
               )}
+              
+              {/* Salary Information */}
+              {(staff.baseSalary || staff.salaryType) && (
+                <div className="mt-4 border-t pt-3">
+                  <p className="font-medium text-gray-800 text-sm mb-1">Salary Information</p>
+                  <div className="text-sm text-gray-700">
+                    <p>Base: ₹{staff.baseSalary?.toLocaleString() || 'N/A'}</p>
+                    <p>Type: {staff.salaryType || 'N/A'}</p>
+                    {staff.salaryType === 'Commission' && staff.commissionRate && (
+                      <p>Commission: {staff.commissionRate}%</p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
       )}
+      
+      {/* Salary Configuration Modal */}
+      <SalaryConfigurationModal
+        staff={selectedStaff}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSave={handleSaveSalary}
+      />
     </div>
   );
 };

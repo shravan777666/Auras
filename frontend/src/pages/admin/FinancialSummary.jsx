@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import BackButton from '../../components/common/BackButton';
 import { 
-  ArrowLeft, 
   Calendar, 
   Download, 
   Filter,
@@ -328,13 +328,7 @@ const FinancialSummary = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center">
-              <button
-                onClick={() => navigate('/admin/dashboard')}
-                className="flex items-center text-gray-600 hover:text-gray-900 mr-4"
-              >
-                <ArrowLeft className="h-5 w-5 mr-2" />
-                Back to Dashboard
-              </button>
+              <BackButton fallbackPath="/admin/dashboard" className="mr-4" />
               <h1 className="text-2xl font-bold text-gray-900">Financial Summary</h1>
             </div>
             

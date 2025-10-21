@@ -1429,6 +1429,88 @@ export const getSalonColleagues = asyncHandler(async (req, res) => {
   return successResponse(res, formattedColleagues, 'Salon colleagues retrieved successfully');
 });
 
+// Update staff salary information (for salon owners only)
+export const updateStaffSalary = asyncHandler(async (req, res) => {
+  const { staffId } = req.params;
+  const { baseSalary, salaryType, commissionRate } = req.body;
+  const salonOwnerId = req.user.id;
+
+  // Validate required fields
+  if (baseSalary === undefined || !salaryType) {
+    return errorResponse(res, 'Base salary and salary type are required', 400);
+  }
+
+  // Validate salary type
+  const validSalaryTypes = ['Monthly', 'Hourly', 'Commission'];
+  if (!validSalaryTypes.includes(salaryType)) {
+    return errorResponse(res, 'Invalid salary type. Must be Monthly, Hourly, or Commission', 400);
+  }
+
+  // Validate commission rate for Commission type
+  if (salaryType === 'Commission' && (commissionRate === undefined || commissionRate < 0 || commissionRate > 100)) {
+    return errorResponse(res, 'Commission rate must be between 0 and 100 for Commission salary type', 400);
+  }
+
+  // Find the staff member
+  const staff = await Staff.findById(staffId);
+  if (!staff) {
+    return notFoundResponse(res, 'Staff member');
+  }
+
+  // Find the salon owner's salon
+  const User = (await import('../models/User.js')).default;
+  const salonOwner = await User.findById(salonOwnerId);
+  if (!salonOwner || salonOwner.type !== 'salon') {
+    return errorResponse(res, 'Access denied. Only salon owners can manage staff salaries.', 403);
+  }
+
+  const Salon = (await import('../models/Salon.js')).default;
+  const salon = await Salon.findOne({ ownerId: salonOwnerId });
+  if (!salon) {
+    return notFoundResponse(res, 'Salon');
+  }
+
+  // Verify that the staff member belongs to this salon
+  if (staff.assignedSalon?.toString() !== salon._id.toString()) {
+    return errorResponse(res, 'Access denied. This staff member does not belong to your salon.', 403);
+  }
+
+  // Update salary information
+  staff.baseSalary = baseSalary;
+  staff.salaryType = salaryType;
+  staff.commissionRate = salaryType === 'Commission' ? commissionRate : undefined;
+
+  await staff.save();
+
+  // Create expense record for salary payment
+  try {
+    const Expense = (await import('../models/Expense.js')).default;
+    
+    // Create expense record
+    await Expense.create({
+      salonId: salon._id,
+      category: 'Salaries',
+      amount: baseSalary,
+      description: `Salary payment to ${staff.name}`,
+      date: new Date(),
+      type: 'Salary',
+      staffMemberId: staff._id,
+      staffName: staff.name
+    });
+  } catch (error) {
+    console.error('Error creating salary expense record:', error);
+    // Don't fail the whole operation if expense creation fails
+  }
+
+  const responseData = {
+    ...staff.toObject(),
+    documents: convertDocumentsToUrls(staff.documents, req),
+    profilePicture: staff.profilePicture ? getFileUrl(staff.profilePicture, req) : null,
+  };
+
+  return successResponse(res, responseData, 'Staff salary information updated successfully');
+});
+
 export default {
   register,
   createStaff,
@@ -1445,5 +1527,6 @@ export default {
   getStaffById,
   updateStaffById,
   getStaffReport,
-  getNextAppointment
+  getNextAppointment,
+  updateStaffSalary
 };

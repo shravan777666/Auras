@@ -46,6 +46,7 @@ import ClientRecommendations from '../../components/salon/ClientRecommendations'
 import NeedsAttentionAlerts from '../../components/salon/NeedsAttentionAlerts';
 import PendingScheduleRequests from '../../components/salon/PendingScheduleRequests';
 import StaffFeedbackInbox from '../../components/salon/StaffFeedbackInbox';
+import BackButton from '../../components/common/BackButton';
 
 // A reusable card for displaying statistics
 const StatCard = ({ icon, title, value, color, onClick }) => (
@@ -469,9 +470,12 @@ const SalonDashboard = () => {
         <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-black/30"></div>
         <div className="relative z-10 w-full max-w-7xl mx-auto px-6 sm:px-8 lg:px-10">
             <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                <div>
+                <div className="flex items-center">
+                  <BackButton fallbackPath="/salon/dashboard" className="mr-4 text-white" />
+                  <div>
                     <h1 className="text-4xl font-bold text-white mb-2">Welcome, {salonInfo.salonName}!</h1>
                     <p className="text-gray-200 text-lg">Here is your salon's performance at a glance.</p>
+                  </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   <button

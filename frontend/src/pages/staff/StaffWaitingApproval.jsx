@@ -1,10 +1,12 @@
 import React from 'react';
+import BackButton from '../../components/common/BackButton';
 import { Clock, Mail, Phone, Info, CheckCircle, User } from 'lucide-react';
 
 const StaffWaitingApproval = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-lg border border-gray-200">
+        <BackButton fallbackPath="/staff/dashboard" className="mb-4" />
         <div className="text-center">
           <Clock className="mx-auto h-16 w-16 text-yellow-500" />
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900">

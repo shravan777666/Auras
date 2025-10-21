@@ -20,6 +20,7 @@ import {
 } from '@mui/material';
 import { adminService } from '../../services/admin';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import BackButton from '../../components/common/BackButton';
 import { 
   Building2 as BusinessIcon, 
   User as PersonIcon, 
@@ -117,22 +118,25 @@ const PendingApprovals = () => {
   return (
     <Box className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
       <Box className="max-w-7xl mx-auto">
-        <Box className="mb-8 text-center">
-          <Typography 
-            variant="h3" 
-            className="font-bold text-gray-800 mb-2"
-            sx={{ 
-              background: 'linear-gradient(45deg, #3B82F6, #8B5CF6)',
-              backgroundClip: 'text',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent'
-            }}
-          >
-            Pending Salon Approvals
-          </Typography>
-          <Typography variant="h6" className="text-gray-600">
-            Review and approve salon applications
-          </Typography>
+        <Box className="mb-8">
+          <BackButton fallbackPath="/admin/dashboard" className="mb-4" />
+          <Box className="text-center">
+            <Typography 
+              variant="h3" 
+              className="font-bold text-gray-800 mb-2"
+              sx={{ 
+                background: 'linear-gradient(45deg, #3B82F6, #8B5CF6)',
+                backgroundClip: 'text',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent'
+              }}
+            >
+              Pending Salon Approvals
+            </Typography>
+            <Typography variant="h6" className="text-gray-600">
+              Review and approve salon applications
+            </Typography>
+          </Box>
         </Box>
 
         {pendingSalons.length === 0 ? (

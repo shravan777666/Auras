@@ -1,26 +1,20 @@
-import Admin from '../models/Admin.js';
+﻿﻿﻿﻿import Admin from '../models/Admin.js';
 import Salon from '../models/Salon.js';
-import Staff from '../models/Staff.js';
 import User from '../models/User.js';
-import Customer from '../models/Customer.js';
+import Staff from '../models/Staff.js';
 import Appointment from '../models/Appointment.js';
-import Service from '../models/Service.js';
-import Expense from '../models/Expense.js';
-import Revenue from '../models/Revenue.js';
-import { 
-  successResponse, 
-  errorResponse, 
-  paginatedResponse,
-  asyncHandler 
-} from '../utils/responses.js';
+import Customer from '../models/Customer.js';
+import { successResponse, errorResponse, notFoundResponse, paginatedResponse } from '../utils/responses.js';
+import asyncHandler from 'express-async-handler';
+import { sendSalonApprovalEmail, sendSalonRejectionEmail, sendStaffApprovalNotificationEmail, sendStaffApprovalEmail } from '../config/email.js';
 
 // Helper to get the server base URL from the current request
 const getRequestBaseUrl = (req) => {
   try {
     // Prefer explicit BASE_URL when provided
     if (process.env.BASE_URL) return process.env.BASE_URL.replace(/\/$/, '');
-    const protocol = req?.protocol || 'http';
-    const host = req?.get ? req.get('host') : undefined;
+    const protocol = (req && req.protocol) ? req.protocol : 'http';
+    const host = (req && req.get) ? req.get('host') : undefined;
     if (host) return `${protocol}://${host}`;
   } catch (e) {
     // fallthrough
@@ -28,7 +22,6 @@ const getRequestBaseUrl = (req) => {
   // Final fallback to localhost using the actual running port if provided
   return `http://localhost:${process.env.PORT || 5000}`;
 };
-
 // Helper function to convert file path to full URL
 const getFileUrl = (filePath, req) => {
   if (!filePath) return null;
@@ -151,7 +144,7 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
 
 // Get total approved salons count (separate endpoint for real-time updates)
 export const getApprovedSalonsCount = asyncHandler(async (req, res) => {
-  const count = await Salon.countDocuments({ 
+  const count = await Salon.countDocuments({
     type: 'salon',
     approvalStatus: 'approved'
   });
@@ -161,7 +154,7 @@ export const getApprovedSalonsCount = asyncHandler(async (req, res) => {
 
 // Get total registered salons count (all salons regardless of approval status)
 export const getTotalSalonsCount = asyncHandler(async (req, res) => {
-  const count = await Salon.countDocuments({ 
+  const count = await Salon.countDocuments({
     isActive: true 
   });
 
@@ -174,7 +167,7 @@ export const getAllSalons = asyncHandler(async (req, res) => {
   const limit = parseInt(req.query.limit) || 10;
   const skip = (page - 1) * limit;
 
-  const filter = { 
+  const filter = {
     isActive: true,
     approvalStatus: 'approved' // Only show approved salons in manage salons
   };
@@ -236,7 +229,7 @@ export const getAllSalons = asyncHandler(async (req, res) => {
 // Get all salons with their details for admin dashboard
 export const getAllSalonsDetails = asyncHandler(async (req, res) => {
   try {
-    const filter = { 
+    const filter = {
       isActive: true, 
       approvalStatus: 'approved' 
     };
@@ -515,7 +508,8 @@ export const approveStaff = asyncHandler(async (req, res) => {
     name: staff.name,
     email: staff.email,
     approvalStatus: staff.approvalStatus,
-    isVerified: staff.isVerified
+    isVerified: staff.isVerified,
+    assignedSalon: staff.assignedSalon
   });
 
   staff.approvalStatus = 'approved';
@@ -529,14 +523,113 @@ export const approveStaff = asyncHandler(async (req, res) => {
     name: staff.name,
     email: staff.email,
     approvalStatus: staff.approvalStatus,
-    isVerified: staff.isVerified
+    isVerified: staff.isVerified,
+    assignedSalon: staff.assignedSalon
   });
 
-  // You might want to send an email notification here
-  // await sendStaffApprovalEmail(staff.email);
+  // Send approval notification email to salon owner and staff
+  try {
+    console.log('📧 Initiating email notifications for staff approval...');
+    
+    // Always send email to staff member regardless of salon assignment
+    if (staff.email) {
+      try {
+        console.log('📧 Sending approval email to staff member...');
+        const staffName = staff.name || 'Staff Member';
+        const salonName = staff.assignedSalon ? 'your assigned salon' : 'a salon on AuraCare';
+        const position = staff.position || 'Staff';
+        
+        const staffEmailResult = await sendStaffApprovalEmail(
+          staff.email,
+          staffName,
+          salonName,
+          position
+        );
+        if (staffEmailResult.success) {
+          console.log('✅ Staff approval email sent successfully to staff:', staff.email);
+        } else {
+          console.error('❌ Failed to send staff approval email:', staffEmailResult.error);
+          console.error('Staff email error details:', {
+            email: staff.email,
+            staffName,
+            salonName,
+            position
+          });
+        }
+      } catch (emailError) {
+        console.error('❌ Exception while sending staff approval email:', emailError);
+        console.error('Staff email exception details:', {
+          email: staff.email,
+          error: emailError.message
+        });
+      }
+    } else {
+      console.log('⚠️ Staff email not available, cannot send approval email to staff.');
+    }
+
+    // Send notification email to salon owner if salon is assigned
+    if (staff.assignedSalon) {
+      const salon = await Salon.findById(staff.assignedSalon);
+      if (salon) {
+        const salonName = salon.salonName || 'Your Salon';
+        const staffName = staff.name || 'Staff Member';
+        const position = staff.position || 'Staff';
+
+        console.log('📧 Preparing emails for:', {
+          staffEmail: staff.email,
+          salonName,
+          staffName,
+          position
+        });
+
+        // Get salon owner's email from the User model to send notification to salon owner
+        const salonOwner = await User.findById(salon.ownerId);
+        if (salonOwner && salonOwner.email) {
+          try {
+            console.log('📧 Sending notification email to salon owner...');
+            const ownerEmailResult = await sendStaffApprovalNotificationEmail(
+              salonOwner.email,
+              salonName,
+              staffName,
+              position
+            );
+            if (ownerEmailResult.success) {
+              console.log('✅ Staff approval notification email sent successfully to salon owner:', salonOwner.email);
+            } else {
+              console.error('❌ Failed to send staff approval notification email to salon owner:', ownerEmailResult.error);
+              console.error('Owner email error details:', {
+                email: salonOwner.email,
+                salonName,
+                staffName,
+                position
+              });
+            }
+          } catch (emailError) {
+            console.error('❌ Exception while sending staff approval notification email to salon owner:', emailError);
+            console.error('Owner email exception details:', {
+              email: salonOwner.email,
+              salonName,
+              staffName,
+              position,
+              error: emailError.message
+            });
+          }
+        } else {
+          console.log('⚠️ Salon owner not found or email not available for salon:', salon._id);
+        }
+      } else {
+        console.log('⚠️ Assigned salon not found:', staff.assignedSalon);
+      }
+    } else {
+      console.log('ℹ️ No assigned salon for staff member - skipping salon owner notification');
+    }
+  } catch (emailError) {
+    console.error('❌ Error sending staff approval emails:', emailError);
+  }
 
   return successResponse(res, staff, 'Staff member approved successfully');
 });
+
 
 // Reject staff member
 export const rejectStaff = asyncHandler(async (req, res) => {
@@ -765,8 +858,18 @@ export const approveSalon = asyncHandler(async (req, res) => {
     isVerified: salon.isVerified
   });
 
-  // You might want to send an email notification here
-  // await sendApprovalEmail(salon.email);
+  // Send approval notification email
+  try {
+    const ownerName = salon.ownerName || 'Salon Owner';
+    const result = await sendSalonApprovalEmail(salon.email, salon.salonName, ownerName);
+    if (result.success) {
+      console.log('âœ… Salon approval email sent successfully to:', salon.email);
+    } else {
+      console.error('âŒ Failed to send salon approval email:', result.error);
+    }
+  } catch (emailError) {
+    console.error('âŒ Error sending salon approval email:', emailError);
+  }
 
   return successResponse(res, salon, 'Salon approved successfully');
 });
@@ -789,8 +892,18 @@ export const rejectSalon = asyncHandler(async (req, res) => {
   salon.rejectionReason = reason;
   await salon.save();
 
-  // You might want to send an email notification here
-  // await sendRejectionEmail(salon.email, reason);
+  // Send rejection notification email
+  try {
+    const ownerName = salon.ownerName || 'Salon Owner';
+    const result = await sendSalonRejectionEmail(salon.email, salon.salonName, ownerName, reason);
+    if (result.success) {
+      console.log('âœ… Salon rejection email sent successfully to:', salon.email);
+    } else {
+      console.error('âŒ Failed to send salon rejection email:', result.error);
+    }
+  } catch (emailError) {
+    console.error('âŒ Error sending salon rejection email:', emailError);
+  }
 
   return successResponse(res, salon, 'Salon rejected successfully');
 });
@@ -967,11 +1080,11 @@ export const getSalonRevenueTrend = asyncHandler(async (req, res) => {
         dateFormat = '%Y-%m-%d';
         break;
       case 'weekly':
-        groupBy = { 
-          $dateToString: { 
+        groupBy = {
+          $dateToString: {
             format: '%Y-%U', 
             date: '$date' 
-          } 
+          }
         };
         dateFormat = '%Y-%U';
         break;

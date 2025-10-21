@@ -1,0 +1,1186 @@
+import Admin from '../models/Admin.js';
+import Salon from '../models/Salon.js';
+import User from '../models/User.js';
+import Staff from '../models/Staff.js';
+import Appointment from '../models/Appointment.js';
+import Customer from '../models/Customer.js';
+import { successResponse, errorResponse, notFoundResponse, paginatedResponse } from '../utils/responses.js';
+import asyncHandler from 'express-async-handler';
+import { sendSalonApprovalEmail, sendSalonRejectionEmail, sendStaffApprovalNotificationEmail, sendStaffApprovalEmail } from '../config/email.js';
+
+// Helper to get the server base URL from the current request
+const getRequestBaseUrl = (req) => {
+  try {
+    // Prefer explicit BASE_URL when provided
+    if (process.env.BASE_URL) return process.env.BASE_URL.replace(///$/, '');
+    const protocol = req?.protocol || 'http';
+    const host = req?.get ? req.get('host') : undefined;
+    if (host) return `${protocol}://${host}`;
+  } catch (e) {
+    // fallthrough
+  }
+  // Final fallback to localhost using the actual running port if provided
+  return `http://localhost:${process.env.PORT || 5000}`;
+};
+
+// Helper function to convert file path to full URL
+const getFileUrl = (filePath, req) => {
+  if (!filePath) return null;
+
+  // Normalize path separators
+  const normalizedPath = String(filePath).replace(/\\/g, '/');
+
+  // Compute base URL from request or env
+  const baseUrl = getRequestBaseUrl(req);
+
+  // Ensure leading slash for path part
+  const pathWithSlash = normalizedPath.startsWith('/') ? normalizedPath : `/${normalizedPath}`;
+
+  // Construct the full URL
+  const fullUrl = `${baseUrl}${pathWithSlash}`;
+
+  console.log('Generated file URL:', {
+    originalPath: filePath,
+    normalizedPath,
+    baseUrl,
+    fullUrl
+  });
+
+  return fullUrl;
+};
+
+// Helper function to convert documents object with file paths to URLs
+const convertDocumentsToUrls = (documents, req) => {
+  if (!documents) return {};
+  
+  const converted = {};
+  
+  // For salon documents
+  if (documents.businessLicense) {
+    converted.businessLicense = getFileUrl(documents.businessLicense, req);
+  }
+  
+  if (documents.salonLogo) {
+    converted.salonLogo = getFileUrl(documents.salonLogo, req);
+  }
+  
+  if (documents.salonImages && Array.isArray(documents.salonImages)) {
+    converted.salonImages = documents.salonImages.map(imagePath => getFileUrl(imagePath, req));
+  }
+  
+  // For staff documents
+  if (documents.governmentId) {
+    converted.governmentId = getFileUrl(documents.governmentId, req);
+  }
+  
+  if (documents.certificates && Array.isArray(documents.certificates)) {
+    converted.certificates = documents.certificates.map(certPath => getFileUrl(certPath, req));
+  }
+  
+  return converted;
+};
+
+// Get admin dashboard statistics
+export const getDashboardStats = asyncHandler(async (req, res) => {
+  console.log('=== FETCHING DASHBOARD STATS ===');
+  
+  try {
+    // Count approved salons of type 'salon'
+    const approvedSalonFilter = {
+      type: 'salon',
+      approvalStatus: 'approved'
+    };
+    
+    // Use simpler queries with timeouts and error handling
+    const statsPromises = [
+      Salon.countDocuments(approvedSalonFilter).maxTimeMS(5000), // Count approved salons
+      Staff.countDocuments({ isActive: true }).maxTimeMS(5000)
+    ];
+
+    const [
+      totalSalons,
+      totalStaff
+    ] = await Promise.all(statsPromises);
+
+    // Simplified revenue calculation with fallback
+    let totalRevenue = 0;
+    try {
+      const revenueResult = await Appointment.aggregate([
+        { $match: { status: 'Completed' } },
+        { $group: { _id: null, total: { $sum: '$finalAmount' } } }
+      ]).maxTimeMS(3000);
+      totalRevenue = revenueResult.length > 0 ? revenueResult[0].total : 0;
+    } catch (revenueError) {
+      console.warn('Revenue calculation timeout, using fallback:', revenueError.message);
+      totalRevenue = 0;
+    }
+
+    console.log('Dashboard stats calculated successfully');
+    console.log('=== SALON COUNT DEBUG ===');
+    console.log('Total approved salons found:', totalSalons);
+    console.log('Query used:', approvedSalonFilter);
+    console.log('This counts salons with type="salon" and approvalStatus="approved"');
+
+    const responseData = {
+      totalSalons: totalSalons || 0,
+      totalStaff: totalStaff || 0,
+      totalRevenue: totalRevenue || 0
+    };
+    
+    console.log('=== SENDING RESPONSE ===');
+    console.log('Response data:', JSON.stringify(responseData, null, 2));
+
+    return successResponse(res, responseData, 'Dashboard statistics retrieved successfully');
+  } catch (error) {
+    console.error('Error in getDashboardStats:', error);
+    
+    // Return fallback data instead of error
+    return successResponse(res, {
+      totalSalons: 0,
+      totalStaff: 0,
+      totalRevenue: 0
+    }, 'Dashboard statistics retrieved with fallback data');
+  }
+});
+
+// Get total approved salons count (separate endpoint for real-time updates)
+export const getApprovedSalonsCount = asyncHandler(async (req, res) => {
+  const count = await Salon.countDocuments({
+    type: 'salon',
+    approvalStatus: 'approved'
+  });
+
+  return successResponse(res, { count }, 'Approved salons count retrieved successfully');
+});
+
+// Get total registered salons count (all salons regardless of approval status)
+export const getTotalSalonsCount = asyncHandler(async (req, res) => {
+  const count = await Salon.countDocuments({
+    isActive: true 
+  });
+
+  return successResponse(res, { count }, 'Total registered salons count retrieved successfully');
+});
+
+// Get all salons with pagination
+export const getAllSalons = asyncHandler(async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const skip = (page - 1) * limit;
+
+  const filter = {
+    isActive: true,
+    approvalStatus: 'approved' // Only show approved salons in manage salons
+  };
+  if (req.query.search) {
+    filter.$or = [
+      { salonName: { $regex: req.query.search, $options: 'i' } },
+      { ownerName: { $regex: req.query.search, $options: 'i' } },
+      { email: { $regex: req.query.search, $options: 'i' } }
+    ];
+  }
+
+  try {
+    console.log('=== GET ALL SALONS DEBUG ===');
+    console.log('Filter being used:', filter);
+    
+    // First, let's see all salons regardless of approval status for debugging
+    const allSalons = await Salon.find({ isActive: true }).select('salonName email approvalStatus').lean();
+    console.log('All active salons:', allSalons.map(s => ({
+      salonName: s.salonName,
+      email: s.email,
+      approvalStatus: s.approvalStatus
+    })));
+    
+    const [salons, totalSalons] = await Promise.all([
+      Salon.find(filter)
+        .populate('staff', 'name email skills employmentStatus')
+        .populate('services', 'name category price duration isActive')
+        .select('salonName ownerName email contactNumber address salonAddress businessHours description documents approvalStatus isVerified createdAt staff services')
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 })
+        .lean(), // Use lean() for better performance and to avoid issues
+      Salon.countDocuments(filter)
+    ]);
+    
+    console.log('Approved salons found:', salons.length);
+
+    // Ensure ownerName exists for older records and convert document URLs
+    const salonsWithOwnerName = salons.map(salon => ({
+      ...salon,
+      ownerName: salon.ownerName || salon.salonName || 'Unknown Owner',
+      documents: convertDocumentsToUrls(salon.documents, req)
+    }));
+
+    const totalPages = Math.ceil(totalSalons / limit);
+
+    return paginatedResponse(res, salonsWithOwnerName, {
+      page,
+      limit,
+      totalPages,
+      totalItems: totalSalons
+    });
+  } catch (error) {
+    console.error('Error in getAllSalons:', error);
+    return errorResponse(res, `Failed to fetch salons: ${error.message}`, 500);
+  }
+});
+
+// Get all salons with their details for admin dashboard
+export const getAllSalonsDetails = asyncHandler(async (req, res) => {
+  try {
+    const filter = {
+      isActive: true, 
+      approvalStatus: 'approved' 
+    };
+    
+    const totalSalons = await Salon.countDocuments(filter);
+    const salons = await Salon.find(filter)
+      .populate('services', 'name category price duration') // Populate service details
+      .populate('staff', 'name email skills employmentStatus') // Populate staff details
+      .select('salonName ownerName email contactNumber salonAddress businessHours description documents services staff approvalStatus isVerified createdAt')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Ensure ownerName exists for older records and convert document URLs
+    const salonsWithOwnerName = salons.map(salon => ({
+      ...salon,
+      ownerName: salon.ownerName || salon.salonName || 'Unknown Owner',
+      documents: convertDocumentsToUrls(salon.documents, req)
+    }));
+
+    return successResponse(res, { 
+      totalSalons, 
+      salons: salonsWithOwnerName 
+    }, 'All salon details retrieved successfully');
+  } catch (error) {
+    console.error('Error in getAllSalonsDetails:', error);
+    return errorResponse(res, `Failed to fetch all salon details: ${error.message}`, 500);
+  }
+});
+
+// Get salon by ID
+export const getSalonById = asyncHandler(async (req, res) => {
+  try {
+    const { salonId } = req.params;
+    
+    // Find the salon by ID
+    const salon = await Salon.findById(salonId)
+      .populate('services', 'name category price duration') // Populate service details
+      .populate('staff', 'name email skills employmentStatus') // Populate staff details
+      .select('salonName ownerName email contactNumber salonAddress businessHours description documents services staff approvalStatus isVerified createdAt')
+      .lean();
+
+    if (!salon) {
+      return notFoundResponse(res, 'Salon');
+    }
+
+    // Ensure ownerName exists for older records and convert document URLs
+    const salonWithOwnerName = {
+      ...salon,
+      ownerName: salon.ownerName || salon.salonName || 'Unknown Owner'
+    };
+
+    return successResponse(res, salonWithOwnerName, 'Salon details retrieved successfully');
+  } catch (error) {
+    console.error('Error fetching salon by ID:', error);
+    return errorResponse(res, 'Failed to retrieve salon details', 500);
+  }
+});
+
+// Update salon status
+export const updateSalonStatus = asyncHandler(async (req, res) => {
+  const { salonId } = req.params;
+  const { isActive, isVerified } = req.body;
+
+  const salon = await Salon.findById(salonId);
+  if (!salon) {
+    return errorResponse(res, 'Salon not found', 404);
+  }
+
+  if (isActive !== undefined) salon.isActive = isActive;
+  if (isVerified !== undefined) salon.isVerified = isVerified;
+
+  await salon.save();
+
+  return successResponse(res, salon, 'Salon status updated successfully');
+});
+
+// Delete salon
+export const deleteSalon = asyncHandler(async (req, res) => {
+  const { salonId } = req.params;
+
+  const salon = await Salon.findById(salonId);
+  if (!salon) {
+    return errorResponse(res, 'Salon not found', 404);
+  }
+
+  // Soft delete by setting isActive to false
+  salon.isActive = false;
+  await salon.save();
+
+  // Also deactivate associated staff
+  await Staff.updateMany(
+    { assignedSalon: salonId },
+    { isActive: false, employmentStatus: 'Inactive' }
+  );
+
+  return successResponse(res, null, 'Salon deleted successfully');
+});
+
+// Get all staff with pagination
+export const getAllStaff = asyncHandler(async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const skip = (page - 1) * limit;
+
+  const filter = { isActive: true, approvalStatus: 'approved' };
+  if (req.query.search) {
+    filter.$or = [
+      { name: { $regex: req.query.search, $options: 'i' } },
+      { email: { $regex: req.query.search, $options: 'i' } },
+      { skills: { $in: [new RegExp(req.query.search, 'i')] } }
+    ];
+  }
+
+  const [staffDocs, totalStaff] = await Promise.all([
+    Staff.find(filter)
+      .populate('assignedSalon', 'salonName ownerName')
+      .populate('user', 'name email')
+      .select('name email contactNumber role position skills experience approvalStatus isVerified createdAt assignedSalon documents profilePicture profileImageUrl certifications')
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 })
+      .lean(),
+    Staff.countDocuments(filter)
+  ]);
+
+  // Normalize and convert file paths to absolute URLs
+  const staff = staffDocs.map(s => {
+    const documents = {
+      governmentId: s.documents?.governmentId || null,
+      certificates: s.documents?.certificates || s.certifications || []
+    };
+    const profilePicture = s.profilePicture || s.profileImageUrl || null;
+    const converted = {
+      ...s,
+      name: s.name || s.user?.name || 'Unknown',
+      email: s.email || s.user?.email || 'Unknown',
+      documents: convertDocumentsToUrls(documents, req),
+      profilePicture: profilePicture ? getFileUrl(profilePicture, req) : null
+    };
+    // Ensure consistent structure for frontend
+    if (!converted.documents) converted.documents = {};
+    if (!Array.isArray(converted.documents.certificates)) converted.documents.certificates = [];
+    return converted;
+  });
+
+  // Debug logging for first few items
+  try {
+    console.log('Approved staff fetched:', staff.length);
+    staff.slice(0, 3).forEach((st, idx) => {
+      console.log(`Staff[${idx}]`, {
+        id: st._id,
+        name: st.name,
+        email: st.email,
+        profilePicture: st.profilePicture,
+        governmentId: st.documents?.governmentId,
+        certificates: st.documents?.certificates
+      });
+    });
+  } catch (e) {
+    // ignore logging errors
+  }
+
+  const totalPages = Math.ceil(totalStaff / limit);
+
+  return paginatedResponse(res, staff, {
+    page,
+    limit,
+    totalPages,
+    totalItems: totalStaff
+  });
+});
+
+// Get pending staff approvals
+export const getPendingStaff = asyncHandler(async (req, res) => {
+  console.log('=== GETTING PENDING STAFF ===');
+  
+  try {
+    // First, let's see all staff records to debug
+    const allStaff = await Staff.find({}).select('name email approvalStatus role isActive').lean();
+    console.log('All staff in database:', allStaff);
+    
+    // Find staff with pending approval status (including undefined/null)
+    const pendingStaff = await Staff.find({
+      $and: [
+        {
+          $or: [
+            { approvalStatus: 'pending' },
+            { approvalStatus: { $exists: false } },
+            { approvalStatus: null }
+          ]
+        },
+        {
+          $or: [
+            { isActive: true },
+            { isActive: { $exists: false } },
+            { isActive: null }
+          ]
+        }
+      ]
+    })
+    .populate('assignedSalon', 'salonName ownerName')
+    .populate('user', 'name email')
+    .select('name email contactNumber position skills experience approvalStatus setupCompleted createdAt assignedSalon role documents profilePicture profileImageUrl certifications')
+    .sort({ createdAt: -1 })
+    .lean();
+    
+    console.log('Found pending staff with exact "pending" query:', pendingStaff.length);
+    console.log('Pending staff details:', JSON.stringify(pendingStaff, null, 2));
+
+    // Convert file paths to URLs
+    const staffWithUrls = pendingStaff.map(staff => {
+      // Handle both old and new field names
+      const documents = {
+        governmentId: staff.documents?.governmentId || null,
+        certificates: staff.documents?.certificates || staff.certifications || []
+      };
+      
+      const profilePicture = staff.profilePicture || staff.profileImageUrl || null;
+      
+      console.log(`Processing staff ${staff._id}:`, {
+        originalDocuments: staff.documents,
+        originalCertifications: staff.certifications,
+        originalProfilePicture: staff.profilePicture,
+        originalProfileImageUrl: staff.profileImageUrl,
+        processedDocuments: documents,
+        processedProfilePicture: profilePicture
+      });
+      
+      const convertedDocuments = convertDocumentsToUrls(documents, req);
+      const convertedProfilePicture = profilePicture ? getFileUrl(profilePicture, req) : null;
+      
+      console.log(`Converted URLs for staff ${staff._id}:`, {
+        convertedDocuments,
+        convertedProfilePicture
+      });
+      
+      return {
+        ...staff,
+        // Use name and email from user reference if not directly available
+        name: staff.name || staff.user?.name || 'Unknown',
+        email: staff.email || staff.user?.email || 'Unknown',
+        documents: convertedDocuments,
+        profilePicture: convertedProfilePicture
+      };
+    });
+
+    // Set no-cache headers to prevent caching issues
+    res.set({
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
+
+    return successResponse(res, staffWithUrls, 'Pending staff retrieved successfully');
+  } catch (error) {
+    console.error('Error in getPendingStaff:', error);
+    return errorResponse(res, `Failed to fetch pending staff: ${error.message}`, 500);
+  }
+});
+
+// Approve staff member
+export const approveStaff = asyncHandler(async (req, res) => {
+  const { staffId } = req.params;
+
+  console.log('=== APPROVING STAFF ===');
+  console.log('Staff ID:', staffId);
+
+  const staff = await Staff.findById(staffId);
+  if (!staff) {
+    console.log('Staff not found with ID:', staffId);
+    return errorResponse(res, 'Staff member not found', 404);
+  }
+
+  console.log('Staff before approval:', {
+    id: staff._id,
+    name: staff.name,
+    email: staff.email,
+    approvalStatus: staff.approvalStatus,
+    isVerified: staff.isVerified
+  });
+
+  staff.approvalStatus = 'approved';
+  staff.isVerified = true;
+  staff.approvedBy = req.user.id;
+  staff.approvalDate = new Date();
+  await staff.save();
+
+  console.log('Staff after approval:', {
+    id: staff._id,
+    name: staff.name,
+    email: staff.email,
+    approvalStatus: staff.approvalStatus,
+    isVerified: staff.isVerified
+  });
+
+  // Send approval notification email to salon owner and staff
+  try {
+    if (staff.assignedSalon) {
+      const salon = await Salon.findById(staff.assignedSalon);
+      if (salon) {
+        const salonName = salon.salonName || 'Your Salon';
+        const staffName = staff.name || 'Staff Member';
+        const position = staff.position || 'Staff';
+
+        // Send email to staff member
+        if (staff.email) {
+          const staffEmailResult = await sendStaffApprovalEmail(
+            staff.email,
+            staffName,
+            salonName,
+            position
+          );
+          if (staffEmailResult.success) {
+            console.log('✅ Staff approval email sent successfully to staff:', staff.email);
+          } else {
+            console.error('❌ Failed to send staff approval email:', staffEmailResult.error);
+          }
+        } else {
+          console.log('⚠️ Staff email not available, cannot send approval email to staff.');
+        }
+
+        // Get salon owner's email from the User model to send notification to salon owner
+        const salonOwner = await User.findById(salon.ownerId);
+        if (salonOwner && salonOwner.email) {
+          const ownerEmailResult = await sendStaffApprovalNotificationEmail(
+            salonOwner.email,
+            salonName,
+            staffName,
+            position
+          );
+          if (ownerEmailResult.success) {
+            console.log('✅ Staff approval notification email sent successfully to salon owner:', salonOwner.email);
+          } else {
+            console.error('❌ Failed to send staff approval notification email to salon owner:', ownerEmailResult.error);
+          }
+        } else {
+          console.log('⚠️ Salon owner not found or email not available for salon:', salon._id);
+        }
+      } else {
+        console.log('⚠️ Assigned salon not found:', staff.assignedSalon);
+      }
+    } else {
+      console.log('⚠️ No assigned salon for staff member:', staff._id);
+    }
+  } catch (emailError) {
+    console.error('❌ Error sending staff approval emails:', emailError);
+  }
+
+  return successResponse(res, staff, 'Staff member approved successfully');
+});
+
+
+// Reject staff member
+export const rejectStaff = asyncHandler(async (req, res) => {
+  console.log('=== REJECTING STAFF ===');
+  console.log('Staff ID:', req.params.staffId);
+  console.log('Request body:', req.body);
+  
+  const { staffId } = req.params;
+  const { reason } = req.body || {};
+
+  console.log('Extracted staffId:', staffId);
+  console.log('Extracted reason:', reason);
+
+  if (!reason || String(reason).trim().length === 0) {
+    console.log('No reason provided');
+    return errorResponse(res, 'Rejection reason is required', 400);
+  }
+
+  try {
+    const staff = await Staff.findById(staffId);
+    if (!staff) {
+      console.log('Staff not found with ID:', staffId);
+      return errorResponse(res, 'Staff member not found', 404);
+    }
+
+    console.log('Found staff:', staff.name, staff.email, 'current status:', staff.approvalStatus);
+
+    if (staff.approvalStatus === 'approved') {
+      return errorResponse(res, 'Cannot reject an already approved staff member', 400);
+    }
+
+    staff.approvalStatus = 'rejected';
+    staff.rejectionReason = String(reason).trim();
+
+    await staff.save().catch((err) => {
+      console.error('Error saving staff rejection:', err);
+      throw err;
+    });
+
+    console.log('Staff rejected successfully');
+
+    // You might want to send an email notification here
+    // await sendStaffRejectionEmail(staff.email, reason);
+
+    return successResponse(res, staff, 'Staff member rejected successfully');
+  } catch (error) {
+    console.error('rejectStaff controller error:', error);
+    return errorResponse(res, error.message || 'Failed to reject staff', 500);
+  }
+});
+
+// Get all customers with pagination
+export const getAllCustomers = asyncHandler(async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const skip = (page - 1) * limit;
+
+  const filter = { isActive: true };
+  if (req.query.search) {
+    filter.$or = [
+      { name: { $regex: req.query.search, $options: 'i' } },
+      { email: { $regex: req.query.search, $options: 'i' } },
+      { contactNumber: { $regex: req.query.search, $options: 'i' } }
+    ];
+  }
+
+  const [customers, totalCustomers] = await Promise.all([
+    Customer.find(filter)
+      .select('-password')
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 }),
+    Customer.countDocuments(filter)
+  ]);
+
+  const totalPages = Math.ceil(totalCustomers / limit);
+
+  return paginatedResponse(res, customers, {
+    page,
+    limit,
+    totalPages,
+    totalItems: totalCustomers
+  });
+});
+
+// Get all appointments with pagination
+export const getAllAppointments = asyncHandler(async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const skip = (page - 1) * limit;
+
+  const filter = {};
+  
+  // Filter by salonId if provided
+  if (req.query.salonId) {
+    filter.salonId = req.query.salonId;
+  }
+  
+  if (req.query.status) {
+    filter.status = req.query.status;
+  }
+  if (req.query.date) {
+    const date = new Date(req.query.date);
+    filter.appointmentDate = {
+      $gte: new Date(date.setHours(0, 0, 0, 0)),
+      $lt: new Date(date.setHours(23, 59, 59, 999))
+    };
+  }
+
+  const [appointments, totalAppointments] = await Promise.all([
+    Appointment.find(filter)
+      .populate('customerId', 'name email')
+      .populate('salonId', 'salonName ownerName')
+      .populate('staffId', 'name skills')
+      .populate('services.serviceId', 'name category')
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 }),
+    Appointment.countDocuments(filter)
+  ]);
+
+  const totalPages = Math.ceil(totalAppointments / limit);
+
+  return paginatedResponse(res, appointments, {
+    page,
+    limit,
+    totalPages,
+    totalItems: totalAppointments
+  });
+});
+
+// Get pending salon approvals
+export const getPendingSalons = asyncHandler(async (req, res) => {
+  console.log('=== GETTING PENDING SALONS ===');
+  
+  try {
+    // First, let's check all salons to debug the issue
+    const allSalons = await Salon.find({}).select('salonName email approvalStatus setupCompleted').lean();
+    console.log('All salons in database:', allSalons.map(s => ({
+      id: s._id,
+      salonName: s.salonName,
+      email: s.email,
+      approvalStatus: s.approvalStatus,
+      setupCompleted: s.setupCompleted
+    })));
+    
+    // Find all salons with pending status (case insensitive and handle null/undefined)
+    const pendingSalons = await Salon.find({
+      $or: [
+        { approvalStatus: 'pending' },
+        { approvalStatus: 'Pending' },
+        { approvalStatus: { $exists: false } },
+        { approvalStatus: null }
+      ]
+    })
+    .select('salonName email contactNumber address salonAddress businessHours description ownerName documents')
+    .lean()
+    .then(salons => {
+      // Ensure documents is always an object with the expected structure
+      return salons.map(salon => ({
+        ...salon,
+        documents: {
+          businessLicense: salon.documents?.businessLicense || '',
+          salonLogo: salon.documents?.salonLogo || '',
+          salonImages: Array.isArray(salon.documents?.salonImages) ? salon.documents.salonImages : []
+        }
+      }));
+    });
+    
+    console.log('Found pending salons:', pendingSalons.length);
+    
+    // Ensure ownerName exists for all records and set default approval status
+    const salonsWithOwnerName = pendingSalons.map(salon => ({
+      ...salon,
+      ownerName: salon.ownerName || salon.salonName || 'Unknown Owner',
+      approvalStatus: salon.approvalStatus || 'pending',
+      documents: convertDocumentsToUrls(salon.documents, req)
+    }));
+    
+    console.log('Salon details:', salonsWithOwnerName.map(s => ({
+      id: s._id,
+      salonName: s.salonName,
+      ownerName: s.ownerName,
+      email: s.email,
+      setupCompleted: s.setupCompleted,
+      approvalStatus: s.approvalStatus
+    })));
+
+    return successResponse(res, { salons: salonsWithOwnerName }, 'Pending salons retrieved successfully');
+  } catch (error) {
+    console.error('Error in getPendingSalons:', error);
+    return errorResponse(res, `Failed to fetch pending salons: ${error.message}`, 500);
+  }
+});
+
+// Approve salon
+export const approveSalon = asyncHandler(async (req, res) => {
+  const { salonId } = req.params;
+
+  console.log('=== APPROVING SALON ===');
+  console.log('Salon ID:', salonId);
+
+  const salon = await Salon.findById(salonId);
+  if (!salon) {
+    console.log('Salon not found with ID:', salonId);
+    return errorResponse(res, 'Salon not found', 404);
+  }
+
+  console.log('Salon before approval:', {
+    id: salon._id,
+    salonName: salon.salonName,
+    email: salon.email,
+    approvalStatus: salon.approvalStatus,
+    isVerified: salon.isVerified
+  });
+
+  salon.approvalStatus = 'approved';
+  salon.isVerified = true;
+  await salon.save();
+
+  console.log('Salon after approval:', {
+    id: salon._id,
+    salonName: salon.salonName,
+    email: salon.email,
+    approvalStatus: salon.approvalStatus,
+    isVerified: salon.isVerified
+  });
+
+  // Send approval notification email
+  try {
+    const ownerName = salon.ownerName || 'Salon Owner';
+    const result = await sendSalonApprovalEmail(salon.email, salon.salonName, ownerName);
+    if (result.success) {
+      console.log('✅ Salon approval email sent successfully to:', salon.email);
+    } else {
+      console.error('❌ Failed to send salon approval email:', result.error);
+    }
+  } catch (emailError) {
+    console.error('❌ Error sending salon approval email:', emailError);
+  }
+
+  return successResponse(res, salon, 'Salon approved successfully');
+});
+
+// Reject salon
+export const rejectSalon = asyncHandler(async (req, res) => {
+  const { salonId } = req.params;
+  const { reason } = req.body;
+
+  if (!reason) {
+    return errorResponse(res, 'Rejection reason is required', 400);
+  }
+
+  const salon = await Salon.findById(salonId);
+  if (!salon) {
+    return errorResponse(res, 'Salon not found', 404);
+  }
+
+  salon.approvalStatus = 'rejected';
+  salon.rejectionReason = reason;
+  await salon.save();
+
+  // Send rejection notification email
+  try {
+    const ownerName = salon.ownerName || 'Salon Owner';
+    const result = await sendSalonRejectionEmail(salon.email, salon.salonName, ownerName, reason);
+    if (result.success) {
+      console.log('✅ Salon rejection email sent successfully to:', salon.email);
+    } else {
+      console.error('❌ Failed to send salon rejection email:', result.error);
+    }
+  } catch (emailError) {
+    console.error('❌ Error sending salon rejection email:', emailError);
+  }
+
+  return successResponse(res, salon, 'Salon rejected successfully');
+});
+
+// Get salon financial data
+export const getSalonFinancialData = asyncHandler(async (req, res) => {
+  try {
+    const { salonId } = req.params;
+    const { startDate, endDate } = req.query;
+    
+    // Validate date range
+    let start = startDate ? new Date(startDate) : new Date();
+    start.setDate(start.getDate() - 30); // Default to last 30 days
+    
+    let end = endDate ? new Date(endDate) : new Date();
+    
+    // Ensure end date is not before start date
+    if (end < start) {
+      return errorResponse(res, 'End date cannot be before start date', 400);
+    }
+    
+    // Find the salon
+    const salon = await Salon.findById(salonId);
+    if (!salon) {
+      return notFoundResponse(res, 'Salon');
+    }
+    
+    // Calculate total revenue for this salon
+    const revenueResult = await Revenue.aggregate([
+      {
+        $match: {
+          salonId: salon._id,
+          date: { $gte: start, $lte: end }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: '$amount' }
+        }
+      }
+    ]);
+    
+    const totalRevenue = revenueResult.length > 0 ? revenueResult[0].total : 0;
+    
+    // Calculate total expenses for this salon
+    const expenseResult = await Expense.aggregate([
+      {
+        $match: {
+          salonId: salon._id,
+          date: { $gte: start, $lte: end }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: '$amount' }
+        }
+      }
+    ]);
+    
+    const totalExpenses = expenseResult.length > 0 ? expenseResult[0].total : 0;
+    
+    // Calculate profit/loss
+    const totalProfit = totalRevenue - totalExpenses;
+    
+    // Calculate profit margin
+    const profitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+    
+    // Calculate average revenue per day
+    const daysDiff = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+    const avgRevenuePerDay = daysDiff > 0 ? totalRevenue / daysDiff : 0;
+    
+    // For comparison, get data from previous period
+    const prevStart = new Date(start);
+    const prevEnd = new Date(end);
+    const periodDiff = end - start;
+    prevStart.setTime(prevStart.getTime() - periodDiff);
+    prevEnd.setTime(prevEnd.getTime() - periodDiff);
+    
+    // Previous period revenue
+    const prevRevenueResult = await Revenue.aggregate([
+      {
+        $match: {
+          salonId: salon._id,
+          date: { $gte: prevStart, $lte: prevEnd }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: '$amount' }
+        }
+      }
+    ]);
+    
+    const prevTotalRevenue = prevRevenueResult.length > 0 ? prevRevenueResult[0].total : 0;
+    
+    // Previous period expenses
+    const prevExpenseResult = await Expense.aggregate([
+      {
+        $match: {
+          salonId: salon._id,
+          date: { $gte: prevStart, $lte: prevEnd }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: '$amount' }
+        }
+      }
+    ]);
+    
+    const prevTotalExpenses = prevExpenseResult.length > 0 ? prevExpenseResult[0].total : 0;
+    
+    // Calculate changes
+    const revenueChange = prevTotalRevenue > 0 
+      ? ((totalRevenue - prevTotalRevenue) / prevTotalRevenue) * 100 
+      : (totalRevenue > 0 ? 100 : 0);
+      
+    const profitChange = (prevTotalRevenue - prevTotalExpenses) > 0 
+      ? ((totalProfit - (prevTotalRevenue - prevTotalExpenses)) / (prevTotalRevenue - prevTotalExpenses)) * 100 
+      : (totalProfit > 0 ? 100 : 0);
+      
+    const marginChange = prevTotalRevenue > 0 
+      ? (((totalProfit / totalRevenue) - ((prevTotalRevenue - prevTotalExpenses) / prevTotalRevenue)) * 100)
+      : (profitMargin > 0 ? profitMargin : 0);
+
+    return successResponse(res, {
+      totalRevenue,
+      totalExpenses,
+      totalProfit,
+      profitMargin,
+      avgRevenuePerDay,
+      revenueChange,
+      profitChange,
+      marginChange
+    }, 'Salon financial data retrieved successfully');
+  } catch (error) {
+    console.error('Error fetching salon financial data:', error);
+    return errorResponse(res, 'Failed to retrieve salon financial data', 500);
+  }
+});
+
+// Get salon revenue trend data
+export const getSalonRevenueTrend = asyncHandler(async (req, res) => {
+  try {
+    const { salonId } = req.params;
+    const { startDate, endDate, period = 'monthly' } = req.query;
+    
+    // Validate date range
+    let start = startDate ? new Date(startDate) : new Date();
+    start.setDate(start.getDate() - 180); // Default to last 6 months
+    
+    let end = endDate ? new Date(endDate) : new Date();
+    
+    // Ensure end date is not before start date
+    if (end < start) {
+      return errorResponse(res, 'End date cannot be before start date', 400);
+    }
+    
+    // Find the salon
+    const salon = await Salon.findById(salonId);
+    if (!salon) {
+      return notFoundResponse(res, 'Salon');
+    }
+    
+    let groupBy, dateFormat;
+    
+    switch (period) {
+      case 'daily':
+        groupBy = { $dateToString: { format: '%Y-%m-%d', date: '$date' } };
+        dateFormat = '%Y-%m-%d';
+        break;
+      case 'weekly':
+        groupBy = {
+          $dateToString: {
+            format: '%Y-%U', 
+            date: '$date' 
+          }
+        };
+        dateFormat = '%Y-%U';
+        break;
+      case 'monthly':
+      default:
+        groupBy = { $dateToString: { format: '%Y-%m', date: '$date' } };
+        dateFormat = '%Y-%m';
+        break;
+    }
+    
+    // Get revenue trend data for this salon
+    const revenueTrend = await Revenue.aggregate([
+      {
+        $match: {
+          salonId: salon._id,
+          date: { $gte: start, $lte: end }
+        }
+      },
+      {
+        $group: {
+          _id: groupBy,
+          revenue: { $sum: '$amount' }
+        }
+      },
+      {
+        $sort: {
+          _id: 1
+        }
+      }
+    ]);
+    
+    // Get expense trend data for this salon
+    const expenseTrend = await Expense.aggregate([
+      {
+        $match: {
+          salonId: salon._id,
+          date: { $gte: start, $lte: end }
+        }
+      },
+      {
+        $group: {
+          _id: groupBy,
+          expenses: { $sum: '$amount' }
+        }
+      },
+      {
+        $sort: {
+          _id: 1
+        }
+      }
+    ]);
+    
+    // Combine revenue and expense data
+    const trendData = revenueTrend.map(revenueItem => {
+      const expenseItem = expenseTrend.find(e => e._id === revenueItem._id);
+      return {
+        period: revenueItem._id,
+        revenue: revenueItem.revenue,
+        costs: expenseItem ? expenseItem.expenses : 0,
+        profit: revenueItem.revenue - (expenseItem ? expenseItem.expenses : 0)
+      };
+    });
+    
+    return successResponse(res, trendData, 'Salon revenue trend data retrieved successfully');
+  } catch (error) {
+    console.error('Error fetching salon revenue trend:', error);
+    return errorResponse(res, 'Failed to retrieve salon revenue trend data', 500);
+  }
+});
+
+// Get salon expense breakdown data
+export const getSalonExpenseBreakdown = asyncHandler(async (req, res) => {
+  try {
+    const { salonId } = req.params;
+    const { startDate, endDate } = req.query;
+    
+    // Validate date range
+    let start = startDate ? new Date(startDate) : new Date();
+    start.setDate(start.getDate() - 30); // Default to last 30 days
+    
+    let end = endDate ? new Date(endDate) : new Date();
+    
+    // Ensure end date is not before start date
+    if (end < start) {
+      return errorResponse(res, 'End date cannot be before start date', 400);
+    }
+    
+    // Find the salon
+    const salon = await Salon.findById(salonId);
+    if (!salon) {
+      return notFoundResponse(res, 'Salon');
+    }
+    
+    // Get expense data grouped by category for this salon
+    const expenseData = await Expense.aggregate([
+      {
+        $match: {
+          salonId: salon._id,
+          date: { $gte: start, $lte: end }
+        }
+      },
+      {
+        $group: {
+          _id: '$category',
+          amount: { $sum: '$amount' }
+        }
+      },
+      {
+        $sort: {
+          amount: -1
+        }
+      }
+    ]);
+    
+    // Format the data for the frontend
+    const formattedData = expenseData.map(item => ({
+      category: item._id,
+      amount: item.amount
+    }));
+    
+    return successResponse(res, formattedData, 'Salon expense breakdown data retrieved successfully');
+  } catch (error) {
+    console.error('Error fetching salon expense breakdown:', error);
+    return errorResponse(res, 'Failed to retrieve salon expense breakdown data', 500);
+  }
+});
+
+export default {
+  getDashboardStats,
+  getApprovedSalonsCount,
+  getAllSalons,
+  getAllSalonsDetails,
+  updateSalonStatus,
+  deleteSalon,
+  getAllStaff,
+  getPendingStaff,
+  approveStaff,
+  rejectStaff,
+  getAllCustomers,
+  getAllAppointments,
+  getPendingSalons,
+  approveSalon,
+  rejectSalon,
+  getSalonFinancialData,
+  getSalonRevenueTrend,
+  getSalonExpenseBreakdown
+};

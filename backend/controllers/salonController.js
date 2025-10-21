@@ -480,7 +480,7 @@ export const getSalonStaff = asyncHandler(async (req, res) => {
 
   const staffDocs = await Staff.find({ assignedSalon: salon._id })
     .populate('user', 'name email')
-    .select('name email contactNumber position skills experience specialization dateOfBirth gender address approvalStatus employmentStatus isActive createdAt documents profilePicture profileImageUrl certifications')
+    .select('name email contactNumber position skills experience specialization dateOfBirth gender address approvalStatus employmentStatus isActive createdAt documents profilePicture profileImageUrl certifications baseSalary salaryType commissionRate')
     .lean();
 
   const staff = staffDocs.map(s => {
@@ -1596,6 +1596,7 @@ export const addExpense = asyncHandler(async (req, res) => {
 });
 
 // Get expenses
+// Updated to include staff salary expense records
 export const getExpenses = asyncHandler(async (req, res) => {
   const userId = req.user.id;
   const { page = 1, limit = 10, category, startDate, endDate } = req.query;

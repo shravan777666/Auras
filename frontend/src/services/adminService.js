@@ -23,8 +23,13 @@ export const adminService = {
     return response.data?.data || {};
   },
 
-  async getAddonStaffPerformance() {
-    const response = await api.get('/addon-dashboard/staff-performance');
+  async getAddonStaffPerformance(salonId = null) {
+    const params = {};
+    if (salonId) {
+      params.salonId = salonId;
+    }
+    
+    const response = await api.get('/addon-dashboard/staff-performance', { params });
     return response.data?.data || [];
   },
 

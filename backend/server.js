@@ -338,6 +338,8 @@ app.use('/api/alerts', alertsRoutes);
 app.use('/api/salon-settings', salonSettingsRoutes);
 app.use('/api/addon', addonRoutes);
 app.use('/api/addon-dashboard', addonDashboardRoutes);
+app.use('/api/forgot-password', forgotPasswordRoutes);
+app.use('/auth', oauthRoutes);
 
 // Add internal feedback routes
 app.use('/api/internal-feedback', internalFeedbackRoutes);
@@ -373,7 +375,7 @@ app.use(globalErrorHandler);
 
 // Start server with graceful EADDRINUSE handling and port fallback
 console.log('🔧 PORT from environment:', process.env.PORT);
-const DEFAULT_PORT = parseInt(process.env.PORT, 10) || 5005;
+const DEFAULT_PORT = parseInt(process.env.PORT, 10) || 5011;
 console.log('🔧 DEFAULT_PORT calculated:', DEFAULT_PORT);
 
 const startServer = (port, attemptsLeft = 5) => {

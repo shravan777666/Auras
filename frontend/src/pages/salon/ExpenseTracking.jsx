@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
+import BackButton from '../../components/common/BackButton';
 import { salonService } from '../../services/salon';
 import { 
   CreditCard, 
@@ -79,7 +80,14 @@ const ExpenseTracking = () => {
     
     // Apply category filter
     if (filter !== 'all') {
-      filtered = filtered.filter(expense => expense.category === filter);
+      if (filter === 'Salary') {
+        // Special handling for Salary filter to include both category and type
+        filtered = filtered.filter(expense => 
+          expense.category === 'Salaries' || expense.type === 'Salary'
+        );
+      } else {
+        filtered = filtered.filter(expense => expense.category === filter);
+      }
     }
     
     // Apply date range filter
@@ -232,21 +240,9 @@ const ExpenseTracking = () => {
     return acc;
   }, {});
 
-  // Calculate this month's expenses
-  const calculateThisMonthExpenses = () => {
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    
-    return expenses.reduce((sum, expense) => {
-      const expenseDate = new Date(expense.date);
-      if (expenseDate >= startOfMonth) {
-        return sum + (expense.amount || 0);
-      }
-      return sum;
-    }, 0);
-  };
-
-  const categoryKeys = Object.keys(expensesByCategory);
+  // Add Salary as a special category if there are salary expenses
+  const hasSalaryExpenses = expenses.some(expense => expense.type === 'Salary');
+  const categoryKeys = [...Object.keys(expensesByCategory), ...(hasSalaryExpenses ? ['Salary'] : [])];
   const categoryTotals = Object.values(expensesByCategory);
 
   if (loading) {
@@ -273,6 +269,7 @@ const ExpenseTracking = () => {
         <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             <div>
+              <BackButton fallbackPath="/salon/dashboard" className="mb-2" />
               <h1 className="text-2xl font-bold text-gray-900">Expense Tracking</h1>
               <p className="mt-1 text-sm text-gray-500">Monitor and manage your salon expenses</p>
             </div>
@@ -363,6 +360,7 @@ const ExpenseTracking = () => {
                   {categoryKeys.map(category => (
                     <option key={category} value={category}>{category}</option>
                   ))}
+                  <option value="Salary">Salary</option>
                 </select>
               </div>
               
@@ -442,6 +440,11 @@ const ExpenseTracking = () => {
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-500">
                           {expense.description}
+                          {expense.type === 'Salary' && expense.staffName && (
+                            <div className="text-xs text-gray-400 mt-1">
+                              Staff: {expense.staffName}
+                            </div>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           ₹{expense.amount.toLocaleString()}

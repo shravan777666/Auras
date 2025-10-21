@@ -4,6 +4,7 @@ import { salonService } from '../../services/salon';
 import { toast } from 'react-hot-toast';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import ImagePreview from '../../components/common/ImagePreview';
+import BackButton from '../../components/common/BackButton';
 
 const EditSalonProfile = () => {
   const navigate = useNavigate();
@@ -195,6 +196,7 @@ const EditSalonProfile = () => {
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
       <div className="mb-6">
+        <BackButton fallbackPath="/salon/dashboard" className="mb-4" />
         <h1 className="text-2xl font-bold text-gray-900">Edit Salon Profile</h1>
         <p className="text-gray-600 mt-1">Update your salon information and images</p>
       </div>

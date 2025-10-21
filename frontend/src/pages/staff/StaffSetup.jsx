@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import toast from 'react-hot-toast';
+import BackButton from '../../components/common/BackButton';
 import {
   User,
   Phone,
@@ -627,6 +628,7 @@ const StaffSetup = () => {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-10">
+          <BackButton fallbackPath="/staff/dashboard" className="mb-4" />
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Professional Profile Setup</h1>
           <p className="text-gray-600">Complete your profile to start offering your services</p>
         </div>

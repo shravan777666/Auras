@@ -17,7 +17,8 @@ import {
   getAppointmentsByStaffId,
   getStaffReport,
   getNextAppointment,
-  getSalonColleagues // Add this new import
+  getSalonColleagues,
+  updateStaffSalary // Import the new function
 } from '../controllers/staffController.js';
 import { requireStaff, requireStaffSetup, requireSalonOwner } from '../middleware/roleAuth.js';
 import { validateStaffSetup, validatePagination, validateObjectId } from '../middleware/validation.js';
@@ -38,6 +39,9 @@ router.post(
   validateStaffSetup,
   createStaff
 );
+
+// Update staff salary (salon owner only) - This must be before router.use(requireStaff)
+router.patch('/:staffId/salary', requireSalonOwner, validateObjectId('staffId'), updateStaffSalary);
 
 // All routes below require staff authentication
 router.use(requireStaff);

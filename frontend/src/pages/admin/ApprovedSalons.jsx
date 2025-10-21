@@ -11,6 +11,7 @@ import {
 } from '@mui/material';
 import { adminService } from '../../services/admin';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import BackButton from '../../components/common/BackButton';
 
 const ApprovedSalons = () => {
   const [salons, setSalons] = useState([]);
@@ -45,9 +46,12 @@ const ApprovedSalons = () => {
 
   return (
     <Box p={3}>
-      <Typography variant="h4" gutterBottom>
-        Approved Salons
-      </Typography>
+      <Box display="flex" alignItems="center" mb={2}>
+        <BackButton fallbackPath="/admin/dashboard" />
+        <Typography variant="h4" gutterBottom ml={2}>
+          Approved Salons
+        </Typography>
+      </Box>
 
       {salons.length === 0 ? (
         <Typography>No approved salons found.</Typography>

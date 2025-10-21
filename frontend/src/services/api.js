@@ -3,7 +3,7 @@ import toast from 'react-hot-toast'
 import { authService } from './auth'
 
 // Base API configuration - Using actual backend port (5007 to match Vite proxy)
-const API_BASE_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, '') || 'http://localhost:5007/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, '') || 'http://localhost:5011/api';
 console.log('🔧 API Configuration:', {
   VITE_API_URL: import.meta.env.VITE_API_URL,
   API_BASE_URL: API_BASE_URL

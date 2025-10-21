@@ -307,11 +307,27 @@ The system uses Nodemailer with Gmail for:
 - OTP for password reset
 - Appointment confirmations
 - Appointment reminders
+- Salon approval notifications
+- Salon rejection notifications
+- Staff approval notifications
 
 ### Gmail Setup
 1. Enable 2-factor authentication
 2. Generate App Password
 3. Use app password in environment variables
+
+### Environment Variables
+```env
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASS=your-app-password
+```
+
+### Email Templates
+- **OTP Email**: Password reset requests
+- **Appointment Confirmation**: Booking confirmations
+- **Salon Approval**: Notification when salon is approved
+- **Salon Rejection**: Notification when salon is rejected
+- **Staff Approval**: Notification to salon owner when staff is approved
 
 ## 🚀 Deployment
 

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { 
-  ArrowLeft, 
   Calendar, 
   Download, 
   Filter,
@@ -14,6 +13,7 @@ import {
 } from 'lucide-react';
 import { adminService } from '../../services/adminService';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import BackButton from '../../components/common/BackButton';
 import SalonRevenueTrendChart from '../../components/admin/SalonRevenueTrendChart';
 import SalonRevenueTrendBarChart from '../../components/admin/SalonRevenueTrendBarChart';
 import SalonBookingsTable from '../../components/admin/SalonBookingsTable';
@@ -309,13 +309,7 @@ const SalonDetailsPage = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center">
-              <button
-                onClick={() => navigate('/admin/financial-summary')}
-                className="flex items-center text-gray-600 hover:text-gray-900 mr-4"
-              >
-                <ArrowLeft className="h-5 w-5 mr-2" />
-                Back to Financial Summary
-              </button>
+              <BackButton fallbackPath="/admin/financial-summary" className="mr-4" />
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">{salonData?.name || 'Salon Details'}</h1>
                 <p className="text-sm text-gray-500 mt-1">Detailed financial performance for this salon</p>

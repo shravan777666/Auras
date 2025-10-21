@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import User from './models/User.js';
 import Salon from './models/Salon.js';
+import { sendSalonApprovalEmail, sendSalonRejectionEmail } from './config/email.js';
 
 import { fileURLToPath } from 'url';
 import path from 'path';
@@ -96,6 +97,19 @@ const approveSalon = async (email) => {
   
   console.log(`✅ Approved salon: ${salon.salonName || 'Unnamed'} (${email})`);
   console.log('🎉 The salon owner can now log in!');
+  
+  // Send approval notification email
+  try {
+    const ownerName = salon.ownerName || 'Salon Owner';
+    const result = await sendSalonApprovalEmail(email, salon.salonName, ownerName);
+    if (result.success) {
+      console.log('📧 Approval notification email sent successfully!');
+    } else {
+      console.error('❌ Failed to send approval email:', result.error);
+    }
+  } catch (emailError) {
+    console.error('❌ Error sending approval email:', emailError.message);
+  }
 };
 
 const rejectSalon = async (email, reason) => {
@@ -118,6 +132,19 @@ const rejectSalon = async (email, reason) => {
   
   console.log(`❌ Rejected salon: ${salon.salonName || 'Unnamed'} (${email})`);
   console.log(`📝 Reason: ${salon.rejectionReason}`);
+  
+  // Send rejection notification email
+  try {
+    const ownerName = salon.ownerName || 'Salon Owner';
+    const result = await sendSalonRejectionEmail(email, salon.salonName, ownerName, salon.rejectionReason);
+    if (result.success) {
+      console.log('📧 Rejection notification email sent successfully!');
+    } else {
+      console.error('❌ Failed to send rejection email:', result.error);
+    }
+  } catch (emailError) {
+    console.error('❌ Error sending rejection email:', emailError.message);
+  }
 };
 
 const checkStatus = async (email) => {

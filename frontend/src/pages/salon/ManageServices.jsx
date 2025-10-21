@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { salonService } from '../../services/salon';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import BackButton from '../../components/common/BackButton';
 import AddServiceModal from '../../components/salon/AddServiceModal';
 import { toast } from 'react-hot-toast';
 import { 

@@ -396,28 +396,39 @@ export const salonService = {
     }
   },
 
-  // Add shift for staff member
-    async addStaffShift(staffId, date, shiftData = {}) {
-      try {
-        const response = await api.post(`/salon/staff/${staffId}/shifts`, {
-          date,
-          ...shiftData
-        });
-        return response.data;
-      } catch (error) {
-        console.error('Error adding staff shift:', error);
-        throw error;
-      }
-    },
-  
-    // Delete staff attendance record
-    async deleteAttendance(staffId, attendanceId) {
-      try {
-        const response = await api.delete(`/salon/staff/${staffId}/attendance/${attendanceId}`);
-        return response.data;
-      } catch (error) {
-        console.error('Error deleting staff attendance:', error);
-        throw error;
-      }
+  // Update staff salary information
+  async updateStaffSalary(staffId, salaryData) {
+    try {
+      const response = await api.patch(`/staff/${staffId}/salary`, salaryData);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating staff salary:', error);
+      throw error;
     }
-  };
+  },
+
+  // Add shift for staff member
+  async addStaffShift(staffId, date, shiftData = {}) {
+    try {
+      const response = await api.post(`/salon/staff/${staffId}/shifts`, {
+        date,
+        ...shiftData
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error adding staff shift:', error);
+      throw error;
+    }
+  },
+
+  // Delete staff attendance record
+  async deleteAttendance(staffId, attendanceId) {
+    try {
+      const response = await api.delete(`/salon/staff/${staffId}/attendance/${attendanceId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error deleting staff attendance:', error);
+      throw error;
+    }
+  }
+};

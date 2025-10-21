@@ -27,6 +27,7 @@ import {
 import { Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import PeerShiftSwapReview from '../../components/ScheduleRequestForms/PeerShiftSwapReview';
+import BackButton from '../../components/common/BackButton';
 import FeedbackSubmissionModal from '../../components/staff/FeedbackSubmissionModal';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -292,9 +293,12 @@ const StaffDashboard = () => {
         {/* Header */}
         <header className="mb-8">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Welcome, {staffInfo.name}!</h1>
-              <p className="text-gray-600">Ready for a productive day?</p>
+            <div className="flex items-center">
+              <BackButton fallbackPath="/staff/dashboard" className="mr-4" />
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">Welcome, {staffInfo.name}!</h1>
+                <p className="text-gray-600">Ready for a productive day?</p>
+              </div>
             </div>
             <div className="flex items-center space-x-4">
               <img

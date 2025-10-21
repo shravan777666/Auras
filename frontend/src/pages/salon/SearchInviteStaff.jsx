@@ -5,7 +5,8 @@ import { userService } from '../../services/user';
 import { staffInvitationService } from '../../services/staffInvitation';
 import { toast } from 'react-hot-toast';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
-import { Search, User, Mail, Phone, Plus, UserPlus, ArrowLeft } from 'lucide-react';
+import BackButton from '../../components/common/BackButton';
+import { Search, User, Mail, Phone, Plus, UserPlus } from 'lucide-react';
 
 const positionOptions = [
   'Hair Stylist', 'Hair Colorist', 'Makeup Artist', 'Nail Technician',
@@ -125,14 +126,8 @@ const SearchInviteStaff = () => {
 
   return (
     <div className="container mx-auto p-4">
-      <div className="flex items-center mb-6">
-        <button 
-          onClick={() => navigate('/salon/staff')}
-          className="flex items-center text-gray-600 hover:text-gray-900 mr-4"
-        >
-          <ArrowLeft className="h-5 w-5 mr-1" />
-          Back
-        </button>
+      <div className="mb-6">
+        <BackButton fallbackPath="/salon/staff" />
         <h1 className="text-2xl font-bold">Search & Invite Staff</h1>
       </div>
 

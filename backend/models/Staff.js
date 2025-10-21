@@ -60,6 +60,10 @@ const StaffSchema = new mongoose.Schema(
     assignedSalon: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon', default: null },
     salary: { type: Number },
     joiningDate: { type: Date },
+    // Salary management fields
+    baseSalary: { type: Number },
+    salaryType: { type: String, enum: ['Monthly', 'Hourly', 'Commission'] },
+    commissionRate: { type: Number, min: 0, max: 100 }
   },
   { timestamps: true }
 );

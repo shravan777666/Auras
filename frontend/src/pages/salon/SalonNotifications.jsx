@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
+import BackButton from '../../components/common/BackButton';
 import { 
   Mail, 
   MailOpen,
@@ -571,6 +572,7 @@ const SalonNotifications = () => {
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
+              <BackButton fallbackPath="/salon/dashboard" className="mb-2" />
               <h1 className="text-3xl font-bold text-gray-900 mb-2">Staff Replies & Notifications</h1>
               <p className="text-gray-600">Messages and replies from your staff members</p>
             </div>

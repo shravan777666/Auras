@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { staffService } from '../../services/staff';
 import { toast } from 'react-hot-toast';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import BackButton from '../../components/common/BackButton';
 
 const skillOptions = [
   'Haircut','Hair Styling','Hair Color','Hair Treatment',
@@ -119,6 +120,7 @@ const AddStaff = () => {
 
   return (
     <div className="container mx-auto p-4">
+      <BackButton fallbackPath="/salon/dashboard" className="mb-4" />
       <h1 className="text-2xl font-bold mb-4">Add New Staff Member</h1>
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

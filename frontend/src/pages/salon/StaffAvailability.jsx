@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calendar } from 'lucide-react';
+import BackButton from '../../components/common/BackButton';
+import { Calendar } from 'lucide-react';
 import StaffAppointmentsCalendar from '../../components/salon/StaffAppointmentsCalendar';
 
 const StaffAvailability = () => {
@@ -18,13 +19,7 @@ const StaffAvailability = () => {
     <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-screen">
       {/* Header */}
       <div className="mb-6">
-        <button
-          onClick={() => navigate('/salon/dashboard')}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-800 mb-4 transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          <span>Back to Dashboard</span>
-        </button>
+        <BackButton fallbackPath="/salon/dashboard" className="mb-4" />
         
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { staffInvitationService } from '../../services/staffInvitation';
 import { toast } from 'react-hot-toast';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import BackButton from '../../components/common/BackButton';
 import { UserPlus, Calendar, DollarSign, Check, X } from 'lucide-react';
 
 const StaffInvitations = () => {
@@ -62,6 +63,7 @@ const StaffInvitations = () => {
 
   return (
     <div className="container mx-auto p-4">
+      <BackButton fallbackPath="/staff/dashboard" className="mb-4" />
       <h1 className="text-2xl font-bold mb-6">Staff Invitations</h1>
       
       {invitations.length === 0 ? (

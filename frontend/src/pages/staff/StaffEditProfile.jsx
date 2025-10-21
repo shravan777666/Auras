@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getProfile, updateProfile } from '../../services/staff.js';
 import { toast } from 'react-hot-toast';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import BackButton from '../../components/common/BackButton';
 import { Camera, User } from 'lucide-react';
 
 const StaffEditProfile = () => {
@@ -152,6 +153,7 @@ const StaffEditProfile = () => {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-white shadow-lg rounded-lg overflow-hidden">
           <div className="px-6 py-4 bg-blue-600 text-white">
+            <BackButton fallbackPath="/staff/dashboard" className="text-white mb-4" />
             <h1 className="text-2xl font-bold">Edit Profile</h1>
             <p className="text-blue-100">Update your personal information</p>
           </div>

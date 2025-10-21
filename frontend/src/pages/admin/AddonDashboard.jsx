@@ -1,10 +1,32 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Home, ArrowLeft } from 'lucide-react';
+import { Home, Store } from 'lucide-react';
+import BackButton from '../../components/common/BackButton';
 import AddonDashboardStats from '../../components/admin/AddonDashboardStats';
 import AddonStaffPerformance from '../../components/admin/AddonStaffPerformance';
+import { adminService } from '../../services/adminService';
 
 const AddonDashboard = () => {
+  const [salons, setSalons] = useState([]);
+  const [selectedSalonId, setSelectedSalonId] = useState(null);
+  const [loadingSalons, setLoadingSalons] = useState(true);
+
+  useEffect(() => {
+    fetchSalons();
+  }, []);
+
+  const fetchSalons = async () => {
+    try {
+      setLoadingSalons(true);
+      const response = await adminService.getAllSalons();
+      setSalons(response.data || []);
+    } catch (error) {
+      console.error('Error fetching salons:', error);
+    } finally {
+      setLoadingSalons(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -13,13 +35,7 @@ const AddonDashboard = () => {
           <div className="flex justify-between items-center h-16">
             <h1 className="text-xl font-bold text-gray-800">Add-on Performance Dashboard</h1>
             <div className="flex items-center space-x-4">
-              <Link 
-                to="/admin" 
-                className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                <ArrowLeft className="h-4 w-4 mr-1" />
-                Back to Admin Dashboard
-              </Link>
+              <BackButton fallbackPath="/admin/dashboard" />
               <Link to="/" className="p-2 rounded-full hover:bg-gray-100 transition-colors">
                 <Home className="h-5 w-5 text-gray-600" />
               </Link>
@@ -30,14 +46,48 @@ const AddonDashboard = () => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Salon Selection */}
+        <div className="mb-8 bg-white rounded-2xl shadow-lg p-6">
+          <h3 className="text-xl font-bold text-gray-800 mb-4">Select Salon</h3>
+          {loadingSalons ? (
+            <div className="animate-pulse">
+              <div className="h-10 bg-gray-200 rounded w-1/3"></div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-4">
+              <select
+                value={selectedSalonId || ''}
+                onChange={(e) => setSelectedSalonId(e.target.value || null)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              >
+                <option value="">Select a salon</option>
+                {salons.map((salon) => (
+                  <option key={salon._id} value={salon._id}>
+                    {salon.salonName} ({salon.ownerName || 'No owner'})
+                  </option>
+                ))}
+              </select>
+              
+              {selectedSalonId && (
+                <button
+                  onClick={() => setSelectedSalonId(null)}
+                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
+                >
+                  Clear Selection
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Dashboard Stats */}
         <div className="mb-8">
-          <AddonDashboardStats />
+          <AddonDashboardStats salonId={selectedSalonId} />
         </div>
 
         {/* Staff Performance */}
         <div className="mb-8">
-          <AddonStaffPerformance />
+          <AddonStaffPerformance salonId={selectedSalonId} />
         </div>
 
         {/* Additional Information */}

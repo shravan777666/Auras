@@ -28,6 +28,18 @@ const expenseSchema = new mongoose.Schema({
   receipt: {
     type: String // Path to uploaded receipt file
   },
+  // New fields for staff salary expenses
+  type: {
+    type: String,
+    enum: ['General', 'Salary']
+  },
+  staffMemberId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Staff'
+  },
+  staffName: {
+    type: String
+  },
   createdAt: {
     type: Date,
     default: Date.now

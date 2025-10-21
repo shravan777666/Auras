@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getStaffById, updateStaffById } from '../../services/staff.js';
+import BackButton from '../../components/common/BackButton';
 import { AuthContext } from '../../contexts/AuthContext.jsx';
 
 const EditStaffProfile = () => {
@@ -49,6 +50,7 @@ const EditStaffProfile = () => {
 
   return (
     <div className="container mx-auto p-4">
+      <BackButton fallbackPath="/staff/dashboard" className="mb-4" />
       <h1 className="text-2xl font-bold mb-4">Edit Profile</h1>
       <form onSubmit={handleSubmit}>
         <div className="mb-4">

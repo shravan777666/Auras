@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { globalStaffService } from '../../services/globalStaff';
 import BroadcastModal from '../../components/salon/BroadcastModal';
+import BackButton from '../../components/common/BackButton';
 import { 
   Search, 
   Filter, 
@@ -311,6 +312,7 @@ const GlobalStaffDirectory = () => {
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
+              <BackButton fallbackPath="/salon/dashboard" className="mb-2" />
               <h1 className="text-3xl font-bold text-gray-900 mb-2">Global Staff Directory</h1>
               <p className="text-gray-600">Browse all staff members registered on the AuraCares platform</p>
             </div>

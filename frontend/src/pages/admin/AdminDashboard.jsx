@@ -1,24 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { 
-  Users, 
   Store, 
+  Users, 
+  DollarSign, 
+  TrendingUp, 
   Calendar, 
-  DollarSign,
-  User,
-  LogOut,
+  CheckCircle, 
+  XCircle, 
+  Clock, 
+  AlertCircle, 
+  ChevronRight, 
+  Eye, 
+  FileText,
+  BarChart3,
   Home,
-  ChevronRight,
-  TrendingUp,
-  Package,
-  BarChart3
+  LogOut
 } from 'lucide-react';
-import { adminService } from '../../services/adminService';
-import toast from 'react-hot-toast';
 import AddonDashboardStats from '../../components/admin/AddonDashboardStats';
 import AddonStaffPerformance from '../../components/admin/AddonStaffPerformance';
+import { adminService } from '../../services/adminService';
+import toast from 'react-hot-toast';
+import BackButton from '../../components/common/BackButton';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
 
 // Utility function to determine file type
 const getFileType = (url) => {
@@ -147,7 +152,7 @@ const ActionButton = ({ title, icon, onClick }) => {
       className="w-full flex items-center justify-between p-4 bg-white rounded-xl shadow-md hover:bg-gray-50 transform hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
     >
       <div className="flex items-center">
-        <Icon className="h-6 w-6 text-primary-600 mr-4" />
+        <Icon className="h-5 w-5 text-primary-600 mr-4" />
         <span className="text-lg font-semibold text-gray-700">{title}</span>
       </div>
       <ChevronRight className="h-5 w-5 text-gray-400" />
@@ -175,10 +180,14 @@ const AdminDashboard = () => {
   const [showDocumentModal, setShowDocumentModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [salons, setSalons] = useState([]);
+  const [selectedSalonId, setSelectedSalonId] = useState(null);
+  const [loadingSalons, setLoadingSalons] = useState(true);
 
   useEffect(() => {
     fetchDashboardStats();
     fetchPendingStaffCount();
+    fetchSalons(); // Add this to fetch salons when component mounts
 
     // Listen for salon approval events to refresh stats in real-time
     const handleSalonApproved = () => {
@@ -398,6 +407,18 @@ const AdminDashboard = () => {
     }
   };
 
+  const fetchSalons = async () => {
+    try {
+      setLoadingSalons(true);
+      const response = await adminService.getAllSalons();
+      setSalons(response.data || []);
+    } catch (error) {
+      console.error('Error fetching salons:', error);
+    } finally {
+      setLoadingSalons(false);
+    }
+  };
+
   if (loading) {
     return <LoadingSpinner text="Loading admin dashboard..." />;
   }
@@ -408,10 +429,13 @@ const AdminDashboard = () => {
       <header className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div>
-            <h1 className="text-xl font-bold text-gray-800">Admin Dashboard</h1>
-              <div className="text-xs text-gray-500">
-                {/* Frontend: {window.location.port} | API: {import.meta.env.VITE_API_URL} */}
+            <div className="flex items-center">
+              <BackButton fallbackPath="/admin/dashboard" className="mr-4" />
+              <div>
+                <h1 className="text-xl font-bold text-gray-800">Admin Dashboard</h1>
+                <div className="text-xs text-gray-500">
+                  {/* Frontend: {window.location.port} | API: {import.meta.env.VITE_API_URL} */}
+                </div>
               </div>
             </div>
             <div className="flex items-center space-x-2">
@@ -478,14 +502,53 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* Add-on Dashboard Stats */}
-        <div className="mb-12">
-          <AddonDashboardStats />
-        </div>
+        {/* Add-on Performance Section with Salon Selection */}
+        <div className="mb-12 bg-white rounded-2xl shadow-lg p-6">
+          <h3 className="text-2xl font-bold text-gray-800 mb-4">Add-on Performance</h3>
+          
+          {/* Salon Selection */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Select Salon for Detailed Performance</label>
+            {loadingSalons ? (
+              <div className="animate-pulse">
+                <div className="h-10 bg-gray-200 rounded w-1/3"></div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-4 items-center">
+                <select
+                  value={selectedSalonId || ''}
+                  onChange={(e) => setSelectedSalonId(e.target.value || null)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                >
+                  <option value="">View Overall Performance</option>
+                  {salons.map((salon) => (
+                    <option key={salon._id} value={salon._id}>
+                      {salon.salonName} ({salon.ownerName || 'No owner'})
+                    </option>
+                  ))}
+                </select>
+                
+                {selectedSalonId && (
+                  <button
+                    onClick={() => setSelectedSalonId(null)}
+                    className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors text-sm"
+                  >
+                    Clear Selection
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
 
-        {/* Add-on Staff Performance */}
-        <div className="mb-12">
-          <AddonStaffPerformance />
+          {/* Add-on Dashboard Stats */}
+          <div className="mb-8">
+            <AddonDashboardStats salonId={selectedSalonId} />
+          </div>
+
+          {/* Add-on Staff Performance */}
+          <div className="mb-8">
+            <AddonStaffPerformance salonId={selectedSalonId} />
+          </div>
         </div>
 
         {/* Pending Staff Approvals Card */}

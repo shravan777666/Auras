@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { Link, useParams, useNavigate, useLocation } from "react-router-dom";
+import BackButton from '../../components/common/BackButton';
 import { customerService } from "../../services/customer";
 import { loyaltyService } from "../../services/loyalty";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
@@ -675,6 +676,7 @@ const BookAppointment = () => {
 
   return (
     <div className="max-w-4xl mx-auto p-6">
+      <BackButton fallbackPath="/customer/dashboard" className="mb-4" />
       <h1 className="text-2xl font-semibold mb-4">Book Appointment</h1>
       {!salon ? (
         <div className="bg-white rounded-md shadow p-6">

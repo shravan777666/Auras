@@ -1,19 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Package, DollarSign, TrendingUp } from 'lucide-react';
+import { Users, Package, DollarSign, TrendingUp, AlertCircle } from 'lucide-react';
 import { adminService } from '../../services/adminService';
 
-const AddonStaffPerformance = () => {
+const AddonStaffPerformance = ({ salonId = null }) => {
   const [loading, setLoading] = useState(true);
   const [staffPerformance, setStaffPerformance] = useState([]);
 
   useEffect(() => {
     fetchStaffPerformance();
-  }, []);
+  }, [salonId]);
 
   const fetchStaffPerformance = async () => {
+    // If no salonId is provided, don't fetch data
+    if (salonId === null) {
+      setLoading(false);
+      setStaffPerformance([]);
+      return;
+    }
+    
     try {
       setLoading(true);
-      const data = await adminService.getAddonStaffPerformance();
+      const data = await adminService.getAddonStaffPerformance(salonId);
       setStaffPerformance(data);
     } catch (error) {
       console.error('Error fetching staff performance:', error);
@@ -21,6 +28,19 @@ const AddonStaffPerformance = () => {
       setLoading(false);
     }
   };
+
+  // If no salonId is provided, show a message
+  if (salonId === null) {
+    return (
+      <div className="bg-white rounded-2xl shadow-lg p-6">
+        <h3 className="text-xl font-bold text-gray-800 mb-4">Staff Add-on Performance</h3>
+        <div className="text-center py-8">
+          <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-500">Please select a salon to view staff performance data</p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

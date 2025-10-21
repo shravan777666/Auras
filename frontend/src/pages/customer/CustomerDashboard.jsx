@@ -24,6 +24,7 @@ import MessageNotificationBadge from '../../components/customer/MessageNotificat
 import OneClickBookingWidget from '../../components/customer/OneClickBookingWidget'
 import CustomerLoyaltyCard from '../../components/customer/CustomerLoyaltyCard'
 import FavoriteSalonCard from '../../components/customer/FavoriteSalonCard';
+import BackButton from '../../components/common/BackButton';
 import RecentSalonsCarousel from '../../components/customer/RecentSalonsCarousel';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002'
@@ -175,10 +176,13 @@ const CustomerDashboard = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <div className="bg-gradient-to-r from-primary-600 to-secondary-600 p-2 rounded-lg">
-                <Sparkles className="h-6 w-6 text-white" />
+              <BackButton fallbackPath="/customer/dashboard" className="mr-4" />
+              <div className="flex items-center">
+                <div className="bg-gradient-to-r from-primary-600 to-secondary-600 p-2 rounded-lg">
+                  <Sparkles className="h-6 w-6 text-white" />
+                </div>
+                <span className="ml-2 text-xl font-bold gradient-text">Auracare</span>
               </div>
-              <span className="ml-2 text-xl font-bold gradient-text">Auracare</span>
             </div>
 
             <div className="flex items-center space-x-4">

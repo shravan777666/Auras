@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { Eye, EyeOff, Mail, Shield, User, Building } from 'lucide-react';
+import api from '../../services/api';
 
 const ForgotPassword = () => {
   const navigate = useNavigate();
@@ -43,51 +44,21 @@ const ForgotPassword = () => {
     setLoading(true);
     
     try {
-      const response = await fetch('/api/forgot-password/request-reset', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          userType: formData.userType
-        })
+      const response = await api.post('/forgot-password/request-reset', {
+        email: formData.email,
+        userType: formData.userType
       });
 
-      // Always try to parse JSON response safely
-      let responseData = null;
-      try {
-        const responseText = await response.text();
-        if (responseText) {
-          responseData = JSON.parse(responseText);
-        }
-      } catch (parseError) {
-        console.error('Failed to parse response as JSON:', parseError);
-        toast.error('Invalid server response. Please try again.');
-        return;
-      }
-
-      // Handle response based on status and parsed data
-      if (response.ok) {
-        // Success case
-        const message = responseData?.message || 'Reset link sent';
-        toast.success(message);
-        setStep(2);
-      } else {
-        // Error case
-        const errorMessage = responseData?.message || 'Error sending reset link';
-        toast.error(errorMessage);
-      }
-
+      // Success case
+      const message = response.data?.message || 'Reset link sent';
+      toast.success(message);
+      setStep(2);
     } catch (error) {
       console.error('Network error requesting OTP:', error);
       
-      // Handle network and other fetch errors
-      if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        toast.error('Network error. Please check your connection.');
-      } else {
-        toast.error('An unexpected error occurred. Please try again.');
-      }
+      // Handle different types of errors
+      const errorMessage = error.response?.data?.message || 'An unexpected error occurred. Please try again.';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -103,69 +74,22 @@ const ForgotPassword = () => {
 
     setLoading(true);
     try {
-      const response = await fetch('/api/forgot-password/verify-otp', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          userType: formData.userType,
-          otp: formData.otp
-        })
+      const response = await api.post('/forgot-password/verify-otp', {
+        email: formData.email,
+        userType: formData.userType,
+        otp: formData.otp
       });
 
-      // Parse response safely
-      if (!response.ok) {
-        let errorMessage = 'Invalid OTP';
-        try {
-          const text = await response.text();
-          if (text) {
-            try {
-              const errorData = JSON.parse(text);
-              errorMessage = errorData.message || errorMessage;
-            } catch (jsonError) {
-              console.error('Response is not valid JSON:', text);
-              errorMessage = `Server error (${response.status})`;
-            }
-          } else {
-            errorMessage = `Server error (${response.status}) - Empty response`;
-          }
-        } catch (parseError) {
-          console.error('Failed to read error response:', parseError);
-          errorMessage = `Server error (${response.status})`;
-        }
-        toast.error(errorMessage);
-        return;
-      }
-
-      // Parse success response safely
-      try {
-        const text = await response.text();
-        if (!text) {
-          toast.error('Server returned empty response. Please try again.');
-          return;
-        }
-        
-        const data = JSON.parse(text);
-        toast.success(data.message || 'OTP verified successfully!');
-        setStep(3);
-      } catch (parseError) {
-        console.error('Failed to parse success response:', parseError);
-        toast.error('Invalid server response format. Please try again.');
-        return;
-      }
-
+      // Success case
+      const message = response.data?.message || 'OTP verified successfully!';
+      toast.success(message);
+      setStep(3);
     } catch (error) {
       console.error('Error verifying OTP:', error);
+      
       // Handle different types of errors
-      if (error.message.includes('Unexpected end of JSON input')) {
-        toast.error('Server returned empty response. Please try again.');
-      } else if (error.message.includes('Failed to fetch')) {
-        toast.error('Network error. Please check your connection.');
-      } else {
-        toast.error('An unexpected error occurred. Please try again.');
-      }
+      const errorMessage = error.response?.data?.message || 'An unexpected error occurred. Please try again.';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -191,80 +115,33 @@ const ForgotPassword = () => {
 
     setLoading(true);
     try {
-      const response = await fetch('/api/forgot-password/reset-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          userType: formData.userType,
-          otp: formData.otp,
-          newPassword: formData.newPassword
-        })
+      const response = await api.post('/forgot-password/reset-password', {
+        email: formData.email,
+        userType: formData.userType,
+        otp: formData.otp,
+        newPassword: formData.newPassword
       });
 
-      // Parse response safely
-      if (!response.ok) {
-        let errorMessage = 'Failed to reset password';
-        try {
-          const text = await response.text();
-          if (text) {
-            try {
-              const errorData = JSON.parse(text);
-              errorMessage = errorData.message || errorMessage;
-            } catch (jsonError) {
-              console.error('Response is not valid JSON:', text);
-              errorMessage = `Server error (${response.status})`;
-            }
-          } else {
-            errorMessage = `Server error (${response.status}) - Empty response`;
-          }
-        } catch (parseError) {
-          console.error('Failed to read error response:', parseError);
-          errorMessage = `Server error (${response.status})`;
-        }
-        toast.error(errorMessage);
-        return;
-      }
-
-      // Parse success response safely
-      try {
-        const text = await response.text();
-        if (!text) {
-          toast.error('Server returned empty response. Please try again.');
-          return;
-        }
-        
-        const data = JSON.parse(text);
-        toast.success(data.message || 'Password reset successfully! You can now login with your new password.');
-        
-        // Reset form and go back to login
-        setFormData({
-          email: '',
-          userType: 'customer',
-          otp: '',
-          newPassword: '',
-          confirmPassword: ''
-        });
-        setStep(1);
-        navigate('/login');
-      } catch (parseError) {
-        console.error('Failed to parse success response:', parseError);
-        toast.error('Invalid server response format. Please try again.');
-        return;
-      }
-
+      // Success case
+      const message = response.data?.message || 'Password reset successfully! You can now login with your new password.';
+      toast.success(message);
+      
+      // Reset form and go back to login
+      setFormData({
+        email: '',
+        userType: 'customer',
+        otp: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+      setStep(1);
+      navigate('/login');
     } catch (error) {
       console.error('Error resetting password:', error);
+      
       // Handle different types of errors
-      if (error.message.includes('Unexpected end of JSON input')) {
-        toast.error('Server returned empty response. Please try again.');
-      } else if (error.message.includes('Failed to fetch')) {
-        toast.error('Network error. Please check your connection.');
-      } else {
-        toast.error('An unexpected error occurred. Please try again.');
-      }
+      const errorMessage = error.response?.data?.message || 'An unexpected error occurred. Please try again.';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }

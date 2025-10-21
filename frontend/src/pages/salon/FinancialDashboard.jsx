@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
+import BackButton from '../../components/common/BackButton';
 import { salonService } from '../../services/salon';
 import { revenueService } from '../../services/revenue';
 import AddExpenseModal from '../../components/salon/AddExpenseModal';
@@ -340,6 +341,7 @@ const FinancialDashboard = () => {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
+          <BackButton fallbackPath="/salon/dashboard" className="mb-2" />
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Financial Dashboard</h1>
           <p className="text-gray-600">Comprehensive view of your salon's financial performance</p>
         </div>

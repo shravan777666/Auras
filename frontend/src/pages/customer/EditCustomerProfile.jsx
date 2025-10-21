@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { customerService } from '../../services/customer';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import BackButton from '../../components/common/BackButton';
 import { toast } from 'react-hot-toast';
-import { User, Mail, Phone, Calendar, MapPin, ArrowLeft, UploadCloud, X } from 'lucide-react';
+import { User, Mail, Phone, Calendar, MapPin, UploadCloud, X } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5009';
 const IMAGE_BASE = (API_URL || '').replace(/\/+$/, '').replace(/\/api\/?$/, '');
@@ -157,10 +158,7 @@ const EditCustomerProfile = () => {
       <header className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            <button onClick={() => navigate('/customer/dashboard')} className="flex items-center text-sm font-medium text-gray-600 hover:text-primary-600 transition-colors">
-              <ArrowLeft className="h-5 w-5 mr-2" />
-              Back to Dashboard
-            </button>
+            <BackButton fallbackPath="/customer/dashboard" />
             <h1 className="text-2xl font-bold text-gray-800">Edit Your Profile</h1>
           </div>
         </div>

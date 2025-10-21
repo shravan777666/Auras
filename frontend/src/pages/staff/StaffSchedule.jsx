@@ -14,6 +14,7 @@ import ShiftSwapForm from "../../components/ScheduleRequestForms/ShiftSwapForm";
 import MyRequests from "../../components/ScheduleRequestForms/MyRequests";
 import { scheduleRequestService } from "../../services/scheduleRequests";
 import { toast } from "react-hot-toast";
+import BackButton from '../../components/common/BackButton';
 
 const StaffSchedule = () => {
   const calendarRef = useRef(null);
@@ -538,6 +539,7 @@ const StaffSchedule = () => {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
           <div>
+            <BackButton fallbackPath="/staff/dashboard" className="mb-2" />
             <h1 className="text-2xl font-bold text-gray-900">My Schedule</h1>
             <p className="text-gray-600">View approved appointments in your salon</p>
             <div className="flex items-center gap-4 mt-2 text-sm">

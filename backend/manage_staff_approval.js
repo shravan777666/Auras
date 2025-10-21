@@ -2,6 +2,8 @@ import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import User from './models/User.js';
 import Staff from './models/Staff.js';
+import Salon from './models/Salon.js';
+import { sendStaffApprovalNotificationEmail } from './config/email.js';
 
 dotenv.config();
 
@@ -74,6 +76,111 @@ const approveStaff = async (email) => {
   
   console.log(`✅ Approved staff: ${staff.name || 'Unnamed'} (${email})`);
   console.log('🎉 The staff member can now log in and access their dashboard!');
+  
+  // Send approval notification emails to both staff member and salon owner
+  try {
+    console.log('📧 Initiating email notifications for staff approval...');
+    
+    // Get the assigned salon to find the owner
+    if (staff.assignedSalon) {
+      const salon = await Salon.findById(staff.assignedSalon);
+      if (salon) {
+        const salonName = salon.salonName || 'Your Salon';
+        const staffName = staff.name || 'Staff Member';
+        const position = staff.position || 'Staff';
+        
+        console.log('📧 Preparing emails for:', {
+          staffEmail: staff.email,
+          salonName,
+          staffName,
+          position
+        });
+
+        // Send email to staff member
+        if (staff.email) {
+          try {
+            console.log('📧 Sending approval email to staff member...');
+            // Import the email function directly
+            const { sendStaffApprovalEmail } = await import('./config/email.js');
+            const staffEmailResult = await sendStaffApprovalEmail(
+              staff.email,
+              staffName,
+              salonName,
+              position
+            );
+            
+            if (staffEmailResult.success) {
+              console.log('✅ Staff approval email sent successfully to staff member!');
+            } else {
+              console.error('❌ Failed to send staff approval email to staff member:', staffEmailResult.error);
+              console.error('Staff email error details:', {
+                email: staff.email,
+                staffName,
+                salonName,
+                position
+              });
+            }
+          } catch (emailError) {
+            console.error('❌ Exception while sending staff approval email to staff member:', emailError.message);
+            console.error('Staff email exception details:', {
+              email: staff.email,
+              staffName,
+              salonName,
+              position,
+              error: emailError.message
+            });
+          }
+        } else {
+          console.log('⚠️ Staff email not available, cannot send approval email to staff.');
+        }
+        
+        // Send notification email to salon owner
+        const salonOwner = await User.findById(salon.ownerId);
+        if (salonOwner && salonOwner.email) {
+          try {
+            console.log('📧 Sending notification email to salon owner...');
+            const { sendStaffApprovalNotificationEmail } = await import('./config/email.js');
+            const ownerEmailResult = await sendStaffApprovalNotificationEmail(
+              salonOwner.email, 
+              salonName, 
+              staffName, 
+              position
+            );
+            
+            if (ownerEmailResult.success) {
+              console.log('✅ Staff approval notification email sent successfully to salon owner!');
+            } else {
+              console.error('❌ Failed to send staff approval notification email:', ownerEmailResult.error);
+              console.error('Owner email error details:', {
+                email: salonOwner.email,
+                salonName,
+                staffName,
+                position
+              });
+            }
+          } catch (emailError) {
+            console.error('❌ Exception while sending staff approval notification email:', emailError.message);
+            console.error('Owner email exception details:', {
+              email: salonOwner.email,
+              salonName,
+              staffName,
+              position,
+              error: emailError.message
+            });
+          }
+        } else {
+          console.log('⚠️ Salon owner not found or email not available for salon:', salon._id);
+        }
+      } else {
+        console.log('⚠️ Assigned salon not found:', staff.assignedSalon);
+      }
+    } else {
+      console.log('⚠️ No assigned salon for staff member:', staff._id);
+    }
+  } catch (emailError) {
+    console.error('❌ Error sending staff approval emails:', emailError.message);
+    console.error('Email error details:', emailError);
+  }
 };
 
 const rejectStaff = async (email, reason) => {

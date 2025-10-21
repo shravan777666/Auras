@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import toast from 'react-hot-toast';
+import BackButton from '../../components/common/BackButton';
 import { 
   Store, 
   MapPin, 
@@ -263,6 +264,7 @@ const SalonSetup = () => {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
+          <BackButton fallbackPath="/salon/dashboard" className="mb-4" />
           <div className="flex justify-center mb-4">
             <div className="bg-gradient-to-r from-pink-500 to-purple-600 p-3 rounded-full">
               <Sparkles className="h-8 w-8 text-white" />

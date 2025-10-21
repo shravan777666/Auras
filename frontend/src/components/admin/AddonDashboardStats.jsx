@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { TrendingUp, Store, Package, Users, DollarSign } from 'lucide-react';
 import { adminService } from '../../services/adminService';
 
-const AddonDashboardStats = () => {
+const AddonDashboardStats = ({ salonId = null }) => {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     summary: {
@@ -17,11 +17,13 @@ const AddonDashboardStats = () => {
 
   useEffect(() => {
     fetchAddonDashboardStats();
-  }, []);
+  }, [salonId]);
 
   const fetchAddonDashboardStats = async () => {
     try {
       setLoading(true);
+      // For admin dashboard stats, we don't pass salonId as it's meant to show overall stats
+      // But we could modify this if needed for salon-specific stats
       const data = await adminService.getAddonDashboardStats();
       setStats(data);
     } catch (error) {

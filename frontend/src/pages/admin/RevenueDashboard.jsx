@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import BackButton from '../../components/common/BackButton';
 import { adminService } from '../../services/adminService';
 import {
   DollarSign,
   TrendingUp,
   PieChart,
   BarChart3,
-  ArrowLeft,
   RefreshCw
 } from 'lucide-react';
 import {
@@ -163,13 +163,7 @@ const RevenueDashboard = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center space-x-4">
-              <button
-                onClick={() => navigate('/admin/dashboard')}
-                className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                <ArrowLeft className="h-5 w-5 mr-2" />
-                Back to Dashboard
-              </button>
+              <BackButton fallbackPath="/admin/dashboard" />
             </div>
             <div className="flex items-center space-x-4">
               <button
