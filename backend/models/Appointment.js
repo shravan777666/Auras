@@ -54,7 +54,15 @@ const AppointmentSchema = new mongoose.Schema(
     feedback: { type: String },
     pointsEarned: { type: Number, default: 0 },
     pointsRedeemed: { type: Number, default: 0 },
-    discountFromPoints: { type: Number, default: 0 }
+    discountFromPoints: { type: Number, default: 0 },
+    // Payment fields
+    paymentStatus: { 
+      type: String, 
+      enum: ['Pending', 'Paid', 'Failed'],
+      default: 'Pending'
+    },
+    paymentId: { type: String },
+    paymentError: { type: String }
   },
   { 
     timestamps: true,

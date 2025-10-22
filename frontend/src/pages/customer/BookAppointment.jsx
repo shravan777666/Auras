@@ -33,6 +33,9 @@ const BookAppointment = () => {
   const [idleSlots, setIdleSlots] = useState([]);
   const [addonSuggestions, setAddonSuggestions] = useState([]);
   const [selectedAddons, setSelectedAddons] = useState([]);
+  const [showPaymentButton, setShowPaymentButton] = useState(false);
+  const [createdAppointment, setCreatedAppointment] = useState(null);
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
 
   // Check for pre-filled data from one-click booking widget or loyalty redemption
   useEffect(() => {
@@ -568,100 +571,226 @@ const BookAppointment = () => {
     return selectedAddons.reduce((total, addon) => total + Number(addon.price || 0), 0);
   };
 
-  const submitBooking = async () => {
-    if (!salon?._id || (selectedServices.length === 0 && selectedAddons.length === 0) || !appointmentDate || !appointmentTime) {
-      toast.error("Please select services, date, and time");
-      return;
-    }
-
-    // Validate date before submitting
-    if (!validateDate(appointmentDate)) {
-      toast.error("Please select a valid date. Past dates are not allowed.");
-      return;
-    }
+  const handleBookAppointment = async (e) => {
+    e.preventDefault();
     
     try {
-      const serviceTotal = calculateServiceTotal();
-      const addonTotal = calculateAddonTotal();
-      const totalAmount = serviceTotal + addonTotal;
-      
-      console.log('Booking details:', {
-        salonId: salon._id,
-        selectedServices,
-        selectedAddons,
-        totalServices: selectedServices.length,
-        totalAddons: selectedAddons.length,
-        totalAmount
-      });
-      
-      // Validate redemption data
-      if (redemptionData.usePoints && redemptionData.pointsToRedeem > 0) {
-        if (redemptionData.pointsToRedeem > totalAmount) {
-          toast.error("Points value cannot exceed service total");
-          return;
-        }
-        
-        if (redemptionData.pointsToRedeem < 100) {
-          toast.error("Minimum redemption is 100 points");
-          return;
-        }
-        
-        if (redemptionData.pointsToRedeem % 100 !== 0) {
-          toast.error("Points must be redeemed in multiples of 100");
-          return;
-        }
+      if (!salon?._id || (selectedServices.length === 0 && selectedAddons.length === 0) || !appointmentDate || !appointmentTime) {
+        toast.error("Please select services, date, and time");
+        return;
+      }
+
+      // Validate date before submitting
+      if (!validateDate(appointmentDate)) {
+        toast.error("Please select a valid date. Past dates are not allowed.");
+        return;
       }
       
-      // Prepare services array (include both regular services and addons)
-      const allServices = [
-        ...selectedServices,
-        ...selectedAddons.map(addon => ({ serviceId: addon.serviceId }))
-      ];
-      
-      console.log('All services to book:', allServices);
-      
-      const payload = {
-        salonId: salon._id,
-        services: allServices,
-        appointmentDate,
-        appointmentTime,
-        customerNotes,
-        ...(redemptionData.usePoints && redemptionData.pointsToRedeem > 0 && {
-          pointsToRedeem: redemptionData.pointsToRedeem,
-          discountAmount: redemptionData.discountAmount
-        })
-      };
-      
-      const res = await customerService.bookAppointment(payload);
-      if (res?.success) {
-        toast.success("Appointment booked successfully!");
+      try {
+        const serviceTotal = calculateServiceTotal();
+        const addonTotal = calculateAddonTotal();
+        const totalAmount = serviceTotal + addonTotal;
         
-        // If points were redeemed, show a success message
-        if (redemptionData.usePoints && redemptionData.pointsToRedeem > 0) {
-          toast.success(`Successfully redeemed ${redemptionData.pointsToRedeem} points for ₹${redemptionData.discountAmount} discount!`);
-        }
-        
-        setSelectedServices([]);
-        setSelectedAddons([]);
-        setAppointmentDate("");
-        setAppointmentTime("");
-        setCustomerNotes("");
-        setRedemptionData({
-          usePoints: false,
-          pointsToRedeem: 0,
-          discountAmount: 0
+        console.log('Booking details:', {
+          salonId: salon._id,
+          selectedServices,
+          selectedAddons,
+          totalServices: selectedServices.length,
+          totalAddons: selectedAddons.length,
+          totalAmount
         });
         
-        // Navigate to My Bookings page to show the new booking
-        setTimeout(() => {
-          navigate("/customer/bookings");
-        }, 1500);
-      } else {
-        toast.error(res?.message || "Failed to book appointment");
+        // Validate redemption data
+        if (redemptionData.usePoints && redemptionData.pointsToRedeem > 0) {
+          if (redemptionData.pointsToRedeem > totalAmount) {
+            toast.error("Points value cannot exceed service total");
+            return;
+          }
+          
+          if (redemptionData.pointsToRedeem < 100) {
+            toast.error("Minimum redemption is 100 points");
+            return;
+          }
+          
+          if (redemptionData.pointsToRedeem % 100 !== 0) {
+            toast.error("Points must be redeemed in multiples of 100");
+            return;
+          }
+        }
+        
+        // Prepare services array (include both regular services and addons)
+        const allServices = [
+          ...selectedServices,
+          ...selectedAddons.map(addon => ({ serviceId: addon.serviceId }))
+        ];
+        
+        console.log('All services to book:', allServices);
+        
+        const payload = {
+          salonId: salon._id,
+          services: allServices,
+          appointmentDate,
+          appointmentTime,
+          customerNotes,
+          ...(redemptionData.usePoints && redemptionData.pointsToRedeem > 0 && {
+            pointsToRedeem: redemptionData.pointsToRedeem,
+            discountAmount: redemptionData.discountAmount
+          })
+        };
+        
+        const res = await customerService.bookAppointment(payload);
+        if (res?.success) {
+          // Store the created appointment for payment
+          setCreatedAppointment(res.data);
+          setShowPaymentButton(true);
+          
+          // Show a message that appointment is created and payment is pending
+          toast.success("Appointment created! Please proceed with payment to confirm your booking.");
+          
+          // If points were redeemed, show a success message
+          if (redemptionData.usePoints && redemptionData.pointsToRedeem > 0) {
+            toast.success(`Successfully redeemed ${redemptionData.pointsToRedeem} points for ₹${redemptionData.discountAmount} discount!`);
+          }
+        } else {
+          toast.error(res?.message || "Failed to book appointment");
+        }
+      } catch (e) {
+        console.error('Booking error:', e);
+        toast.error(e?.response?.data?.message || "Failed to book appointment");
       }
     } catch (e) {
       console.error('Booking error:', e);
       toast.error(e?.response?.data?.message || "Failed to book appointment");
+    }
+  };
+
+  const handleProceedToPay = async () => {
+    if (!createdAppointment) return;
+    
+    setPaymentProcessing(true);
+    
+    try {
+      // Load Razorpay script
+      const loadRazorpay = () => {
+        return new Promise((resolve) => {
+          const script = document.createElement('script');
+          script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+          script.onload = () => {
+            resolve(true);
+          };
+          script.onerror = () => {
+            resolve(false);
+          };
+          document.body.appendChild(script);
+        });
+      };
+
+      const res = await loadRazorpay();
+      if (!res) {
+        toast.error('Failed to load payment gateway. Please try again.');
+        setPaymentProcessing(false);
+        return;
+      }
+
+      // Create payment order
+      const { paymentService } = await import('../../services/payment');
+      const orderResponse = await paymentService.createPaymentOrder(createdAppointment._id);
+      
+      if (!orderResponse?.success) {
+        toast.error(orderResponse?.message || 'Failed to create payment order');
+        setPaymentProcessing(false);
+        return;
+      }
+
+      const orderData = orderResponse.data;
+      
+      // Configure Razorpay options
+      const options = {
+        key: 'rzp_test_RP6aD2gNdAuoRE', // Razorpay test key
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: 'Auracare Beauty Parlor',
+        description: `Appointment Payment for ${orderData.salonName}`,
+        image: 'https://example.com/your_logo.png', // Replace with actual logo URL
+        order_id: orderData.orderId,
+        handler: async function (response) {
+          try {
+            // Verify payment
+            const verifyResponse = await paymentService.verifyPayment({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              appointmentId: orderData.appointmentId
+            });
+            
+            if (verifyResponse?.success) {
+              toast.success('Payment successful! Appointment confirmed.');
+              
+              // Reset form
+              setSelectedServices([]);
+              setSelectedAddons([]);
+              setAppointmentDate("");
+              setAppointmentTime("");
+              setCustomerNotes("");
+              setRedemptionData({
+                usePoints: false,
+                pointsToRedeem: 0,
+                discountAmount: 0
+              });
+              setShowPaymentButton(false);
+              setCreatedAppointment(null);
+              
+              // Navigate to My Bookings page
+              setTimeout(() => {
+                navigate("/customer/bookings");
+              }, 1500);
+            } else {
+              toast.error(verifyResponse?.message || 'Payment verification failed');
+              setPaymentProcessing(false);
+            }
+          } catch (error) {
+            console.error('Payment verification error:', error);
+            toast.error('Payment verification failed. Please contact support.');
+            setPaymentProcessing(false);
+          }
+        },
+        prefill: {
+          name: orderData.customerName,
+          email: orderData.customerEmail,
+          // Add phone number if available
+        },
+        notes: {
+          appointment_id: orderData.appointmentId,
+          salon_name: orderData.salonName,
+          services: orderData.services
+        },
+        theme: {
+          color: '#3399cc'
+        },
+        modal: {
+          ondismiss: async function() {
+            // Handle payment cancellation
+            try {
+              await paymentService.handlePaymentFailure({
+                appointmentId: orderData.appointmentId,
+                error: 'Payment cancelled by user'
+              });
+              toast.error('Payment cancelled. Your appointment is still pending.');
+            } catch (error) {
+              console.error('Error handling payment failure:', error);
+            }
+            setPaymentProcessing(false);
+          }
+        }
+      };
+
+      // Open Razorpay checkout
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (error) {
+      console.error('Payment error:', error);
+      toast.error('Failed to process payment. Please try again.');
+      setPaymentProcessing(false);
     }
   };
 
@@ -841,6 +970,39 @@ const BookAppointment = () => {
                   />
                 </div>
               )}
+              
+              {/* Payment Button */}
+              {showPaymentButton && createdAppointment && (
+                <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <h3 className="text-lg font-semibold text-blue-800 mb-2">Proceed to Payment</h3>
+                  <p className="text-blue-700 mb-4">
+                    Your appointment has been created. Please proceed with payment to confirm your booking.
+                  </p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600">Total Amount</p>
+                      <p className="text-xl font-bold text-gray-900">₹{createdAppointment.finalAmount}</p>
+                    </div>
+                    <button
+                      onClick={handleProceedToPay}
+                      disabled={paymentProcessing}
+                      className="px-6 py-3 bg-green-600 text-white font-medium rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 flex items-center"
+                    >
+                      {paymentProcessing ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Processing...
+                        </>
+                      ) : (
+                        `Proceed to Pay ₹${createdAppointment.finalAmount}`
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
             <div>
               <h3 className="font-medium mb-2">Select Date & Time</h3>
@@ -903,7 +1065,7 @@ const BookAppointment = () => {
                 )}
                 
                 <button 
-                  onClick={submitBooking} 
+                  onClick={handleBookAppointment} 
                   disabled={!!dateError || (selectedServices.length === 0 && selectedAddons.length === 0)}
                   className={`px-4 py-2 text-white rounded ${!!dateError || (selectedServices.length === 0 && selectedAddons.length === 0) ? 'bg-gray-400 cursor-not-allowed' : 'bg-primary-600 hover:bg-primary-700'}`}
                 >

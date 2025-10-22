@@ -281,7 +281,7 @@ export const login = async (req, res) => {
       }
 
       user = {
-        _id: centralUser._id,
+        _id: userType === 'customer' ? specificModelUser._id : centralUser._id,
         name: specificModelUser.name,
         email: specificModelUser.email,
         password: centralUser.password,
@@ -337,9 +337,16 @@ export const login = async (req, res) => {
 
 // Google OAuth initiation with role parameter
 export const googleAuth = (req, res, next) => {
+  console.log('Google OAuth request received:', {
+    query: req.query,
+    role: req.query.role,
+    session: req.session
+  });
+  
   const { role } = req.query;
   
   if (!role || !['customer', 'salon', 'staff'].includes(role)) {
+    console.log('Invalid role parameter:', role);
     return res.status(400).json({
       success: false,
       message: 'Valid role parameter (customer, salon, staff) is required'
@@ -349,6 +356,7 @@ export const googleAuth = (req, res, next) => {
   // Store role in session state to pass to callback
   if (req.session) {
     req.session.oauthRole = role;
+    console.log('Stored role in session:', role);
   }
   
   // Initiate Google OAuth with role as state parameter
@@ -364,7 +372,7 @@ export const googleCallback = async (req, res) => {
     const user = req.user;
     
     if (!user) {
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3002';
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3007';
       return res.redirect(`${frontendUrl}/auth/callback?error=oauth_failed`);
     }
 
@@ -382,14 +390,14 @@ export const googleCallback = async (req, res) => {
     };
     
     // Redirect to frontend OAuth callback with token and user info
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3002';
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3007';
     const redirectUrl = `${frontendUrl}/auth/callback?token=${token}&user=${encodeURIComponent(JSON.stringify(userData))}`;
     
     res.redirect(redirectUrl);
     
   } catch (error) {
     console.error('Google OAuth callback error:', error);
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3002';
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3007';
     const errorUrl = `${frontendUrl}/auth/callback?error=oauth_error`;
     return res.redirect(errorUrl);
   }

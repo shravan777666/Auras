@@ -115,7 +115,14 @@ export const sendBroadcast = asyncHandler(async (req, res) => {
     }
 
     // Get sender salon information
-    const User = (await import('../models/User.js')).default;
+    let User;
+    try {
+      User = (await import('../models/User.js')).default;
+    } catch (importError) {
+      console.error('Failed to import User model:', importError);
+      return errorResponse(res, 'Internal server error - failed to load user model', 500);
+    }
+    
     const user = await User.findById(userId);
     if (!user || user.type !== 'salon') {
       return errorResponse(res, 'Access denied: Only salon owners can send broadcasts', 403);
@@ -160,7 +167,9 @@ export const sendBroadcast = asyncHandler(async (req, res) => {
       staffName: staff.name,
       staffEmail: staff.email,
       senderId: salon._id,
+      senderType: 'Salon', // Add the required senderType field
       senderName: salon.ownerName || user.name,
+      senderEmail: user.email, // Add sender email
       senderSalonName: salon.salonName,
       broadcastId: broadcast._id,
       subject,
@@ -168,7 +177,8 @@ export const sendBroadcast = asyncHandler(async (req, res) => {
       targetSkill,
       category,
       priority,
-      status: 'delivered' // Mark as delivered immediately for now
+      status: 'delivered', // Mark as delivered immediately for now
+      type: 'broadcast' // Add the required type field
     }));
 
     // Bulk insert notifications
@@ -201,7 +211,7 @@ export const sendBroadcast = asyncHandler(async (req, res) => {
 
   } catch (error) {
     console.error('Error sending broadcast:', error);
-    errorResponse(res, 'Failed to send broadcast', 500);
+    errorResponse(res, 'Failed to send broadcast: ' + error.message, 500);
   }
 });
 

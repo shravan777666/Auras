@@ -38,7 +38,7 @@ const SalonNotifications = () => {
     page: 1,
     limit: 10,
     total: 0,
-    pages: 0
+    pages: 1
   });
 
   // Filters
@@ -99,9 +99,10 @@ const SalonNotifications = () => {
         setPagination(response.data.pagination || pagination);
 
         // Update stats from response
-        if (response.data.pagination?.total !== undefined && response.data.unreadCount !== undefined) {
+        if (response.data.pagination?.total !== undefined) {
           const total = response.data.pagination.total;
-          const unread = response.data.unreadCount;
+          // Check if unreadCount exists before using it
+          const unread = response.data.unreadCount !== undefined ? response.data.unreadCount : 0;
           const read = total - unread;
           const readRate = total > 0 ? Math.round((read / total) * 100) : 0;
 
@@ -127,7 +128,18 @@ const SalonNotifications = () => {
 
   // Initial load
   useEffect(() => {
-    loadNotifications();
+    const initializeComponent = async () => {
+      try {
+        await loadNotifications();
+      } catch (error) {
+        console.error('Error initializing component:', error);
+        setError(error.message || 'Failed to initialize notifications');
+        setLoading(false);
+        setRefreshing(false);
+      }
+    };
+    
+    initializeComponent();
   }, []);
 
   // Handle filter changes
@@ -145,7 +157,9 @@ const SalonNotifications = () => {
 
   // Handle page change
   const handlePageChange = (newPage) => {
-    if (newPage >= 1 && newPage <= pagination.pages) {
+    // Ensure pagination.pages exists and is a valid number
+    const totalPages = pagination.pages || 1;
+    if (newPage >= 1 && newPage <= totalPages) {
       loadNotifications(newPage, filters);
     }
   };
@@ -162,8 +176,17 @@ const SalonNotifications = () => {
 
   // Mark notification as read
   const handleMarkAsRead = async (notificationId) => {
+    // If notificationId is actually a notification object, extract the ID
+    const id = (typeof notificationId === 'object') ? (notificationId._id || notificationId.id) : notificationId;
+    
+    if (!id) {
+      console.warn('Cannot mark notification as read without ID:', notificationId);
+      toast.error('Cannot mark this notification as read');
+      return;
+    }
+    
     try {
-      await salonService.markNotificationAsRead(notificationId);
+      await salonService.markNotificationAsRead(id);
       toast.success('Notification marked as read');
       handleNotificationUpdate();
     } catch (error) {
@@ -177,7 +200,8 @@ const SalonNotifications = () => {
     try {
       const unreadIds = notifications
         .filter(n => !n.isRead)
-        .map(n => n.id);
+        .map(n => n._id || n.id)
+        .filter(id => id); // Filter out any undefined/null IDs
 
       if (unreadIds.length === 0) {
         toast.info('No unread notifications to mark');
@@ -289,6 +313,15 @@ const SalonNotifications = () => {
   const handleHireStaff = (notification) => {
     console.log('Notification data for hiring:', notification);
     console.log('Staff data:', notification?.staff);
+    
+    // Validate notification has required properties
+    const notificationId = notification._id || notification.id;
+    if (!notificationId) {
+      console.warn('Cannot hire staff from notification without ID:', notification);
+      toast.error('Cannot process this notification');
+      return;
+    }
+    
     setSelectedNotification(notification);
     setShowHireModal(true);
   };
@@ -296,15 +329,29 @@ const SalonNotifications = () => {
   // Handle send job offer
   const handleSendOffer = async (offerData) => {
     try {
+      // Check if selectedNotification exists and has the required properties
+      if (!selectedNotification) {
+        toast.error('No notification selected');
+        return;
+      }
+      
+      const notificationId = selectedNotification._id || selectedNotification.id;
+      if (!notificationId) {
+        toast.error('Invalid notification');
+        return;
+      }
+      
+      const staffName = selectedNotification.staff?.name || 'Staff Member';
+      
       // Update notification status
       setNotificationStatus(prev => ({
         ...prev,
-        [selectedNotification.id]: 'hired'
+        [notificationId]: 'hired'
       }));
       
       // Close modal and show success message
       setShowHireModal(false);
-      toast.success(`Job offer sent to ${selectedNotification.staff.name}!`);
+      toast.success(`Job offer sent to ${staffName}!`);
       
       // Refresh notifications to update UI
       handleNotificationUpdate();
@@ -316,14 +363,23 @@ const SalonNotifications = () => {
 
   // Handle reject application
   const handleRejectApplication = async (notificationId) => {
+    // If notificationId is actually a notification object, extract the ID
+    const id = (typeof notificationId === 'object') ? (notificationId._id || notificationId.id) : notificationId;
+    
+    if (!id) {
+      console.warn('Cannot reject application without notification ID:', notificationId);
+      toast.error('Cannot reject this application');
+      return;
+    }
+    
     try {
       // Call the API to reject the application
-      await salonService.rejectStaffApplication(notificationId);
+      await salonService.rejectStaffApplication(id);
       
       // Update notification status
       setNotificationStatus(prev => ({
         ...prev,
-        [notificationId]: 'rejected'
+        [id]: 'rejected'
       }));
       
       toast.success('Application marked as unsuitable');
@@ -338,14 +394,21 @@ const SalonNotifications = () => {
 
   // Handle reply to notification
   const handleReplyToNotification = (notification) => {
-    setReplyingTo(notification.id);
+    const notificationId = notification._id || notification.id;
+    if (notificationId) {
+      setReplyingTo(notificationId);
+    } else {
+      console.warn('Cannot reply to notification without ID:', notification);
+      toast.error('Cannot reply to this notification');
+    }
   };
 
   // Handle reply sent
   const handleReplySent = (replyMessage) => {
     // Update notification in the list to show the reply
     setNotifications(prev => prev.map(notification => {
-      if (notification.id === replyingTo) {
+      const notificationId = notification._id || notification.id;
+      if (notificationId && notificationId === replyingTo) {
         // In a real implementation, we would add the reply to the notification thread
         // For now, we'll just close the reply form
         return notification;
@@ -361,213 +424,247 @@ const SalonNotifications = () => {
 
   // Render notification item
   const renderNotificationItem = (notification) => {
-    console.log('Rendering notification:', notification);
-    const timeAgo = getTimeAgo(notification.sentAt);
-    const categoryColor = getCategoryColor(notification.category);
-    const priorityColor = getPriorityColor(notification.priority);
-    const status = notificationStatus[notification.id] || 'active'; // active, hired, rejected
+    try {
+      console.log('Rendering notification:', notification);
+      
+      // Get the notification ID (could be _id or id)
+      const notificationId = notification._id || notification.id;
+      if (!notificationId) {
+        console.warn('Notification missing ID:', notification);
+        return null;
+      }
+      
+      const timeAgo = getTimeAgo(notification.sentAt);
+      const categoryColor = getCategoryColor(notification.category);
+      const priorityColor = getPriorityColor(notification.priority);
+      const status = notificationStatus[notificationId] || 'active'; // active, hired, rejected
 
-    // Skip rendering if rejected and filter is applied
-    if (status === 'rejected') {
-      return null;
-    }
+      // Skip rendering if rejected and filter is applied
+      if (status === 'rejected') {
+        return null;
+      }
 
-    return (
-      <div className={`bg-white rounded-lg border transition-all duration-200 hover:shadow-md ${
-        !notification.isRead ? 'border-l-4 border-l-primary-500 bg-primary-50/30' : 'border-gray-200'
-      } ${notification.isArchived ? 'opacity-75' : ''} ${status === 'rejected' ? 'opacity-50' : ''}`}>
-        <div className="p-4">
-          <div className="flex items-start justify-between">
-            <div className="flex items-start space-x-3 flex-1">
-              {/* Status Icon */}
-              <div className="flex-shrink-0 mt-1">
-                {notification.isArchived ? (
-                  <Archive className="h-5 w-5 text-gray-400" />
-                ) : notification.isRead ? (
-                  <MailOpen className="h-5 w-5 text-gray-600" />
-                ) : (
-                  <Mail className="h-5 w-5 text-primary-600" />
-                )}
-              </div>
+      return (
+        <div className={`bg-white rounded-lg border transition-all duration-200 hover:shadow-md ${
+          !notification.isRead ? 'border-l-4 border-l-primary-500 bg-primary-50/30' : 'border-gray-200'
+        } ${notification.isArchived ? 'opacity-75' : ''} ${status === 'rejected' ? 'opacity-50' : ''}`}>
+          <div className="p-4">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start space-x-3 flex-1">
+                {/* Status Icon */}
+                <div className="flex-shrink-0 mt-1">
+                  {notification.isArchived ? (
+                    <Archive className="h-5 w-5 text-gray-400" />
+                  ) : notification.isRead ? (
+                    <MailOpen className="h-5 w-5 text-gray-600" />
+                  ) : (
+                    <Mail className="h-5 w-5 text-primary-600" />
+                  )}
+                </div>
 
-              {/* Content */}
-              <div className="flex-1 min-w-0">
-                {/* Subject and Priority */}
-                <div className="flex items-center space-x-2 mb-1">
-                  <h3 className={`text-sm font-medium truncate ${
-                    !notification.isRead ? 'text-gray-900' : 'text-gray-700'
-                  }`}>
-                    {notification.subject}
-                  </h3>
-                  <div className={`p-1 rounded ${priorityColor}`}>
-                    <AlertCircle className="h-3 w-3" />
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  {/* Subject and Priority */}
+                  <div className="flex items-center space-x-2 mb-1">
+                    <h3 className={`text-sm font-medium truncate ${
+                      !notification.isRead ? 'text-gray-900' : 'text-gray-700'
+                    }`}>
+                      {notification.subject}
+                    </h3>
+                    <div className={`p-1 rounded ${priorityColor}`}>
+                      <AlertCircle className="h-3 w-3" />
+                    </div>
                   </div>
-                </div>
 
-                {/* Staff Info */}
-                <div className="flex items-center space-x-2 text-xs text-gray-600 mb-2">
-                  <User className="h-3 w-3" />
-                  <span>{notification.staff?.name || 'Staff Member'}</span>
-                  <span>•</span>
-                  <Target className="h-3 w-3" />
-                  <span>{notification.targetSkill}</span>
-                  <span>•</span>
-                  <Clock className="h-3 w-3" />
-                  <span>{timeAgo}</span>
-                </div>
+                  {/* Staff Info */}
+                  <div className="flex items-center space-x-2 text-xs text-gray-600 mb-2">
+                    <User className="h-3 w-3" />
+                    <span>{notification.staff?.name || 'Staff Member'}</span>
+                    <span>•</span>
+                    <Target className="h-3 w-3" />
+                    <span>{notification.targetSkill}</span>
+                    <span>•</span>
+                    <Clock className="h-3 w-3" />
+                    <span>{timeAgo}</span>
+                  </div>
 
-                {/* Category and Type Badges */}
-                <div className="flex items-center space-x-2 mb-2">
-                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${categoryColor}`}>
-                    {getCategoryDisplayName(notification.category)}
-                  </span>
-                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${
-                    notification.type === 'direct_message' 
-                      ? 'bg-indigo-100 text-indigo-800 border-indigo-200' 
-                      : 'bg-gray-100 text-gray-800 border-gray-200'
-                  }`}>
-                    {notification.type === 'direct_message' ? 'Reply' : 'Broadcast'}
-                  </span>
-                  {status === 'hired' && (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border bg-green-100 text-green-800 border-green-200">
-                      <Check className="h-3 w-3 mr-1" />
-                      Hired
+                  {/* Category and Type Badges */}
+                  <div className="flex items-center space-x-2 mb-2">
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${categoryColor}`}>
+                      {getCategoryDisplayName(notification.category)}
                     </span>
-                  )}
-                  {status === 'rejected' && (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border bg-red-100 text-red-800 border-red-200">
-                      <XCircle className="h-3 w-3 mr-1" />
-                      Rejected
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${
+                      notification.type === 'direct_message' 
+                        ? 'bg-indigo-100 text-indigo-800 border-indigo-200' 
+                        : 'bg-gray-100 text-gray-800 border-gray-200'
+                    }`}>
+                      {notification.type === 'direct_message' ? 'Reply' : 'Broadcast'}
                     </span>
-                  )}
-                </div>
+                    {status === 'hired' && (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border bg-green-100 text-green-800 border-green-200">
+                        <Check className="h-3 w-3 mr-1" />
+                        Hired
+                      </span>
+                    )}
+                    {status === 'rejected' && (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border bg-red-100 text-red-800 border-red-200">
+                        <XCircle className="h-3 w-3 mr-1" />
+                        Rejected
+                      </span>
+                    )}
+                  </div>
 
-                {/* Message Preview */}
-                <p className="text-sm text-gray-600 line-clamp-2">
-                  {notification.message}
-                </p>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center space-x-2 ml-4">
-              {!notification.isRead && (
-                <button
-                  onClick={() => handleMarkAsRead(notification.id)}
-                  className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
-                  title="Mark as Read"
-                >
-                  <CheckCircle2 className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Expanded Content */}
-        <div className="px-4 pb-4 border-t border-gray-100">
-          <div className="pt-4 space-y-4">
-            {/* Full Message */}
-            <div>
-              <h4 className="text-sm font-medium text-gray-900 mb-2">Message:</h4>
-              <div className="bg-gray-50 rounded-lg p-3">
-                <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                  {notification.message}
-                </p>
-              </div>
-            </div>
-
-            {/* Staff Details */}
-            <div>
-              <h4 className="text-sm font-medium text-gray-900 mb-2">From:</h4>
-              <div className="bg-gray-50 rounded-lg p-3">
-                <div className="flex items-center space-x-2 text-sm">
-                  <User className="h-4 w-4 text-gray-500" />
-                  <span className="font-medium">{notification.staff?.name || 'Staff Member'}</span>
-                </div>
-                <div className="text-xs text-gray-600 mt-1">
-                  Email: {notification.staff?.email || 'N/A'}
-                </div>
-                <div className="text-xs text-gray-600 mt-1">
-                  Position: {notification.staff?.position || 'N/A'}
+                  {/* Message Preview */}
+                  <p className="text-sm text-gray-600 line-clamp-2">
+                    {notification.message}
+                  </p>
                 </div>
               </div>
-            </div>
 
-            {/* Metadata */}
-            <div className="grid grid-cols-2 gap-4 text-xs text-gray-600">
-              <div>
-                <span className="font-medium">Sent:</span> {new Date(notification.sentAt).toLocaleString()}
-              </div>
-              {notification.readAt && (
-                <div>
-                  <span className="font-medium">Read:</span> {new Date(notification.readAt).toLocaleString()}
-                </div>
-              )}
-              <div>
-                <span className="font-medium">Target Skill:</span> {notification.targetSkill}
-              </div>
-              <div>
-                <span className="font-medium">Category:</span> {getCategoryDisplayName(notification.category)}
-              </div>
-            </div>
-
-            {/* Reply Form - Show only if replying to this notification */}
-            {replyingTo === notification.id && (
-              <NotificationReply
-                notification={notification}
-                onReplySent={handleReplySent}
-                onCancel={() => setReplyingTo(null)}
-              />
-            )}
-
-            {/* Actions Bar */}
-            <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-              <div className="flex items-center space-x-2">
+              {/* Actions */}
+              <div className="flex items-center space-x-2 ml-4">
                 {!notification.isRead && (
                   <button
-                    onClick={() => handleMarkAsRead(notification.id)}
-                    className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+                    onClick={() => handleMarkAsRead(notificationId)}
+                    className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+                    title="Mark as Read"
                   >
-                    Mark as Read
+                    <CheckCircle2 className="h-4 w-4" />
                   </button>
                 )}
-                <button
-                  onClick={() => handleReplyToNotification(notification)}
-                  className="text-xs text-indigo-600 hover:text-indigo-700 font-medium flex items-center"
-                >
-                  <Reply className="h-3 w-3 mr-1" />
-                  Reply
-                </button>
-                <button
-                  onClick={() => handleHireStaff(notification)}
-                  className="text-xs text-green-600 hover:text-green-700 font-medium flex items-center"
-                >
-                  <UserPlus className="h-3 w-3 mr-1" />
-                  Hire / Offer Job
-                </button>
-                <button
-                  onClick={() => handleRejectApplication(notification.id)}
-                  className="text-xs text-red-600 hover:text-red-700 font-medium flex items-center"
-                >
-                  <XCircle className="h-3 w-3 mr-1" />
-                  Mark as Unsuitable
-                </button>
               </div>
-              
-              <div className="text-xs text-gray-500">
-                ID: {notification.id.slice(-8)}
+            </div>
+          </div>
+
+          {/* Expanded Content */}
+          <div className="px-4 pb-4 border-t border-gray-100">
+            <div className="pt-4 space-y-4">
+              {/* Full Message */}
+              <div>
+                <h4 className="text-sm font-medium text-gray-900 mb-2">Message:</h4>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                    {notification.message}
+                  </p>
+                </div>
+              </div>
+
+              {/* Staff Details */}
+              <div>
+                <h4 className="text-sm font-medium text-gray-900 mb-2">From:</h4>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="flex items-center space-x-2 text-sm">
+                    <User className="h-4 w-4 text-gray-500" />
+                    <span className="font-medium">{notification.staff?.name || 'Staff Member'}</span>
+                  </div>
+                  <div className="text-xs text-gray-600 mt-1">
+                    Email: {notification.staff?.email || 'N/A'}
+                  </div>
+                  <div className="text-xs text-gray-600 mt-1">
+                    Position: {notification.staff?.position || 'N/A'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Metadata */}
+              <div className="grid grid-cols-2 gap-4 text-xs text-gray-600">
+                <div>
+                  <span className="font-medium">Sent:</span> {notification.sentAt ? new Date(notification.sentAt).toLocaleString() : 'N/A'}
+                </div>
+                {notification.readAt && (
+                  <div>
+                    <span className="font-medium">Read:</span> {new Date(notification.readAt).toLocaleString()}
+                  </div>
+                )}
+                <div>
+                  <span className="font-medium">Target Skill:</span> {notification.targetSkill || 'N/A'}
+                </div>
+                <div>
+                  <span className="font-medium">Category:</span> {getCategoryDisplayName(notification.category)}
+                </div>
+              </div>
+
+              {/* Reply Form - Show only if replying to this notification */}
+              {replyingTo === notificationId && (
+                <NotificationReply
+                  notification={notification}
+                  onReplySent={handleReplySent}
+                  onCancel={() => setReplyingTo(null)}
+                />
+              )}
+
+              {/* Actions Bar */}
+              <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                <div className="flex items-center space-x-2">
+                  {!notification.isRead && (
+                    <button
+                      onClick={() => handleMarkAsRead(notificationId)}
+                      className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+                    >
+                      Mark as Read
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleReplyToNotification(notification)}
+                    className="text-xs text-indigo-600 hover:text-indigo-700 font-medium flex items-center"
+                  >
+                    <Reply className="h-3 w-3 mr-1" />
+                    Reply
+                  </button>
+                  <button
+                    onClick={() => handleHireStaff(notification)}
+                    className="text-xs text-green-600 hover:text-green-700 font-medium flex items-center"
+                  >
+                    <UserPlus className="h-3 w-3 mr-1" />
+                    Hire / Offer Job
+                  </button>
+                  <button
+                    onClick={() => handleRejectApplication(notificationId)}
+                    className="text-xs text-red-600 hover:text-red-700 font-medium flex items-center"
+                  >
+                    <XCircle className="h-3 w-3 mr-1" />
+                    Mark as Unsuitable
+                  </button>
+                </div>
+                
+                <div className="text-xs text-gray-500">
+                  ID: {notificationId ? notificationId.slice(-8) : 'N/A'}
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-    );
+      );
+    } catch (error) {
+      console.error('Error rendering notification item:', error, notification);
+      return (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-red-700">Error rendering notification</p>
+        </div>
+      );
+    }
   };
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-4xl mx-auto">
+        {/* Error Boundary */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <h3 className="text-red-800 font-medium">Error</h3>
+            <p className="text-red-700">{error}</p>
+            <button 
+              onClick={() => {
+                setError(null);
+                loadNotifications();
+              }}
+              className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+        
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
@@ -598,7 +695,7 @@ const SalonNotifications = () => {
               </div>
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-600">Total</p>
-                <p className="text-2xl font-semibold text-gray-900">{stats.total}</p>
+                <p className="text-2xl font-semibold text-gray-900">{stats.total || 0}</p>
               </div>
             </div>
           </div>
@@ -610,7 +707,7 @@ const SalonNotifications = () => {
               </div>
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-600">Unread</p>
-                <p className="text-2xl font-semibold text-gray-900">{stats.unread}</p>
+                <p className="text-2xl font-semibold text-gray-900">{stats.unread || 0}</p>
               </div>
             </div>
           </div>
@@ -622,7 +719,7 @@ const SalonNotifications = () => {
               </div>
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-600">Read</p>
-                <p className="text-2xl font-semibold text-gray-900">{stats.read}</p>
+                <p className="text-2xl font-semibold text-gray-900">{stats.read || 0}</p>
               </div>
             </div>
           </div>
@@ -634,7 +731,7 @@ const SalonNotifications = () => {
               </div>
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-600">Read Rate</p>
-                <p className="text-2xl font-semibold text-gray-900">{stats.readRate}%</p>
+                <p className="text-2xl font-semibold text-gray-900">{stats.readRate || 0}%</p>
               </div>
             </div>
           </div>
@@ -728,7 +825,7 @@ const SalonNotifications = () => {
                   Clear All Filters
                 </button>
                 
-                {stats.unread > 0 && (
+                {(stats.unread || 0) > 0 && (
                   <button
                     onClick={handleMarkAllAsRead}
                     className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
@@ -748,20 +845,6 @@ const SalonNotifications = () => {
               <RefreshCw className="h-8 w-8 animate-spin text-primary-600 mx-auto mb-4" />
               <p className="text-gray-600">Loading notifications...</p>
             </div>
-          </div>
-        )}
-
-        {/* Error State */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-            <AlertCircle className="h-8 w-8 text-red-600 mx-auto mb-4" />
-            <p className="text-red-600 mb-4">{error}</p>
-            <button
-              onClick={() => loadNotifications()}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-            >
-              Try Again
-            </button>
           </div>
         )}
 
@@ -789,14 +872,19 @@ const SalonNotifications = () => {
               </div>
             ) : (
               <div className="space-y-4 mb-8">
-                {notifications.map(notification => (
-                  notification ? renderNotificationItem(notification) : null
-                ))}
+                {notifications.map((notification, index) => {
+                  const notificationId = notification._id || notification.id;
+                  return notification ? (
+                    <div key={notificationId || index}>
+                      {renderNotificationItem(notification)}
+                    </div>
+                  ) : null;
+                })}
               </div>
             )}
 
             {/* Pagination */}
-            {pagination.pages > 1 && (
+            {(pagination.pages || 1) > 1 && (
               <div className="flex items-center justify-between bg-white rounded-lg shadow-sm border p-4">
                 <div className="text-sm text-gray-600">
                   Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} notifications
@@ -815,7 +903,7 @@ const SalonNotifications = () => {
                   </span>
                   <button
                     onClick={() => handlePageChange(pagination.page + 1)}
-                    disabled={pagination.page >= pagination.pages}
+                    disabled={pagination.page >= (pagination.pages || 1)}
                     className="flex items-center px-3 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Next

@@ -240,10 +240,11 @@ export const bookAppointment = asyncHandler(async (req, res) => {
       finalAmount: finalAmount,
       customerNotes,
       specialRequests,
-      status: 'Pending',
+      status: 'Pending', // Will be updated to 'Confirmed' after payment
       source: 'Website',
       pointsRedeemed: pointsRedeemed,
-      discountFromPoints: discountFromPoints
+      discountFromPoints: discountFromPoints,
+      paymentStatus: 'Pending' // Payment status will be updated after payment
     });
 
     await appointment.save();

@@ -444,13 +444,26 @@ export const getCustomerRecommendations = async (req, res) => {
     }
     
     // For customer access, verify they can only access their own recommendations
-    // req.user.id should be the customer's ID directly for customer role
-    if (req.user.role === 'customer' && req.user.id !== customerId) {
+    // req.user.type should be 'customer' for customer role, and req.user.id should match customerId
+    if (req.user.type === 'customer' && req.user.id !== customerId) {
       return errorResponse(res, 'Access denied. You can only view your own recommendations', 403);
     }
     
     // Find the customer to verify they exist
-    const customer = await Customer.findById(customerId);
+    // Try multiple approaches to find the customer (similar to getCustomerLoyaltyDetails):
+    // 1. Find by user reference (Google OAuth users might have this)
+    let customer = await Customer.findOne({ user: customerId });
+    
+    // 2. If not found, try to find by ID directly (regular registration users)
+    if (!customer) {
+      customer = await Customer.findById(customerId);
+    }
+    
+    // 3. If still not found, try to find by email (fallback)
+    if (!customer) {
+      customer = await Customer.findOne({ email: req.user.email });
+    }
+    
     if (!customer) {
       console.log('Customer not found for ID:', customerId);
       return errorResponse(res, 'Customer not found', 404);
@@ -459,7 +472,7 @@ export const getCustomerRecommendations = async (req, res) => {
     console.log('Found customer for recommendations:', customer._id);
     
     // Get active recommendations for the customer
-    const recommendations = await Recommendation.getActiveForCustomer(customerId, { limit: 50 });
+    const recommendations = await Recommendation.getActiveForCustomer(customer._id, { limit: 50 });
     
     // Mark recommendations as viewed if they haven't been viewed yet
     const unviewedRecommendations = recommendations.filter(rec => rec.status === 'sent');
@@ -511,12 +524,25 @@ export const getOneClickBookingPreference = async (req, res) => {
     }
     
     // For customer access, verify they can only access their own data
-    if (req.user.role === 'customer' && req.user.id !== customerId) {
+    if (req.user.type === 'customer' && req.user.id !== customerId) {
       return errorResponse(res, 'Access denied. You can only access your own booking preferences', 403);
     }
     
     // Find the customer to verify they exist
-    const customer = await Customer.findById(customerId);
+    // Try multiple approaches to find the customer (similar to getCustomerLoyaltyDetails):
+    // 1. Find by user reference (Google OAuth users might have this)
+    let customer = await Customer.findOne({ user: customerId });
+    
+    // 2. If not found, try to find by ID directly (regular registration users)
+    if (!customer) {
+      customer = await Customer.findById(customerId);
+    }
+    
+    // 3. If still not found, try to find by email (fallback)
+    if (!customer) {
+      customer = await Customer.findOne({ email: req.user.email });
+    }
+    
     if (!customer) {
       console.log('Customer not found for ID:', customerId);
       return errorResponse(res, 'Customer not found', 404);
@@ -525,7 +551,7 @@ export const getOneClickBookingPreference = async (req, res) => {
     console.log('Found customer for booking preference:', customer._id);
     
     // Get customer's recent appointments (last 10)
-    const recentAppointments = await Appointment.find({ customerId })
+    const recentAppointments = await Appointment.find({ customerId: customer._id })
       .sort({ createdAt: -1 })
       .limit(10)
       .populate('salonId', 'salonName businessHours')

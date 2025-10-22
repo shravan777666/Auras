@@ -95,7 +95,7 @@ export const createBlockTimeRequest = asyncHandler(async (req, res) => {
       const salon = await Salon.findById(staff.assignedSalon);
       if (salon) {
         await StaffNotification.create({
-          staffId: salon.ownerId, // Salon owner as recipient
+          staffId: salon._id, // Salon owner as recipient (using salonId for consistency)
           staffName: salon.ownerName || 'Salon Owner',
           staffEmail: salon.email,
           senderId: staff._id,
@@ -161,7 +161,7 @@ export const createLeaveRequest = asyncHandler(async (req, res) => {
       const salon = await Salon.findById(staff.assignedSalon);
       if (salon) {
         await StaffNotification.create({
-          staffId: salon.ownerId, // Salon owner as recipient
+          staffId: salon._id, // Salon owner as recipient (using salonId for consistency)
           staffName: salon.ownerName || 'Salon Owner',
           staffEmail: salon.email,
           senderId: staff._id,

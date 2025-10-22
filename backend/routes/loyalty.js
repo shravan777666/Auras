@@ -16,8 +16,8 @@ router.use('/customer', authenticateToken, requireCustomer);
 // Redeem points for an appointment
 router.post('/customer/redeem', redeemPoints);
 
-// Get customer loyalty details
-router.get('/customer/:customerId/details', getCustomerLoyaltyDetails);
+// Get customer loyalty details (use authenticated user's ID instead of parameter)
+router.get('/customer/details', getCustomerLoyaltyDetails);
 
 // Salon owner routes
 router.use('/salon', authenticateToken, requireSalonOwner);

@@ -3,9 +3,13 @@ import { Button } from '@mui/material';
 
 const GoogleOAuthButton = ({ role, variant = "outlined", fullWidth = true, children }) => {
   const handleGoogleAuth = () => {
-    // Use the OAuth endpoint instead of the auth endpoint
+    // Use the OAuth endpoint - get backend URL from environment variables
     const backendUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5011';
-    const authUrl = `${backendUrl}/auth/google?role=${role}`;
+    const authUrl = `${backendUrl}/api/auth/google?role=${role}`;
+    
+    // Debug logging
+    console.log('Google OAuth Button - Generated URL:', authUrl);
+    console.log('Role parameter:', role);
     
     // Redirect to Google OAuth
     window.location.href = authUrl;

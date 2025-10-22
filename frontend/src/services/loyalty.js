@@ -16,10 +16,10 @@ export const loyaltyService = {
     }
   },
 
-  // Get customer loyalty details
-  async getCustomerLoyaltyDetails(customerId) {
+  // Get customer loyalty details (no longer requires customerId parameter)
+  async getCustomerLoyaltyDetails() {
     try {
-      const response = await api.get(`/loyalty/customer/${customerId}/details`);
+      const response = await api.get('/loyalty/customer/details');
       return response.data;
     } catch (error) {
       console.error('Error fetching customer loyalty details:', error);

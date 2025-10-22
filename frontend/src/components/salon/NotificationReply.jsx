@@ -13,11 +13,19 @@ const NotificationReply = ({ notification, onReplySent, onCancel }) => {
       return;
     }
 
+    // Get notification ID (could be _id or id)
+    const notificationId = notification._id || notification.id;
+    
+    if (!notificationId) {
+      toast.error('Cannot reply to this notification: missing ID');
+      return;
+    }
+
     try {
       setIsSending(true);
       
       // Send the reply using the salon service
-      await salonService.sendReplyToStaff(notification.id, replyMessage);
+      await salonService.sendReplyToStaff(notificationId, replyMessage);
       
       // Call the parent callback
       onReplySent && onReplySent(replyMessage);
@@ -28,7 +36,7 @@ const NotificationReply = ({ notification, onReplySent, onCancel }) => {
       toast.success('Reply sent successfully!');
     } catch (error) {
       console.error('Error sending reply:', error);
-      toast.error('Failed to send reply');
+      toast.error('Failed to send reply: ' + (error.message || 'Unknown error'));
     } finally {
       setIsSending(false);
     }

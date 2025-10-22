@@ -253,7 +253,7 @@ export const salonService = {
       const response = await api.get(`/salon/notifications?${params}`);
       
       if (response.data.success) {
-        console.log(`✅ Retrieved ${response.data.data.notifications.length} notifications`);
+        console.log(`✅ Retrieved notifications`);
         return response.data;
       } else {
         throw new Error(response.data.message || 'Failed to fetch notifications');
@@ -293,6 +293,7 @@ export const salonService = {
       }
 
       console.log(`📤 Sending reply to staff notification: ${notificationId}`);
+      // Send notificationId as URL parameter, not in body
       const response = await api.post(`/salon/notifications/${notificationId}/reply`, { message });
       
       if (response.data.success) {
@@ -358,12 +359,18 @@ export const salonService = {
     }
 
     const term = searchTerm.toLowerCase().trim();
-    return notifications.filter(notification => 
-      notification.subject.toLowerCase().includes(term) ||
-      notification.message.toLowerCase().includes(term) ||
-      notification.staff?.name.toLowerCase().includes(term) ||
-      notification.targetSkill.toLowerCase().includes(term)
-    );
+    return notifications.filter(notification => {
+      // Safely check each property
+      const subject = notification.subject || '';
+      const message = notification.message || '';
+      const staffName = notification.staff?.name || '';
+      const targetSkill = notification.targetSkill || '';
+      
+      return subject.toLowerCase().includes(term) ||
+             message.toLowerCase().includes(term) ||
+             staffName.toLowerCase().includes(term) ||
+             targetSkill.toLowerCase().includes(term);
+    });
   },
 
   // Add the new schedule request methods

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import LoadingSpinner from '../common/LoadingSpinner';
@@ -8,6 +8,7 @@ const OAuthCallback = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { updateUser } = useAuth();
+  const toastShownRef = useRef(false); // Ref to track if toast has been shown
 
   useEffect(() => {
     const handleOAuthCallback = async () => {
@@ -55,8 +56,11 @@ const OAuthCallback = () => {
         // Update auth context directly (avoid calling API login)
         updateUser(user);
 
-        // Show success message
-        toast.success(`Welcome ${user.name}! Redirecting to your dashboard...`);
+        // Show success message only once
+        if (!toastShownRef.current) {
+          toast.success(`Welcome ${user.name}! Redirecting to your dashboard...`);
+          toastShownRef.current = true;
+        }
 
         // Redirect based on user type and setup status
         setTimeout(() => {

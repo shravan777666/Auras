@@ -8,7 +8,9 @@ const RevenueSchema = new mongoose.Schema(
     salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon', required: true },
     ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer' },
-    date: { type: Date, default: Date.now }
+    date: { type: Date, default: Date.now },
+    description: { type: String },
+    source: { type: String, default: 'Service' }
   },
   { timestamps: true }
 );
@@ -17,5 +19,6 @@ const RevenueSchema = new mongoose.Schema(
 RevenueSchema.index({ service: 1, date: -1 });
 RevenueSchema.index({ salonId: 1, date: -1 });
 RevenueSchema.index({ ownerId: 1, date: -1 });
+RevenueSchema.index({ source: 1, date: -1 });
 
 export default mongoose.models.Revenue || mongoose.model('Revenue', RevenueSchema);

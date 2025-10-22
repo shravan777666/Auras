@@ -83,20 +83,35 @@ export const redeemPoints = asyncHandler(async (req, res) => {
 // Get customer loyalty details
 export const getCustomerLoyaltyDetails = asyncHandler(async (req, res) => {
   try {
-    const { customerId } = req.params;
+    // Use the authenticated user's ID to find the corresponding customer document
+    const userId = req.user.id;
     
-    const customer = await Customer.findById(customerId);
+    // Try multiple approaches to find the customer:
+    // 1. Find by user reference (Google OAuth users)
+    let customer = await Customer.findOne({ user: userId });
+    
+    // 2. If not found, try to find by ID directly (regular registration users)
+    if (!customer) {
+      customer = await Customer.findById(userId);
+    }
+    
+    // 3. If still not found, try to find by email (fallback)
+    if (!customer) {
+      customer = await Customer.findOne({ email: req.user.email });
+    }
+    
     if (!customer) {
       return notFoundResponse(res, 'Customer');
     }
     
-    return successResponse(res, {
+    const response = {
       loyaltyPoints: customer.loyaltyPoints || 0,
       totalPointsEarned: customer.totalPointsEarned || 0,
       totalPointsRedeemed: customer.totalPointsRedeemed || 0,
       loyaltyTier: customer.loyaltyTier || 'Standard',
       pointsValue: customer.loyaltyPoints || 0 // 1 point = ₹1
-    }, 'Customer loyalty details retrieved successfully');
+    };
+    return successResponse(res, response, 'Customer loyalty details retrieved successfully');
   } catch (error) {
     console.error('Error fetching customer loyalty details:', error);
     return errorResponse(res, 'Failed to fetch customer loyalty details', 500);

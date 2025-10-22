@@ -9,7 +9,7 @@ router.get('/google', googleAuth);
 
 router.get('/google/callback', 
   passport.authenticate('google', { 
-    failureRedirect: '/auth/google/failure',
+    failureRedirect: '/api/auth/google/failure',
     session: true // Keep session to preserve role data
   }), 
   googleCallback

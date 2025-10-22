@@ -77,8 +77,19 @@ export const getDashboard = asyncHandler(async (req, res) => {
 export const getProfile = asyncHandler(async (req, res) => {
   const customerId = req.user.id;
 
-  const customer = await Customer.findById(customerId)
-    .populate('preferences.preferredSalons', 'salonName ownerName');
+  // Try multiple approaches to find the customer (similar to getCustomerLoyaltyDetails):
+  // 1. Find by user reference (Google OAuth users might have this)
+  let customer = await Customer.findOne({ user: customerId });
+  
+  // 2. If not found, try to find by ID directly (regular registration users)
+  if (!customer) {
+    customer = await Customer.findById(customerId);
+  }
+  
+  // 3. If still not found, try to find by email (fallback)
+  if (!customer) {
+    customer = await Customer.findOne({ email: req.user.email });
+  }
 
   if (!customer) {
     return notFoundResponse(res, 'Customer profile');
@@ -124,8 +135,21 @@ export const updateProfile = asyncHandler(async (req, res) => {
       });
 
       // Attempt to remove previous profile picture if it exists
-      const existing = await Customer.findById(customerId).select('profilePic').lean();
-      const oldPath = existing?.profilePic;
+      // Try multiple approaches to find the customer for the existing profile picture check:
+      // 1. Find by user reference (Google OAuth users might have this)
+      let existingCustomer = await Customer.findOne({ user: customerId });
+      
+      // 2. If not found, try to find by ID directly (regular registration users)
+      if (!existingCustomer) {
+        existingCustomer = await Customer.findById(customerId);
+      }
+      
+      // 3. If still not found, try to find by email (fallback)
+      if (!existingCustomer) {
+        existingCustomer = await Customer.findOne({ email: req.user.email });
+      }
+      
+      const oldPath = existingCustomer?.profilePic;
       if (oldPath && typeof oldPath === 'string' && oldPath !== updates.profilePic) {
         const normalizedOld = oldPath.replace(/^\/+/, '');
         const absoluteOld = path.join(path.dirname(new URL(import.meta.url).pathname), '..', normalizedOld)
@@ -150,18 +174,33 @@ export const updateProfile = asyncHandler(async (req, res) => {
   delete updates.totalBookings;
   delete updates.loyaltyPoints;
 
-  const customer = await Customer.findByIdAndUpdate(
-    customerId,
-    { $set: updates }, // Use $set to prevent replacing the whole document
-    { new: true, runValidators: true, context: 'query' }
-  );
+  // Try multiple approaches to find and update the customer:
+  // 1. Find by user reference (Google OAuth users might have this)
+  let customer = await Customer.findOne({ user: customerId });
+  
+  // 2. If not found, try to find by ID directly (regular registration users)
+  if (!customer) {
+    customer = await Customer.findById(customerId);
+  }
+  
+  // 3. If still not found, try to find by email (fallback)
+  if (!customer) {
+    customer = await Customer.findOne({ email: req.user.email });
+  }
 
   if (!customer) {
     return notFoundResponse(res, 'Customer profile');
   }
 
+  // Update the customer document
+  Object.keys(updates).forEach(key => {
+    customer[key] = updates[key];
+  });
+  
+  await customer.save();
+
   console.log('[customerController.updateProfile] Success', {
-    customerId,
+    customerId: customer._id,
     profilePic: customer?.profilePic || null,
   });
   return successResponse(res, customer, 'Profile updated successfully');

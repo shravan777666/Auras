@@ -1,9 +1,7 @@
 import express from 'express';
-import passport from 'passport';
 import {
   register,
   login,
-  googleCallback,
   getCurrentUser,
   logout,
   forgotPassword,
@@ -26,18 +24,6 @@ const router = express.Router();
 // Registration and Login
 router.post('/register', register); // Temporarily disable validation
 router.post('/login', login); // Temporarily disable validation
-
-// Google OAuth routes
-router.get('/google', 
-  passport.authenticate('google', { 
-    scope: ['profile', 'email'] 
-  })
-);
-
-router.get('/google/callback',
-  passport.authenticate('google', { session: false }),
-  googleCallback
-);
 
 // Password Reset
 router.post('/forgot-password', validatePasswordReset, forgotPassword);

@@ -3,7 +3,7 @@ import { Star, Trophy, Gift } from 'lucide-react';
 import { loyaltyService } from '../../services/loyalty';
 import { useNavigate } from 'react-router-dom';
 
-const CustomerLoyaltyCard = ({ customerId }) => {
+const CustomerLoyaltyCard = () => {
   const [loyaltyData, setLoyaltyData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -13,7 +13,7 @@ const CustomerLoyaltyCard = ({ customerId }) => {
     const fetchLoyaltyData = async () => {
       try {
         setLoading(true);
-        const response = await loyaltyService.getCustomerLoyaltyDetails(customerId);
+        const response = await loyaltyService.getCustomerLoyaltyDetails();
         setLoyaltyData(response.data);
       } catch (err) {
         console.error('Error fetching loyalty data:', err);
@@ -23,10 +23,8 @@ const CustomerLoyaltyCard = ({ customerId }) => {
       }
     };
 
-    if (customerId) {
-      fetchLoyaltyData();
-    }
-  }, [customerId]);
+    fetchLoyaltyData();
+  }, []);
 
   const handleRedeemPoints = () => {
     // Navigate to booking page with redemption flag

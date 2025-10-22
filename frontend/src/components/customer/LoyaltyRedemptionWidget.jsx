@@ -3,7 +3,6 @@ import { Gift, Info } from 'lucide-react';
 import { loyaltyService } from '../../services/loyalty';
 
 const LoyaltyRedemptionWidget = ({ 
-  customerId, 
   serviceTotal, 
   onRedemptionChange,
   initialRedeemPoints = false
@@ -22,8 +21,8 @@ const LoyaltyRedemptionWidget = ({
     const fetchLoyaltyData = async () => {
       try {
         setLoading(true);
-        console.log('Fetching loyalty data for customer ID:', customerId);
-        const response = await loyaltyService.getCustomerLoyaltyDetails(customerId);
+        console.log('Fetching loyalty data');
+        const response = await loyaltyService.getCustomerLoyaltyDetails();
         console.log('Loyalty data response:', response);
         setLoyaltyData(response.data);
       } catch (err) {
@@ -34,13 +33,8 @@ const LoyaltyRedemptionWidget = ({
       }
     };
 
-    if (customerId) {
-      fetchLoyaltyData();
-    } else {
-      console.log('No customerId provided to LoyaltyRedemptionWidget');
-      setLoading(false);
-    }
-  }, [customerId]);
+    fetchLoyaltyData();
+  }, []);
 
   // Use useCallback to prevent unnecessary re-renders
   const handlePointsChange = useCallback((e) => {
@@ -114,11 +108,6 @@ const LoyaltyRedemptionWidget = ({
       setPointsToRedeem(100);
     }
   }, [usePoints]);
-
-  if (!customerId) {
-    console.log('LoyaltyRedemptionWidget: No customerId provided');
-    return null;
-  }
 
   if (loading) {
     return (

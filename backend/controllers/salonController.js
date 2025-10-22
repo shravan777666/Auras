@@ -1932,46 +1932,74 @@ export const getSalonLocations = asyncHandler(async (req, res) => {
 
 // Get notifications for salon owner
 export const getSalonNotifications = asyncHandler(async (req, res) => {
-  const userId = req.user.id;
-  const { page = 1, limit = 10, unreadOnly = false } = req.query;
+  try {
+    const userId = req.user.id;
+    const {
+      page = 1,
+      limit = 10,
+      unreadOnly = false,
+      category = null,
+      includeArchived = false,
+      type = null
+    } = req.query;
 
-  // Get user record to find salon
-  const User = (await import('../models/User.js')).default;
-  const user = await User.findById(userId);
-  if (!user || user.type !== 'salon') {
-    return notFoundResponse(res, 'Salon user');
+    // Get user record to find salon
+    const User = (await import('../models/User.js')).default;
+    const user = await User.findById(userId);
+    if (!user || user.type !== 'salon') {
+      return errorResponse(res, 'Access denied: Only salon owners can access notifications', 403);
+    }
+
+    // Find salon by email
+    const salon = await Salon.findOne({ email: user.email });
+    if (!salon) {
+      return errorResponse(res, 'Salon profile not found', 404);
+    }
+
+    const salonId = salon._id;
+
+    // Use the static method from StaffNotification model
+    const options = {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      unreadOnly: unreadOnly === 'true',
+      category,
+      includeArchived: includeArchived === 'true',
+      type
+    };
+
+    // Get notifications using the static method
+    const notifications = await StaffNotification.getForSalonOwner(salonId, options);
+
+    // Get total count for pagination
+    const filter = {
+      staffId: salonId, // Salon owner is the recipient
+      ...(unreadOnly === 'true' && { isRead: false }),
+      ...(category && { category }),
+      ...(!includeArchived === 'true' && { isArchived: false }),
+      ...(type && { type })
+    };
+
+    const totalNotifications = await StaffNotification.countDocuments(filter);
+    const totalPages = Math.ceil(totalNotifications / parseInt(limit));
+
+    // Get unread count
+    const unreadCount = await StaffNotification.getUnreadCountForSalonOwner(salonId);
+
+    return successResponse(res, {
+      notifications,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: totalNotifications,
+        pages: totalPages
+      },
+      unreadCount
+    }, 'Notifications retrieved successfully');
+  } catch (error) {
+    console.error('Error fetching salon notifications:', error);
+    return errorResponse(res, 'Failed to fetch notifications: ' + error.message, 500);
   }
-
-  // Find salon by email
-  const salon = await Salon.findOne({ email: user.email });
-  if (!salon) {
-    return notFoundResponse(res, 'Salon profile');
-  }
-
-  const salonId = salon._id;
-
-  // Build filter
-  const filter = { recipientId: salonId, recipientType: 'salon' };
-  if (unreadOnly === 'true') {
-    filter.isRead = false;
-  }
-
-  const [notifications, totalNotifications] = await Promise.all([
-    StaffNotification.find(filter)
-      .sort({ createdAt: -1 })
-      .limit(parseInt(limit))
-      .skip((parseInt(page) - 1) * parseInt(limit)),
-    StaffNotification.countDocuments(filter)
-  ]);
-
-  const totalPages = Math.ceil(totalNotifications / limit);
-
-  return paginatedResponse(res, notifications, {
-    page,
-    limit,
-    totalPages,
-    totalItems: totalNotifications
-  });
 });
 
 // Mark notification as read
@@ -2011,7 +2039,13 @@ export const markSalonNotificationAsRead = asyncHandler(async (req, res) => {
 // Send reply to staff member
 export const sendReplyToStaff = asyncHandler(async (req, res) => {
   const userId = req.user.id;
-  const { notificationId, message } = req.body;
+  const { notificationId } = req.params; // Get notificationId from route params
+  const { message } = req.body;
+
+  // Validate required fields
+  if (!notificationId || !message) {
+    return errorResponse(res, 'Notification ID and message are required', 400);
+  }
 
   // Get user record to find salon
   const User = (await import('../models/User.js')).default;
@@ -2028,22 +2062,48 @@ export const sendReplyToStaff = asyncHandler(async (req, res) => {
 
   const salonId = salon._id;
 
-  // Find the original notification
-  const originalNotification = await StaffNotification.findById(notificationId);
+  // Find the original notification and verify it belongs to this salon owner
+  const originalNotification = await StaffNotification.findOne({
+    _id: notificationId,
+    staffId: salonId // Verify the notification is for this salon owner (using salonId for consistency)
+  });
+  
   if (!originalNotification) {
     return notFoundResponse(res, 'Notification');
   }
 
+  // Get staff information for the reply
+  const Staff = (await import('../models/Staff.js')).default;
+  const staff = await Staff.findById(originalNotification.senderId);
+  
   // Create reply notification
   const replyNotification = await StaffNotification.create({
+    // Recipient information (the original sender becomes the recipient)
+    staffId: originalNotification.senderId,
+    staffName: originalNotification.senderName || (staff ? staff.name : 'Staff Member'),
+    staffEmail: originalNotification.senderEmail || (staff ? staff.email : 'staff@auracare.com'),
+    
+    // Sender information (salon owner becomes the sender)
     senderId: salonId,
-    senderType: 'salon',
+    senderType: 'Salon', // Capital S is required by the enum
     senderName: salon.salonName,
-    recipientId: originalNotification.senderId,
-    recipientType: originalNotification.senderType,
+    senderEmail: salon.email,
+    senderSalonName: salon.salonName,
+    
+    // Notification content
     type: 'direct_message',
-    title: 'Reply from ' + salon.salonName,
+    subject: `Re: ${originalNotification.subject || 'Notification'}`,
     message: message,
+    
+    // Targeting information
+    targetSkill: originalNotification.targetSkill || 'General',
+    
+    // Status
+    status: 'sent',
+    priority: 'medium',
+    category: originalNotification.category || 'general',
+    
+    // Related information
     relatedId: originalNotification._id,
     relatedType: 'staff_notification'
   });

@@ -66,6 +66,9 @@ import addonRoutes from './routes/addon.js';
 // Import addon dashboard routes
 import addonDashboardRoutes from './routes/addonDashboard.js';
 
+// Import payment routes
+import paymentRoutes from './routes/payment.js';
+
 // Create Express app
 const app = express();
 
@@ -101,8 +104,11 @@ const allowedOrigins = [
   'http://localhost:3003',
   'http://localhost:3004',
   'http://localhost:3005',
-  'http://localhost:3006',  // Add this line for the current frontend port
+  'http://localhost:3006',
   'http://localhost:3007',
+  'http://localhost:3008',
+  'http://localhost:3009',
+  'http://localhost:3010',  // Add this line for the current frontend port
   'http://localhost:5173',
   'http://127.0.0.1:3000',
   'http://127.0.0.1:3001',
@@ -110,8 +116,11 @@ const allowedOrigins = [
   'http://127.0.0.1:3003',
   'http://127.0.0.1:3004',
   'http://127.0.0.1:3005',
-  'http://127.0.0.1:3006',  // Add this line for the current frontend port
+  'http://127.0.0.1:3006',
   'http://127.0.0.1:3007',
+  'http://127.0.0.1:3008',
+  'http://127.0.0.1:3009',
+  'http://127.0.0.1:3010',  // Add this line for the current frontend port
   'http://127.0.0.1:5173'
 ].filter(Boolean);
 
@@ -308,7 +317,7 @@ app.get('/health', (req, res) => {
 });
 
 // Root URL → redirect to frontend Home
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3002';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3007';
 app.get('/', (req, res) => {
   return res.redirect(FRONTEND_URL);
 });
@@ -316,6 +325,7 @@ app.get('/', (req, res) => {
 // API routes
 app.use('/api/admin', adminRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/auth', oauthRoutes); // Mount OAuth routes under /api/auth
 app.use('/api/customer', customerRoutes);
 app.use('/api/salon', salonRoutes);
 app.use('/api/staff', staffRoutes);
@@ -339,10 +349,12 @@ app.use('/api/salon-settings', salonSettingsRoutes);
 app.use('/api/addon', addonRoutes);
 app.use('/api/addon-dashboard', addonDashboardRoutes);
 app.use('/api/forgot-password', forgotPasswordRoutes);
-app.use('/auth', oauthRoutes);
 
 // Add internal feedback routes
 app.use('/api/internal-feedback', internalFeedbackRoutes);
+
+// Add payment routes
+app.use('/api/payment', paymentRoutes);
 
 // Handle undefined routes
 app.all('*', (req, res) => {
