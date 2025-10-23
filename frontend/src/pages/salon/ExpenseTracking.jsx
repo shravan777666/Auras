@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import BackButton from '../../components/common/BackButton';
 import { salonService } from '../../services/salon';
+import NextMonthExpenseForecast from '../../components/salon/NextMonthExpenseForecast';
 import { 
   CreditCard, 
   Plus, 
@@ -256,6 +257,20 @@ const ExpenseTracking = () => {
     );
   }
 
+  // Calculate this month's expenses
+  const calculateThisMonthExpenses = () => {
+    const now = new Date();
+    const thisMonth = now.getMonth();
+    const thisYear = now.getFullYear();
+    
+    return expenses
+      .filter(expense => {
+        const expenseDate = new Date(expense.date);
+        return expenseDate.getMonth() === thisMonth && expenseDate.getFullYear() === thisYear;
+      })
+      .reduce((sum, expense) => sum + (expense.amount || 0), 0);
+  };
+
   // Test function to verify modal functionality
   const testModal = () => {
     console.log('Test modal function called');
@@ -340,6 +355,11 @@ const ExpenseTracking = () => {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Expense Forecast */}
+        <div className="mb-8">
+          <NextMonthExpenseForecast />
         </div>
 
         {/* Filters and Actions */}

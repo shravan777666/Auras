@@ -8,24 +8,48 @@ import joblib
 import os
 from datetime import datetime, timedelta
 import calendar
+import logging
+from expense_predictor import ExpensePredictor
+from expense_models import ExpensePredictionRequest
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
 # Load the trained models and feature lists
 try:
+    logger.info("Loading revenue prediction model...")
     # Revenue prediction model
     revenue_model = joblib.load('revenue_regression_model.pkl')
     revenue_feature_columns = joblib.load('model_features.pkl')
+    logger.info("Revenue prediction model loaded successfully")
     
+    logger.info("Loading add-on prediction model...")
     # Add-on prediction model
     addon_model = joblib.load('addon_decision_tree_model.pkl')
     addon_feature_columns = joblib.load('addon_model_features.pkl')
+    logger.info("Add-on prediction model loaded successfully")
+    
+    # Initialize expense predictor
+    logger.info("Initializing expense predictor...")
+    expense_predictor = ExpensePredictor()
+    logger.info("Expense predictor initialized")
     
     models_loaded = True
-except FileNotFoundError:
+    logger.info("All models loaded successfully")
+except FileNotFoundError as e:
+    logger.error(f"Model files not found. Please train the models first. Error: {str(e)}")
     print("Model files not found. Please train the models first.")
     models_loaded = False
+    expense_predictor = ExpensePredictor()
+except Exception as e:
+    logger.error(f"Error loading models: {str(e)}")
+    print(f"Error loading models: {str(e)}")
+    models_loaded = False
+    expense_predictor = ExpensePredictor()
 
 def prepare_features(df):
     """
@@ -114,9 +138,18 @@ def health_check():
     """
     Health check endpoint
     """
+    # Test if expense predictor can load model
+    expense_model_loaded = False
+    try:
+        if hasattr(expense_predictor, 'load_model'):
+            expense_model_loaded = expense_predictor.load_model()
+    except Exception as e:
+        logger.error(f'Error testing expense predictor: {str(e)}')
+    
     return jsonify({
         'status': 'healthy',
         'models_loaded': models_loaded,
+        'expense_model_loaded': expense_model_loaded,
         'timestamp': datetime.now().isoformat()
     })
 
@@ -142,10 +175,10 @@ def predict_revenue():
         return jsonify({
             'success': True,
             'data': {
-                'predicted_revenue': round(prediction, 2),
-                'confidence': round(confidence, 2),
-                'percentage_change': round(percentage_change, 2),
-                'trend': 'positive' if percentage_change >= 0 else 'negative'
+                'predicted_revenue': round(prediction, 2) if prediction is not None else 0,
+                'confidence': round(confidence, 2) if confidence is not None else 0,
+                'percentage_change': round(percentage_change, 2) if percentage_change is not None else 0,
+                'trend': 'positive' if percentage_change is not None and percentage_change >= 0 else 'negative'
             },
             'message': 'Revenue prediction generated successfully'
         })
@@ -315,6 +348,56 @@ def train_addon_model_endpoint():
         return jsonify({
             'success': False,
             'message': f'Error training add-on model: {str(e)}'
+        }), 500
+
+@app.route('/predict/next_month', methods=['POST'])
+def predict_next_month_expense():
+    """
+    Predict next month's total expenses using SVR model
+    """
+    try:
+        logger.info('Received request for next month expense prediction')
+        # Get data from request
+        data = request.get_json()
+        logger.info(f'Request data: {data}')
+        
+        if not data:
+            logger.warning('No data provided in request')
+            return jsonify({
+                'success': False,
+                'message': 'No data provided'
+            }), 400
+        
+        # Validate input using Pydantic model
+        try:
+            request_data = ExpensePredictionRequest(**data)
+            logger.info('Input data validated successfully')
+        except Exception as e:
+            logger.error(f'Invalid input data: {str(e)}')
+            return jsonify({
+                'success': False,
+                'message': f'Invalid input data: {str(e)}'
+            }), 400
+        
+        # Predict next month's expenses
+        logger.info('Calling expense predictor')
+        result = expense_predictor.predict_next_month(
+            request_data.last_month_data.dict(),
+            request_data.next_month_planning.dict() if request_data.next_month_planning else None
+        )
+        logger.info(f'Prediction result: {result}')
+        
+        return jsonify({
+            'success': True,
+            'data': result,
+            'message': 'Expense prediction generated successfully'
+        })
+    
+    except Exception as e:
+        logger.error(f'Error generating expense prediction: {str(e)}')
+        return jsonify({
+            'success': False,
+            'message': f'Error generating expense prediction: {str(e)}'
         }), 500
 
 if __name__ == '__main__':

@@ -675,17 +675,33 @@ export const rescheduleAppointment = asyncHandler(async (req, res) => {
     const appointment = await Appointment.findById(appointmentId)
       .populate('staffId', 'name')
       .populate('customerId', 'name email')
-      .populate('salonId', 'salonName');
+      .populate('salonId', 'salonName')
+      .populate('services.serviceId', 'name category'); // Add category to services population
+
+    console.log('Debug - Appointment for rescheduling:', {
+      id: appointment._id,
+      services: appointment.services,
+      servicesType: typeof appointment.services,
+      servicesLength: appointment.services?.length
+    });
 
     if (!appointment) {
       return notFoundResponse(res, 'Appointment');
     }
 
     // Check if salon owner has permission to reschedule this appointment
+    console.log('Debug - Permission check:');
+    console.log('Debug - appointment.salonId:', appointment.salonId);
     const salon = await Salon.findById(appointment.salonId);
+    console.log('Debug - Found salon for permission check:', salon);
+    console.log('Debug - salon._id:', salon?._id);
+    console.log('Debug - salon.ownerId:', salon?.ownerId);
+    console.log('Debug - salonOwnerId (authenticated user):', salonOwnerId);
     if (!salon || salon.ownerId.toString() !== salonOwnerId) {
+      console.log('Debug - Permission denied');
       return errorResponse(res, 'You do not have permission to reschedule this appointment', 403);
     }
+    console.log('Debug - Permission granted');
 
     // Validate staff availability if staff is being changed
     if (newStaffId && newStaffId !== appointment.staffId?._id.toString()) {
@@ -704,30 +720,30 @@ export const rescheduleAppointment = asyncHandler(async (req, res) => {
       });
 
       // Check if new staff belongs to the same salon
-      // Ensure both values are properly converted to strings for comparison
-      const staffSalonId = newStaff.assignedSalon ? newStaff.assignedSalon.toString() : null;
-      const appointmentSalonId = appointment.salonId ? appointment.salonId.toString() : null;
+      // The staff.assignedSalon is set to the salon document's ID
+      // The appointment.salonId is also the salon document's ID
+      // These should be the same for valid staff assignment
       
-      console.log('Comparison values:', { staffSalonId, appointmentSalonId });
+      const staffAssignedSalonId = newStaff.assignedSalon;
       
-      if (!staffSalonId || !appointmentSalonId || staffSalonId !== appointmentSalonId) {
-        console.log('Staff salon validation failed:', { staffSalonId, appointmentSalonId });
+      // Extract appointment salon ID correctly regardless of whether it's populated or not
+      let appointmentSalonId;
+      if (appointment.salonId && typeof appointment.salonId === 'object' && appointment.salonId._id) {
+        // It's a populated object
+        appointmentSalonId = appointment.salonId._id;
+      } else {
+        // It's an ObjectId or string
+        appointmentSalonId = appointment.salonId;
+      }
+      
+      // If staff is not assigned to any salon
+      if (!staffAssignedSalonId) {
         return errorResponse(res, 'Selected staff member does not belong to this salon', 400);
       }
-
-      // Check if new staff has required skills
-      if (appointment.services && appointment.services.length > 0) {
-        const serviceIds = appointment.services.map(s => s.serviceId);
-        const services = await Service.find({ _id: { $in: serviceIds } });
-        
-        const requiredSkills = services.map(s => s.category);
-        const hasRequiredSkills = requiredSkills.some(skill => 
-          newStaff.skills.includes(skill) || newStaff.skills.includes('All')
-        );
-
-        if (!hasRequiredSkills) {
-          return errorResponse(res, 'Selected staff member does not have required skills for these services', 400);
-        }
+      
+      // Compare the salon document IDs directly - they should be the same
+      if (staffAssignedSalonId.toString() !== appointmentSalonId.toString()) {
+        return errorResponse(res, 'Selected staff member does not belong to this salon', 400);
       }
 
       // Check for time conflicts for new staff

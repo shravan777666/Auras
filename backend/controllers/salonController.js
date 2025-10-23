@@ -1705,8 +1705,16 @@ export const getExpenses = asyncHandler(async (req, res) => {
     { $sort: { "_id.year": 1, "_id.month": 1 } }
   ]);
 
-  // Format trend data for sparkline
-  const expenseTrend = expenseTrendData.map(item => item.total);
+  // Format trend data for sparkline - filter out any invalid values
+  const expenseTrend = expenseTrendData
+    .map(item => {
+      // Ensure the total is a valid number
+      const total = typeof item.total === 'number' && !isNaN(item.total) && isFinite(item.total) 
+        ? item.total 
+        : 0;
+      return total;
+    })
+    .filter(value => typeof value === 'number' && !isNaN(value) && isFinite(value));
 
   // Get total expenses
   const totalExpensesResult = await Expense.aggregate([

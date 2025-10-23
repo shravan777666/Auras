@@ -1,6 +1,6 @@
 # Financial Prediction ML Service
 
-This directory contains the Python microservice for financial forecasting using Linear Regression.
+This directory contains the Python microservice for financial forecasting using Linear Regression and Support Vector Regression (SVR) for expense prediction.
 
 ## Overview
 
@@ -9,6 +9,7 @@ The ML service provides revenue predictions for the next week based on historica
 ## Features
 
 - Linear Regression model for revenue prediction
+- Support Vector Regression (SVR) model for expense prediction
 - REST API for integration with the main application
 - Model training with historical data
 - Health check endpoint
@@ -68,6 +69,7 @@ setup.bat
 - `GET /health` - Health check
 - `GET /predict` - Get next week's revenue prediction
 - `POST /train` - Train the model with new data
+- `POST /predict/next_month` - Predict next month's expenses using SVR
 
 ## Model Details
 
@@ -78,6 +80,10 @@ The Linear Regression model uses the following features:
 - Weekend indicator
 - Service type (Keratin Treatment, Hair Color, Manicure)
 - Customer retention
+
+## Expense Prediction
+
+The service also includes an SVR model for predicting next month's expenses. See [README_EXPENSE_PREDICTOR.md](README_EXPENSE_PREDICTOR.md) for detailed documentation.
 
 ## Customization
 

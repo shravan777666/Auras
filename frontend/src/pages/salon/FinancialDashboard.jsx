@@ -6,6 +6,7 @@ import { salonService } from '../../services/salon';
 import { revenueService } from '../../services/revenue';
 import AddExpenseModal from '../../components/salon/AddExpenseModal';
 import NextWeekFinancialForecast from '../../components/salon/NextWeekFinancialForecast';
+import NextMonthExpenseForecast from '../../components/salon/NextMonthExpenseForecast';
 import LoyaltyAnalyticsCard from '../../components/salon/LoyaltyAnalyticsCard';
 import TopLoyaltyClients from '../../components/salon/TopLoyaltyClients';
 import { 
@@ -29,19 +30,48 @@ import {
 
 // Mini sparkline component
 const Sparkline = ({ data, color = 'green' }) => {
+  // Return null if no data or empty array
   if (!data || data.length === 0) return null;
   
+  // Enhanced validation to filter out any non-numeric or NaN values
+  const validData = data
+    .filter(value => {
+      // Check if value is a number and not NaN or Infinity
+      return typeof value === 'number' && 
+             !isNaN(value) && 
+             isFinite(value) && 
+             value !== null && 
+             value !== undefined;
+    })
+    .map(value => {
+      // Ensure we return a valid number
+      const num = Number(value);
+      return isNaN(num) ? 0 : num;
+    });
+  
+  // Return null if no valid data after filtering
+  if (validData.length === 0) return null;
+  
+  // Additional check for all zeros
+  const allZeros = validData.every(value => value === 0);
+  
   // Normalize data to fit in a small space
-  const minValue = Math.min(...data);
-  const maxValue = Math.max(...data);
+  const minValue = allZeros ? 0 : Math.min(...validData);
+  const maxValue = allZeros ? 1 : Math.max(...validData);
   const range = maxValue - minValue || 1; // Avoid division by zero
   
   // Create SVG path for the sparkline
-  const points = data.map((value, index) => {
-    const x = (index / (data.length - 1)) * 100;
+  const points = validData.map((value, index) => {
+    const x = (index / (validData.length - 1)) * 100;
     const y = 100 - ((value - minValue) / range) * 100;
-    return `${x},${y}`;
+    // Ensure x and y are valid numbers
+    const validX = isNaN(x) || !isFinite(x) ? 0 : x;
+    const validY = isNaN(y) || !isFinite(y) ? 100 : y;
+    return `${validX},${validY}`;
   }).join(' ');
+  
+  // Don't render if points string is empty or invalid
+  if (!points || points.includes('NaN') || points.includes('Infinity')) return null;
   
   return (
     <svg viewBox="0 0 100 100" className="w-full h-full">
@@ -96,15 +126,29 @@ const FinancialDashboard = () => {
         // Fetch expenses with trend analysis (existing)
         const expenseResponse = await salonService.getExpenses({ limit: 100 });
         const expensesData = expenseResponse.data?.expenses || [];
-        const expenseTrendData = expenseResponse.data?.expenseTrend || [];
+        // Validate expense trend data to prevent NaN issues
+        const expenseTrendData = Array.isArray(expenseResponse.data?.expenseTrend) 
+          ? expenseResponse.data.expenseTrend.filter(value => 
+              typeof value === 'number' && !isNaN(value) && isFinite(value)
+            )
+          : [];
         
         // Fetch revenue data with trend analysis (new)
         const revenueResponse = await revenueService.getRevenueData();
         const revenueRecordsResponse = await revenueService.getRevenueRecords({ limit: 50 });
+        // Validate revenue trend data to prevent NaN issues
+        const revenueTrendData = Array.isArray(revenueResponse.data?.revenueTrend)
+          ? revenueResponse.data.revenueTrend.filter(value =>
+              typeof value === 'number' && !isNaN(value) && isFinite(value)
+            )
+          : [];
         
         setExpenses(expensesData);
         setFilteredExpenses(expensesData);
-        setRevenueData(revenueResponse.data);
+        setRevenueData({
+          ...revenueResponse.data,
+          revenueTrend: revenueTrendData
+        });
         setRevenueRecords(revenueRecordsResponse.data.records || []);
         setFilteredRevenueRecords(revenueRecordsResponse.data.records || []);
         
@@ -112,12 +156,29 @@ const FinancialDashboard = () => {
         setExpenseTrend(expenseTrendData);
         
         // Set monthly expenses comparison data
-        setMonthlyExpenses(expenseResponse.data?.currentMonthExpenses || 0);
-        setMonthlyExpensesChange(expenseResponse.data?.monthlyExpensesChange || 0);
+        const currentMonthExpenses = typeof expenseResponse.data?.currentMonthExpenses === 'number' 
+          && !isNaN(expenseResponse.data.currentMonthExpenses) 
+          && isFinite(expenseResponse.data.currentMonthExpenses)
+          ? expenseResponse.data.currentMonthExpenses 
+          : 0;
+          
+        const monthlyExpensesChange = typeof expenseResponse.data?.monthlyExpensesChange === 'number'
+          && !isNaN(expenseResponse.data.monthlyExpensesChange)
+          && isFinite(expenseResponse.data.monthlyExpensesChange)
+          ? expenseResponse.data.monthlyExpensesChange
+          : 0;
+          
+        setMonthlyExpenses(currentMonthExpenses);
+        setMonthlyExpensesChange(monthlyExpensesChange);
         setMonthlyExpensesChangeStatus(expenseResponse.data?.monthlyExpensesChangeStatus || 'N/A');
         
         // Set total expenses
-        setTotalExpenses(expenseResponse.data?.totalExpenses || 0);
+        const totalExpenses = typeof expenseResponse.data?.totalExpenses === 'number'
+          && !isNaN(expenseResponse.data.totalExpenses)
+          && isFinite(expenseResponse.data.totalExpenses)
+          ? expenseResponse.data.totalExpenses
+          : 0;
+        setTotalExpenses(totalExpenses);
         
         // Extract unique categories
         const uniqueCategories = [...new Set(expensesData.map(e => e.category))];
@@ -310,23 +371,39 @@ const FinancialDashboard = () => {
 
   // Format average growth for display
   const formatAverageGrowth = (trendData) => {
-    if (!trendData || trendData.length < 2) return "N/A";
+    // Validate trendData to prevent NaN issues
+    if (!trendData || !Array.isArray(trendData) || trendData.length < 2) return "N/A";
+    
+    // Filter out any non-numeric or NaN values
+    const validTrendData = trendData.filter(value => 
+      typeof value === 'number' && !isNaN(value) && isFinite(value)
+    );
+    
+    if (validTrendData.length < 2) return "N/A";
     
     // Calculate average monthly growth
     let totalGrowth = 0;
     let validPeriods = 0;
     
-    for (let i = 1; i < trendData.length; i++) {
-      if (trendData[i-1] > 0) {
-        const growth = ((trendData[i] - trendData[i-1]) / trendData[i-1]) * 100;
-        totalGrowth += growth;
-        validPeriods++;
+    for (let i = 1; i < validTrendData.length; i++) {
+      if (validTrendData[i-1] > 0) {
+        const growth = ((validTrendData[i] - validTrendData[i-1]) / validTrendData[i-1]) * 100;
+        // Ensure growth is a valid number
+        if (typeof growth === 'number' && !isNaN(growth) && isFinite(growth)) {
+          totalGrowth += growth;
+          validPeriods++;
+        }
       }
     }
     
     if (validPeriods === 0) return "N/A";
     
     const avgGrowth = totalGrowth / validPeriods;
+    // Ensure avgGrowth is a valid number
+    if (typeof avgGrowth !== 'number' || isNaN(avgGrowth) || !isFinite(avgGrowth)) {
+      return "N/A";
+    }
+    
     const isPositive = avgGrowth >= 0;
     
     return (
@@ -458,6 +535,11 @@ const FinancialDashboard = () => {
         {/* Next Week Financial Forecast Card */}
         <div className="mb-8">
           <NextWeekFinancialForecast />
+        </div>
+
+        {/* Next Month Expense Forecast Card */}
+        <div className="mb-8">
+          <NextMonthExpenseForecast />
         </div>
 
         {/* Loyalty Program Analytics */}

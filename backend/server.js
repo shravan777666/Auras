@@ -47,6 +47,7 @@ import scheduleRequestsRoutes from './routes/scheduleRequests.js';
 
 // Import financial forecast routes
 import financialForecastRoutes from './routes/financialForecast.js';
+import expenseForecastRoutes from './routes/expenseForecast.js';
 
 // Add financial summary routes
 import financialSummaryRoutes from './routes/financialSummary.js';
@@ -68,6 +69,9 @@ import addonDashboardRoutes from './routes/addonDashboard.js';
 
 // Import payment routes
 import paymentRoutes from './routes/payment.js';
+
+// Import payroll routes
+import payrollRoutes from './routes/payroll.js';
 
 // Create Express app
 const app = express();
@@ -334,6 +338,7 @@ app.use('/api/service', serviceRoutes);
 app.use('/api/schedule-requests', scheduleRequestsRoutes);
 app.use('/api/revenue', revenueRoutes);
 app.use('/api/financial-forecast', financialForecastRoutes);
+app.use('/api/expense-forecast', expenseForecastRoutes);
 // Move financial summary routes under admin
 app.use('/api/admin/financial-summary', financialSummaryRoutes);
 app.use('/api/loyalty', loyaltyRoutes);
@@ -356,6 +361,9 @@ app.use('/api/internal-feedback', internalFeedbackRoutes);
 // Add payment routes
 app.use('/api/payment', paymentRoutes);
 
+// Add payroll routes
+app.use('/api/payroll', payrollRoutes);
+
 // Handle undefined routes
 app.all('*', (req, res) => {
   res.status(404).json({
@@ -377,7 +385,8 @@ app.all('*', (req, res) => {
       financialSummary: '/api/admin/financial-summary',
       salonSettings: '/api/salon-settings',
       addon: '/api/addon',
-      addonDashboard: '/api/addon-dashboard'
+      addonDashboard: '/api/addon-dashboard',
+      expenseForecast: '/api/expense-forecast'
     }
   });
 });

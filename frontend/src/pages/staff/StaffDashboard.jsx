@@ -6,6 +6,7 @@ import { staffInvitationService } from '../../services/staffInvitation';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import UpcomingAppointmentsCard from '../../components/staff/UpcomingAppointmentsCard';
 import NextClientCountdown from '../../components/staff/NextClientCountdown';
+import PayrollRecordsCard from '../../components/staff/PayrollRecordsCard';
 import { toast } from 'react-hot-toast';
 import {
   Calendar,
@@ -427,6 +428,11 @@ const StaffDashboard = () => {
                 )}
               </div>
             </DashboardCard>
+          </div>
+          
+          {/* Payroll Records Card */}
+          <div className="lg:col-span-1">
+            <PayrollRecordsCard />
           </div>
         </div>
 

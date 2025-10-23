@@ -4,6 +4,8 @@ import User from '../models/User.js';
 import Staff from '../models/Staff.js';
 import Appointment from '../models/Appointment.js';
 import Customer from '../models/Customer.js';
+import Revenue from '../models/Revenue.js';
+import Expense from '../models/Expense.js';
 import { successResponse, errorResponse, notFoundResponse, paginatedResponse } from '../utils/responses.js';
 import asyncHandler from 'express-async-handler';
 import { sendSalonApprovalEmail, sendSalonRejectionEmail, sendStaffApprovalNotificationEmail, sendStaffApprovalEmail } from '../config/email.js';

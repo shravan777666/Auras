@@ -47,6 +47,8 @@ import NeedsAttentionAlerts from '../../components/salon/NeedsAttentionAlerts';
 import PendingScheduleRequests from '../../components/salon/PendingScheduleRequests';
 import StaffFeedbackInbox from '../../components/salon/StaffFeedbackInbox';
 import BackButton from '../../components/common/BackButton';
+import PayrollProcessingCard from '../../components/salon/PayrollProcessingCard';
+import PayrollSummaryTable from '../../components/salon/PayrollSummaryTable';
 
 // A reusable card for displaying statistics
 const StatCard = ({ icon, title, value, color, onClick }) => (
@@ -570,6 +572,12 @@ const SalonDashboard = () => {
           onAddExpense={handleAddExpense}
           onViewDetails={handleViewExpenseDetails}
         />
+
+        {/* Payroll Processing Card */}
+        <PayrollProcessingCard />
+
+        {/* Payroll Summary Table */}
+        <PayrollSummaryTable />
 
         {/* Revenue Breakdown (Services vs Revenue) */}
         <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 mb-8">

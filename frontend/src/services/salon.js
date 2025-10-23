@@ -68,6 +68,16 @@ export const salonService = {
     return response.data;
   },
 
+  async getExpenseForecast() {
+    try {
+      const response = await api.post('/expense-forecast/forecast', {});
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching expense forecast:', error);
+      throw error;
+    }
+  },
+
   async getServiceCategories() {
     const response = await api.get('/salon/dashboard/service-categories');
     return response.data?.data || [];
@@ -435,6 +445,69 @@ export const salonService = {
       return response.data;
     } catch (error) {
       console.error('Error deleting staff attendance:', error);
+      throw error;
+    }
+  },
+
+  // Payroll configuration methods
+  async createOrUpdatePayrollConfig(configData) {
+    try {
+      const response = await api.post('/payroll/config', configData);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating/updating payroll configuration:', error);
+      throw error;
+    }
+  },
+
+  async getPayrollConfigurations() {
+    try {
+      const response = await api.get('/payroll/config');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching payroll configurations:', error);
+      throw error;
+    }
+  },
+
+  async deletePayrollConfig(configId) {
+    try {
+      const response = await api.delete(`/payroll/config/${configId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error deleting payroll configuration:', error);
+      throw error;
+    }
+  },
+
+  // Payroll processing methods
+  async processPayrollForAllStaff(payrollData) {
+    try {
+      const response = await api.post('/payroll/process', payrollData);
+      return response.data;
+    } catch (error) {
+      console.error('Error processing payroll:', error);
+      throw error;
+    }
+  },
+
+  async getPayrollRecords(params = {}) {
+    try {
+      const queryParams = new URLSearchParams(params).toString();
+      const response = await api.get(`/payroll/records?${queryParams}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching payroll records:', error);
+      throw error;
+    }
+  },
+
+  async markPayrollAsPaid(recordId, paymentReference) {
+    try {
+      const response = await api.patch(`/payroll/records/${recordId}/pay`, { paymentReference });
+      return response.data;
+    } catch (error) {
+      console.error('Error marking payroll as paid:', error);
       throw error;
     }
   }

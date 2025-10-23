@@ -136,8 +136,16 @@ export const getRevenueData = async (req, res) => {
       { $sort: { "_id.year": 1, "_id.month": 1 } }
     ]);
 
-    // Format trend data for sparkline
-    const revenueTrend = revenueTrendData.map(item => item.total);
+    // Format trend data for sparkline - filter out any invalid values
+    const revenueTrend = revenueTrendData
+      .map(item => {
+        // Ensure the total is a valid number
+        const total = typeof item.total === 'number' && !isNaN(item.total) && isFinite(item.total) 
+          ? item.total 
+          : 0;
+        return total;
+      })
+      .filter(value => typeof value === 'number' && !isNaN(value) && isFinite(value));
 
     return successResponse(res, {
       totalRevenue,
