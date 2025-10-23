@@ -42,6 +42,16 @@ const AppointmentSchema = new mongoose.Schema(
     salonNotes: { type: String },
     staffNotes: { type: String },
     cancellationReason: { type: String },
+    // Cancellation policy fields
+    cancellationPolicyAgreed: { type: Boolean, default: false },
+    cancellationFee: { type: Number, default: 0 },
+    cancellationFeePaid: { type: Boolean, default: false },
+    cancellationType: {
+      type: String,
+      enum: ['Early', 'Late', 'No-Show'],
+      default: 'Early'
+    },
+    cancellationReminderSent: { type: Boolean, default: false },
     reason: { type: String },
     isFirstVisit: { type: Boolean, default: false },
     source: { type: String, default: 'Website' },
@@ -211,6 +221,72 @@ AppointmentSchema.methods.canBeCancelled = function () {
   const twoHoursFromNow = new Date(now.getTime() + (2 * 60 * 60 * 1000));
   
   return appointmentDateTime > twoHoursFromNow;
+};
+
+// New method to check if appointment can be cancelled under salon policy
+AppointmentSchema.methods.canBeCancelledUnderPolicy = async function () {
+  // Import CancellationPolicy model
+  const CancellationPolicy = (await import('./CancellationPolicy.js')).default;
+  
+  // Get salon's cancellation policy
+  const policy = await CancellationPolicy.findOne({ salonId: this.salonId });
+  
+  // If no policy, use default behavior
+  if (!policy || !policy.isActive) {
+    return this.canBeCancelled();
+  }
+  
+  // Parse appointment date and time
+  const [datePart, timePart] = this.appointmentDate.split('T');
+  const [year, month, day] = datePart.split('-').map(Number);
+  const [hours, minutes] = timePart.split(':').map(Number);
+  
+  const appointmentDateTime = new Date(year, month - 1, day, hours, minutes);
+  const now = new Date();
+  const noticePeriodMillis = policy.noticePeriod * 60 * 60 * 1000;
+  const noticePeriodDateTime = new Date(appointmentDateTime.getTime() - noticePeriodMillis);
+  
+  // Check if within notice period
+  return now < noticePeriodDateTime;
+};
+
+// New method to calculate cancellation fee based on policy
+AppointmentSchema.methods.calculateCancellationFee = async function () {
+  // Import CancellationPolicy model
+  const CancellationPolicy = (await import('./CancellationPolicy.js')).default;
+  
+  // Get salon's cancellation policy
+  const policy = await CancellationPolicy.findOne({ salonId: this.salonId });
+  
+  // If no policy, no fee
+  if (!policy || !policy.isActive) {
+    return 0;
+  }
+  
+  // Parse appointment date and time
+  const [datePart, timePart] = this.appointmentDate.split('T');
+  const [year, month, day] = datePart.split('-').map(Number);
+  const [hours, minutes] = timePart.split(':').map(Number);
+  
+  const appointmentDateTime = new Date(year, month - 1, day, hours, minutes);
+  const now = new Date();
+  const noticePeriodMillis = policy.noticePeriod * 60 * 60 * 1000;
+  const noticePeriodDateTime = new Date(appointmentDateTime.getTime() - noticePeriodMillis);
+  
+  // Determine cancellation type and fee
+  if (now >= appointmentDateTime) {
+    // No-show
+    this.cancellationType = 'No-Show';
+    return (this.finalAmount || this.totalAmount) * (policy.noShowPenalty / 100);
+  } else if (now >= noticePeriodDateTime) {
+    // Late cancellation
+    this.cancellationType = 'Late';
+    return (this.finalAmount || this.totalAmount) * (policy.lateCancellationPenalty / 100);
+  } else {
+    // Early cancellation (no fee)
+    this.cancellationType = 'Early';
+    return 0;
+  }
 };
 
 AppointmentSchema.pre('save', function(next) {

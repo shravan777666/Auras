@@ -510,5 +510,18 @@ export const salonService = {
       console.error('Error marking payroll as paid:', error);
       throw error;
     }
+  },
+
+  // Add cancellation stats method
+  async getCancellationStats() {
+    try {
+      const response = await api.get('/salon/cancellations/stats');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching cancellation stats:', error);
+      throw error;
+    }
   }
 };
+
+export default salonService;

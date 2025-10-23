@@ -2256,6 +2256,141 @@ export const deleteAttendance = asyncHandler(async (req, res) => {
   }
 });
 
+// Get cancellation statistics for salon owner
+export const getCancellationStats = asyncHandler(async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Get user record to find salon
+    const User = (await import('../models/User.js')).default;
+    const user = await User.findById(userId);
+    if (!user || user.type !== 'salon') {
+      return errorResponse(res, 'Access denied: Only salon owners can access cancellation stats', 403);
+    }
+
+    // Find salon by email
+    const salon = await Salon.findOne({ email: user.email });
+    if (!salon) {
+      return notFoundResponse(res, 'Salon profile');
+    }
+
+    const salonId = salon._id;
+
+    // Import Appointment model
+    const Appointment = (await import('../models/Appointment.js')).default;
+
+    // Get total cancellations (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const totalCancellations = await Appointment.countDocuments({
+      salonId,
+      status: 'Cancelled',
+      updatedAt: { $gte: thirtyDaysAgo }
+    });
+
+    // Get late cancellations (cancelled within 24 hours of appointment)
+    // Since appointmentDate is stored as a string, we need to handle this differently
+    const lateCancellations = await Appointment.countDocuments({
+      salonId,
+      status: 'Cancelled',
+      updatedAt: { $gte: thirtyDaysAgo }
+      // We'll calculate this in JavaScript after fetching the data
+    });
+
+    // Get all cancelled appointments to calculate late cancellations properly
+    const cancelledAppointments = await Appointment.find({
+      salonId,
+      status: 'Cancelled',
+      updatedAt: { $gte: thirtyDaysAgo }
+    }).select('appointmentDate updatedAt');
+
+    // Calculate late cancellations in JavaScript
+    let lateCancellationCount = 0;
+    const oneDayInMillis = 24 * 60 * 60 * 1000;
+    
+    cancelledAppointments.forEach(appointment => {
+      // Parse the appointment date string
+      const appointmentDate = new Date(appointment.appointmentDate);
+      const cancellationDate = new Date(appointment.updatedAt);
+      
+      // Calculate the difference
+      const timeDiff = appointmentDate.getTime() - cancellationDate.getTime();
+      
+      // If the cancellation happened less than 24 hours before the appointment, it's late
+      if (timeDiff > 0 && timeDiff < oneDayInMillis) {
+        lateCancellationCount++;
+      }
+    });
+
+    // Get no-shows (appointments marked as no-show)
+    const noShows = await Appointment.countDocuments({
+      salonId,
+      status: 'No-Show',
+      updatedAt: { $gte: thirtyDaysAgo }
+    });
+
+    // Calculate total fees from cancellations (assuming there's a cancellationFee field)
+    const cancellationFees = await Appointment.aggregate([
+      {
+        $match: {
+          salonId,
+          status: 'Cancelled',
+          cancellationFee: { $exists: true, $gt: 0 },
+          updatedAt: { $gte: thirtyDaysAgo }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalFees: { $sum: '$cancellationFee' },
+          avgFee: { $avg: '$cancellationFee' }
+        }
+      }
+    ]);
+
+    const totalFees = cancellationFees.length > 0 ? cancellationFees[0].totalFees : 0;
+    const avgFee = cancellationFees.length > 0 ? cancellationFees[0].avgFee : 0;
+
+    // Get recent cancellations (last 10)
+    const recentCancellations = await Appointment.find({
+      salonId,
+      status: 'Cancelled'
+    })
+    .sort({ updatedAt: -1 })
+    .limit(10)
+    .populate('customerId', 'name')
+    .select('customerId appointmentDate appointmentTime cancellationType cancellationFee cancellationReason updatedAt');
+
+    // Format recent cancellations for frontend
+    const formattedRecentCancellations = recentCancellations.map(cancellation => ({
+      _id: cancellation._id,
+      customerName: cancellation.customerId?.name || 'Unknown Customer',
+      appointmentDate: cancellation.appointmentDate,
+      appointmentTime: cancellation.appointmentTime,
+      cancellationType: cancellation.cancellationType || 'Late',
+      fee: cancellation.cancellationFee || 0,
+      reason: cancellation.cancellationReason || 'No reason provided'
+    }));
+
+    const stats = {
+      totalCancellations,
+      lateCancellations: lateCancellationCount,
+      noShows,
+      totalFees,
+      avgFee: parseFloat(avgFee.toFixed(2))
+    };
+
+    return successResponse(res, {
+      stats,
+      recentCancellations: formattedRecentCancellations
+    }, 'Cancellation statistics retrieved successfully');
+  } catch (error) {
+    console.error('Error fetching cancellation stats:', error);
+    return errorResponse(res, `Failed to retrieve cancellation stats: ${error.message}`, 500);
+  }
+});
+
 export default {
   register,
   updateDetails,
@@ -2290,5 +2425,6 @@ export default {
   getAppointmentCounts,
   getStaffAvailability,
   markStaffAttendance,
-  addStaffShift
+  addStaffShift,
+  getCancellationStats
 };

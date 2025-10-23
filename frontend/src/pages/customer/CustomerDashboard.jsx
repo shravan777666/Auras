@@ -292,7 +292,7 @@ const CustomerDashboard = () => {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold text-gray-900">Pending Appointments</h2>
             <Link 
-              to="/bookings" 
+              to="/customer/bookings" 
               className="text-sm font-medium text-indigo-600 hover:text-indigo-500 flex items-center"
             >
               View all

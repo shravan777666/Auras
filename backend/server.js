@@ -20,6 +20,7 @@ import session from 'express-session';
 import passport from './config/passport.js';
 import connectDB from './config/database.js';
 import { globalErrorHandler } from './utils/responses.js';
+import { startCancellationReminders } from './utils/cancellationReminder.js';
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -72,6 +73,9 @@ import paymentRoutes from './routes/payment.js';
 
 // Import payroll routes
 import payrollRoutes from './routes/payroll.js';
+
+// Import cancellation policy routes
+import cancellationPolicyRoutes from './routes/cancellationPolicy.js';
 
 // Create Express app
 const app = express();
@@ -354,6 +358,7 @@ app.use('/api/salon-settings', salonSettingsRoutes);
 app.use('/api/addon', addonRoutes);
 app.use('/api/addon-dashboard', addonDashboardRoutes);
 app.use('/api/forgot-password', forgotPasswordRoutes);
+app.use('/api/cancellation-policy', cancellationPolicyRoutes);
 
 // Add internal feedback routes
 app.use('/api/internal-feedback', internalFeedbackRoutes);
@@ -430,6 +435,11 @@ const startServer = (port, attemptsLeft = 5) => {
 
 // Start the server
 startServer(DEFAULT_PORT);
+
+// Start background jobs
+// startLowBookingAlerts(); // Function not implemented
+// startScheduleRequestReminders(); // Function not implemented
+startCancellationReminders();
 
 // Graceful shutdown handling
 process.on('SIGTERM', () => {

@@ -1,105 +1,45 @@
-# Auracare - Beauty Parlor Management System 💄✨
+# AuraCares Beauty Parlor Management System
 
-A complete, production-ready MERN stack application for beauty parlor booking and management. Built with modern technologies and best practices for scalability, security, and user experience.
+## Overview
+AuraCares is a comprehensive beauty parlor management system that connects customers with salons and stylists. This system includes features for appointment booking, staff management, service listings, and more.
 
-## 🌟 Features
+## New Feature: Salon Appointment Cancellation Policy System
 
-### Multi-Role Authentication System
-- **Admin**: Super user with full system access
-- **Salon Owners**: Manage salons, staff, and services
-- **Staff**: Handle appointments and manage availability
-- **Customers**: Browse salons and book appointments
+### Features
+1. **Flexible Cancellation Policies**: Salon owners can set custom notice periods (24-48 hours) and penalty fees
+2. **Automated Fee Calculation**: System automatically calculates late cancellation (50%) and no-show (100%) fees
+3. **Customer Agreement**: Policy displayed on booking page with required checkbox agreement
+4. **Automated Reminders**: Email reminders sent 48-24 hours before appointments
+5. **Owner Dashboard**: Track cancellations, fees, and policy effectiveness
+6. **Secure Integration**: Full frontend/backend validation with error handling
 
-### 🔐 Authentication & Security
-- JWT-based authentication
-- Google OAuth 2.0 integration
-- OTP-based password recovery
-- Role-based access control (RBAC)
-- Secure API endpoints
+### Backend Components
+- **CancellationPolicy Model**: Stores salon-specific cancellation rules
+- **Enhanced Appointment Model**: Tracks cancellation types, fees, and agreements
+- **Cancellation Policy Controller**: API endpoints for policy management
+- **Automated Reminders**: Cron job for sending policy reminders
+- **Database Migration**: Adds new fields to existing appointments
 
-### 🏪 Salon Management
-- Complete salon setup wizard
-- Staff hiring and management
-- Service catalog management
-- Appointment scheduling
-- Business analytics
+### Frontend Components
+- **CancellationPolicyDisplay**: Shows policy on booking page with agreement checkbox
+- **CancelAppointmentModal**: Handles cancellation requests with reason input
+- **CancellationPolicyManager**: Salon dashboard for setting policies
+- **CancellationDashboard**: Owner view for tracking cancellations and fees
+- **Updated MyBookings**: Integrated cancellation functionality
 
-### 👥 Staff Features
-- Profile setup and management
-- Availability scheduling
-- Appointment management
-- Performance tracking
+### API Endpoints
+- `GET /api/cancellation-policy/:salonId` - Get salon's cancellation policy
+- `POST /api/cancellation-policy` - Create/update salon's cancellation policy
+- `GET /api/cancellation-policy` - Get all policies for salon owner
 
-### 🛍️ Customer Experience
-- Browse salons by location
-- Service search and filtering
-- Easy appointment booking
-- Booking history and management
-- Rating and review system
+### Usage
+1. Salon owners set policies via the Cancellation Dashboard
+2. Customers see policies during booking and must agree before proceeding
+3. System automatically calculates fees based on cancellation timing
+4. Email reminders are sent before appointments
+5. Owners can track all cancellation data in their dashboard
 
-### 💰 Financial Management System
-- **Admin Financial Dashboard**: Comprehensive profit/loss analytics
-- **Revenue Trend Analysis**: Visualize revenue trends over time
-- **Salon Performance Tracking**: Compare performance across salons
-- **Expense Breakdown**: Detailed categorization of business expenses
-- **Interactive Visualizations**: Charts and graphs for data analysis
-- **Export Functionality**: Generate reports in PDF/Excel formats
-
-### 💰 Financial Prediction System
-- **Next Week Revenue Forecasting**: Predict next week's revenue using Linear Regression
-- **Historical Data Analysis**: Train model with actual salon appointment data
-- **Confidence Scoring**: Get confidence levels for predictions
-- **Trend Analysis**: Visualize revenue trends and percentage changes
-- **Dashboard Integration**: Seamlessly integrated into the financial dashboard
-
-### 🏆 Loyalty Points Program
-- **Points Earning**: Customers earn 1 point for every ₹10 spent
-- **Points Redemption**: 100 points = ₹100 discount on future bookings
-- **Tiered Rewards**: Standard, Silver, Gold, and Platinum tiers with exclusive benefits
-- **Real-time Tracking**: Live points balance in customer dashboard
-- **Analytics Dashboard**: Owner insights on loyalty program performance
-- **Top Customers Recognition**: Highlight most loyal customers
-
-### 📱 Technical Features
-- Responsive design (mobile-first)
-- Real-time notifications
-- Email integration (Nodemailer)
-- File upload support
-- Search and filtering
-- Pagination
-- Data validation
-
-## 🛠️ Tech Stack
-
-### Frontend
-- **React 18** - Modern UI library
-- **Vite** - Fast build tool
-- **TailwindCSS** - Utility-first CSS framework
-- **React Router v6** - Client-side routing
-- **Axios** - HTTP client
-- **React Hook Form** - Form management
-- **React Hot Toast** - Notifications
-
-### Backend
-- **Node.js** - JavaScript runtime
-- **Express.js** - Web framework
-- **MongoDB** - NoSQL database
-- **Mongoose** - ODM for MongoDB
-- **JWT** - Authentication tokens
-- **Passport.js** - Authentication middleware
-- **Nodemailer** - Email service
-- **Multer** - File uploads
-
-### DevOps & Security
-- **Helmet** - Security headers
-- **CORS** - Cross-origin requests
-- **Rate Limiting** - API protection
-- **Input Validation** - Data sanitization
-- **Environment Variables** - Configuration management
-
-## 🚀 Quick Start
-
-### Prerequisites
+## Installation
 - Node.js (v18 or higher)
 - MongoDB (local or Atlas)
 - Gmail account (for email services)

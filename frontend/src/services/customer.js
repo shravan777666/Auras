@@ -23,9 +23,14 @@ export const customerService = {
     return response.data;
   },
   async getBookings(params = {}) {
-    const query = new URLSearchParams(params).toString();
-    const response = await api.get(`/customer/bookings${query ? `?${query}` : ''}`);
-    return response.data;
+    try {
+      const query = new URLSearchParams(params).toString();
+      const response = await api.get(`/customer/bookings${query ? `?${query}` : ''}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching bookings:', error);
+      throw error;
+    }
   },
   async getBookingHistory(limit = 10) {
     const response = await api.get(`/customer/bookings?limit=${limit}&sort=-createdAt`);
@@ -125,7 +130,13 @@ export const customerService = {
   async calculateCommission(commissionData) {
     const response = await api.post('/addon/calculate-commission', commissionData);
     return response.data;
-  }
+  },
+
+  async cancelBooking(appointmentId, cancellationData) {
+    const response = await api.patch(`/customer/bookings/${appointmentId}/cancel`, cancellationData);
+    return response.data;
+  },
+
 };
 
 export default customerService;

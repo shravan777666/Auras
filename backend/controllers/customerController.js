@@ -4,6 +4,7 @@ import path from 'path';
 import Salon from '../models/Salon.js';
 import Service from '../models/Service.js';
 import Appointment from '../models/Appointment.js';
+import CancellationPolicy from '../models/CancellationPolicy.js';
 import { 
   successResponse, 
   errorResponse, 
@@ -545,14 +546,54 @@ export const cancelBooking = asyncHandler(async (req, res) => {
     return notFoundResponse(res, 'Appointment');
   }
 
-  if (!appointment.canBeCancelled()) {
-    return errorResponse(res, 'Appointment cannot be cancelled. Cancellation allowed only 2 hours before appointment time.', 400);
+  // Check if appointment can be cancelled under salon policy
+  const canCancel = await appointment.canBeCancelledUnderPolicy();
+  
+  if (!canCancel) {
+    // Get salon's cancellation policy for error message
+    const policy = await CancellationPolicy.findOne({ salonId: appointment.salonId });
+    const noticePeriod = policy ? policy.noticePeriod : 24;
+    
+    return errorResponse(res, `Appointment cannot be cancelled. Cancellation must be made at least ${noticePeriod} hours before appointment time.`, 400);
+  }
+
+  // Calculate cancellation fee based on policy
+  const cancellationFee = await appointment.calculateCancellationFee();
+  appointment.cancellationFee = cancellationFee;
+  
+  // Set cancellation type based on when it was cancelled
+  const [datePart, timePart] = appointment.appointmentDate.split('T');
+  const [year, month, day] = datePart.split('-').map(Number);
+  const [hours, minutes] = timePart.split(':').map(Number);
+  const appointmentDateTime = new Date(year, month - 1, day, hours, minutes);
+  const now = new Date();
+  
+  if (now >= appointmentDateTime) {
+    appointment.cancellationType = 'No-Show';
+  } else {
+    // Check if it's late cancellation
+    const policy = await CancellationPolicy.findOne({ salonId: appointment.salonId });
+    if (policy && policy.isActive) {
+      const noticePeriodMillis = policy.noticePeriod * 60 * 60 * 1000;
+      const noticePeriodDateTime = new Date(appointmentDateTime.getTime() - noticePeriodMillis);
+      if (now >= noticePeriodDateTime) {
+        appointment.cancellationType = 'Late';
+      } else {
+        appointment.cancellationType = 'Early';
+      }
+    } else {
+      appointment.cancellationType = 'Early';
+    }
   }
 
   appointment.cancellationReason = cancellationReason;
   await appointment.updateStatus('Cancelled', 'Customer');
 
-  return successResponse(res, appointment, 'Appointment cancelled successfully');
+  return successResponse(res, {
+    appointment,
+    cancellationFee,
+    cancellationType: appointment.cancellationType
+  }, 'Appointment cancelled successfully');
 });
 
 // Rate and review appointment

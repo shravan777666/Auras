@@ -33,11 +33,12 @@ import {
   addStaffShift,
   deleteAttendance,
   getAppointmentCounts,
-  getSalonLocationsPublic
+  getSalonLocationsPublic,
+  getSalonLocations,
+  getCancellationStats
 } from '../controllers/salonController.js';
 import * as appointmentController from '../controllers/appointmentController.js';
 import { requireSalonOwner, requireSalonSetup } from '../middleware/roleAuth.js';
-import { getSalonLocations } from '../controllers/salonController.js';
 import { validateSalonSetup, validatePagination, validateObjectId } from '../middleware/validation.js';
 import { salonSetupUploads, uploadErrorHandler, upload } from '../middleware/upload.js';
 
@@ -68,6 +69,9 @@ router.post('/setup', salonSetupUploads, uploadErrorHandler, validateSalonSetup,
 // Routes that require completed setup
 router.get('/dashboard', requireSalonSetup, getDashboard);
 router.get('/dashboard/:salonId', requireSalonSetup, getDashboardById);
+
+// Cancellation dashboard routes
+router.get('/cancellations/stats', requireSalonSetup, getCancellationStats);
 
 // Notification routes for salon owners
 router.get('/notifications', requireSalonSetup, validatePagination, getSalonNotifications);

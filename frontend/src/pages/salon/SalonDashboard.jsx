@@ -25,7 +25,8 @@ import {
   TrendingUp,
   CreditCard,
   RefreshCw,
-  Zap
+  Zap,
+  XCircle
 } from 'lucide-react';
 import { PieChart, BarChart3 } from 'lucide-react';
 import {
@@ -1065,6 +1066,19 @@ const SalonDashboard = () => {
                 <span className="flex items-center gap-3">
                   <Mail className="h-5 w-5" /> 
                   Staff Replies
+                </span>
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+              {/* Add Cancellations button */}
+              <button
+                onClick={() => navigate('/salon/cancellations')}
+                className="w-full flex items-center justify-between px-5 py-4 rounded-xl bg-red-600 text-white hover:bg-red-700 transition-all duration-300 shadow-sm hover:shadow-md"
+              >
+                <span className="flex items-center gap-3">
+                  <XCircle className="h-5 w-5" /> 
+                  Cancellations
                 </span>
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

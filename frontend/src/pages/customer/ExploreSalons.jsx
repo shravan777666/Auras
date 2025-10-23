@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { customerService } from '../../services/customer';
@@ -16,15 +16,25 @@ import toast from 'react-hot-toast';
 const ExploreSalons = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const urlSearchTerm = searchParams.get('search') || searchParams.get('q') || '';
   const [loading, setLoading] = useState(true);
   const [salons, setSalons] = useState([]);
   const [filteredSalons, setFilteredSalons] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(urlSearchTerm);
+  const serviceFilter = searchParams.get('service') || '';
   const [favoriteSalons, setFavoriteSalons] = useState(new Set());
 
   useEffect(() => {
     fetchSalons();
   }, []);
+
+  useEffect(() => {
+    // Update local state when URL search parameter changes
+    if (urlSearchTerm !== searchTerm) {
+      setSearchTerm(urlSearchTerm);
+    }
+  }, [urlSearchTerm]);
 
   useEffect(() => {
     filterSalons();
@@ -53,16 +63,26 @@ const ExploreSalons = () => {
   };
 
   const filterSalons = () => {
-    if (!searchTerm) {
-      setFilteredSalons(salons);
-      return;
+    let filtered = salons;
+    
+    // Apply search term filter
+    if (searchTerm) {
+      filtered = filtered.filter(salon => 
+        salon.salonName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        salon.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (typeof salon.salonAddress === 'string' && salon.salonAddress.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (salon.salonAddress?.city && salon.salonAddress.city.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
     }
     
-    const filtered = salons.filter(salon => 
-      salon.salonName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      salon.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      salon.salonAddress?.city?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    // Apply service filter
+    if (serviceFilter) {
+      filtered = filtered.filter(salon => 
+        salon.services && salon.services.some(service => 
+          service.name && service.name.toLowerCase().includes(serviceFilter.toLowerCase())
+        )
+      );
+    }
     
     setFilteredSalons(filtered);
   };

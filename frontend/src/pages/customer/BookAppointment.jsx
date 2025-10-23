@@ -6,6 +6,7 @@ import { loyaltyService } from "../../services/loyalty";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import SalonAvailabilityDisplay from "../../components/customer/SalonAvailabilityDisplay";
 import LoyaltyRedemptionWidget from "../../components/customer/LoyaltyRedemptionWidget";
+import CancellationPolicyDisplay from '../../components/customer/CancellationPolicyDisplay';
 import toast from "react-hot-toast";
 import { useAuth } from "../../contexts/AuthContext";
 import { Clock } from "lucide-react";
@@ -36,6 +37,7 @@ const BookAppointment = () => {
   const [showPaymentButton, setShowPaymentButton] = useState(false);
   const [createdAppointment, setCreatedAppointment] = useState(null);
   const [paymentProcessing, setPaymentProcessing] = useState(false);
+  const [policyAgreed, setPolicyAgreed] = useState(false);
 
   // Check for pre-filled data from one-click booking widget or loyalty redemption
   useEffect(() => {
@@ -571,8 +573,23 @@ const BookAppointment = () => {
     return selectedAddons.reduce((total, addon) => total + Number(addon.price || 0), 0);
   };
 
-  const handleBookAppointment = async (e) => {
+  const handleBooking = async (e) => {
     e.preventDefault();
+    
+    // Check if policy agreement is required and agreed to
+    if (selectedSalon) {
+      try {
+        const policyResponse = await cancellationPolicyService.getPolicy(selectedSalon._id);
+        if (policyResponse?.success && policyResponse.data.isActive) {
+          if (!policyAgreed) {
+            toast.error('Please agree to the cancellation policy before booking');
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('Error checking cancellation policy:', error);
+      }
+    }
     
     try {
       if (!salon?._id || (selectedServices.length === 0 && selectedAddons.length === 0) || !appointmentDate || !appointmentTime) {
@@ -1065,7 +1082,7 @@ const BookAppointment = () => {
                 )}
                 
                 <button 
-                  onClick={handleBookAppointment} 
+                  onClick={handleBooking} 
                   disabled={!!dateError || (selectedServices.length === 0 && selectedAddons.length === 0)}
                   className={`px-4 py-2 text-white rounded ${!!dateError || (selectedServices.length === 0 && selectedAddons.length === 0) ? 'bg-gray-400 cursor-not-allowed' : 'bg-primary-600 hover:bg-primary-700'}`}
                 >

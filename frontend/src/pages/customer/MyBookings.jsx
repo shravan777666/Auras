@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { customerService } from '../../services/customer';
 import RateExperience from '../../components/customer/RateExperience';
+import CancelAppointmentModal from '../../components/customer/CancelAppointmentModal';
 import { 
   Calendar, 
   Clock, 
@@ -13,7 +14,8 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
-  MoreHorizontal
+  MoreHorizontal,
+  X
 } from 'lucide-react';
 
 const MyBookings = () => {
@@ -23,6 +25,8 @@ const MyBookings = () => {
   const [filter, setFilter] = useState('recent'); // recent, thisMonth, lastMonth, older
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [error, setError] = useState(null); // Add error state
 
   useEffect(() => {
     fetchBookings();
@@ -31,12 +35,18 @@ const MyBookings = () => {
   const fetchBookings = async () => {
     try {
       setLoading(true);
+      setError(null); // Clear previous errors
+      console.log('Fetching bookings for user:', user?.id);
       const res = await customerService.getBookings({ page: 1, limit: 50 });
+      console.log('Bookings response:', res);
       if (res?.success) {
         setBookings(res.data || []);
+      } else {
+        setError(res?.message || 'Failed to fetch bookings');
       }
     } catch (error) {
       console.error('Error fetching bookings:', error);
+      setError(error.message || 'An error occurred while fetching bookings');
     } finally {
       setLoading(false);
     }
@@ -50,6 +60,25 @@ const MyBookings = () => {
   const handleCloseRatingModal = () => {
     setSelectedBooking(null);
     setIsRatingModalOpen(false);
+  };
+
+  const handleOpenCancelModal = (booking) => {
+    setSelectedBooking(booking);
+    setIsCancelModalOpen(true);
+  };
+
+  const handleCloseCancelModal = () => {
+    setSelectedBooking(null);
+    setIsCancelModalOpen(false);
+  };
+
+  const handleCancelAppointment = async (cancellationData) => {
+    try {
+      // Refresh bookings to show updated status
+      fetchBookings();
+    } catch (error) {
+      console.error('Error cancelling appointment:', error);
+    }
   };
 
   const handleSubmitReview = async (appointmentId, reviewData) => {
@@ -141,6 +170,27 @@ const MyBookings = () => {
     return <LoadingSpinner text="Loading your bookings..." />;
   }
 
+  // Show error message if there was an error
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white rounded-lg shadow-md p-6 max-w-md w-full">
+          <div className="text-center">
+            <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Bookings</h3>
+            <p className="text-gray-500 mb-6">{error}</p>
+            <button
+              onClick={fetchBookings}
+              className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50" style={{ animation: 'fadeIn 0.3s ease-in' }}>
       <style>
@@ -159,6 +209,14 @@ const MyBookings = () => {
           appointment={selectedBooking}
           onSubmit={handleSubmitReview}
           onCancel={handleCloseRatingModal}
+        />
+      )}
+      {isCancelModalOpen && selectedBooking && (
+        <CancelAppointmentModal
+          isOpen={isCancelModalOpen}
+          onClose={handleCloseCancelModal}
+          appointment={selectedBooking}
+          onConfirm={handleCancelAppointment}
         />
       )}
       {/* Header */}
@@ -247,6 +305,11 @@ const MyBookings = () => {
                         <span className={`ml-3 px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(booking.status)}`}>
                           {booking.status}
                         </span>
+                        {booking.cancellationType && booking.cancellationType !== 'Early' && (
+                          <span className="ml-2 px-2 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-800">
+                            {booking.cancellationType}
+                          </span>
+                        )}
                       </div>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -296,6 +359,17 @@ const MyBookings = () => {
                         </div>
                       )}
 
+                      {booking.cancellationFee > 0 && (
+                        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                          <div className="flex items-center">
+                            <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
+                            <span className="text-sm font-medium text-red-800">
+                              Cancellation Fee: ₹{booking.cancellationFee}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="flex items-center justify-between">
                         <div className="text-lg font-semibold text-gray-900">
                           Total: ₹{booking.finalAmount || booking.totalAmount || 0}
@@ -305,7 +379,11 @@ const MyBookings = () => {
                             View Details
                           </button>
                           {booking.status === 'Pending' && (
-                            <button className="px-3 py-1 text-sm text-red-600 hover:text-red-700">
+                            <button 
+                              onClick={() => handleOpenCancelModal(booking)}
+                              className="px-3 py-1 text-sm text-red-600 hover:text-red-700 flex items-center"
+                            >
+                              <X className="h-4 w-4 mr-1" />
                               Cancel
                             </button>
                           )}
