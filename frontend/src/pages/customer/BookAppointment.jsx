@@ -577,9 +577,9 @@ const BookAppointment = () => {
     e.preventDefault();
     
     // Check if policy agreement is required and agreed to
-    if (selectedSalon) {
+    if (salon) {
       try {
-        const policyResponse = await cancellationPolicyService.getPolicy(selectedSalon._id);
+        const policyResponse = await cancellationPolicyService.getPolicy(salon._id);
         if (policyResponse?.success && policyResponse.data.isActive) {
           if (!policyAgreed) {
             toast.error('Please agree to the cancellation policy before booking');

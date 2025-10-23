@@ -35,7 +35,9 @@ import {
   getAppointmentCounts,
   getSalonLocationsPublic,
   getSalonLocations,
-  getCancellationStats
+  getCancellationStats,
+  getRefundEligibleCancellations,
+  processRefund
 } from '../controllers/salonController.js';
 import * as appointmentController from '../controllers/appointmentController.js';
 import { requireSalonOwner, requireSalonSetup } from '../middleware/roleAuth.js';
@@ -72,6 +74,8 @@ router.get('/dashboard/:salonId', requireSalonSetup, getDashboardById);
 
 // Cancellation dashboard routes
 router.get('/cancellations/stats', requireSalonSetup, getCancellationStats);
+router.get('/cancellations/refund-eligible', requireSalonSetup, getRefundEligibleCancellations);
+router.post('/cancellations/:appointmentId/refund', requireSalonSetup, validateObjectId('appointmentId'), processRefund);
 
 // Notification routes for salon owners
 router.get('/notifications', requireSalonSetup, validatePagination, getSalonNotifications);

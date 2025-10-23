@@ -37,7 +37,7 @@ export const createPaymentOrder = asyncHandler(async (req, res) => {
     }
 
     // Check if appointment is already paid
-    if (appointment.status === 'Confirmed') {
+    if (appointment.status === 'Approved') {
       return errorResponse(res, 'Appointment is already confirmed and paid', 400);
     }
 
@@ -79,14 +79,32 @@ export const verifyPayment = asyncHandler(async (req, res) => {
       appointmentId 
     } = req.body;
 
+    console.log('Payment verification request:', {
+      razorpay_order_id,
+      razorpay_payment_id,
+      appointmentId
+    });
+
+    // Check if required environment variables are present
+    if (!process.env.RAZORPAY_KEY_SECRET) {
+      console.error('RAZORPAY_KEY_SECRET is not set in environment variables');
+      return errorResponse(res, 'Payment configuration error', 500);
+    }
+
     // Verify payment signature
     const shasum = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET);
     shasum.update(`${razorpay_order_id}|${razorpay_payment_id}`);
     const digest = shasum.digest('hex');
 
     if (digest !== razorpay_signature) {
+      console.log('Payment signature verification failed:', {
+        generated: digest,
+        received: razorpay_signature
+      });
       return errorResponse(res, 'Payment verification failed', 400);
     }
+
+    console.log('Payment signature verified successfully');
 
     // Find the appointment and populate required fields
     const appointment = await Appointment.findById(appointmentId)
@@ -95,29 +113,85 @@ export const verifyPayment = asyncHandler(async (req, res) => {
       .populate('services.serviceId', 'name');
 
     if (!appointment) {
+      console.log('Appointment not found:', appointmentId);
       return errorResponse(res, 'Appointment not found', 404);
     }
 
-    // Update appointment status to confirmed and payment status to paid
-    appointment.status = 'Confirmed';
+    console.log('Appointment found:', {
+      id: appointment._id,
+      customerId: appointment.customerId?._id,
+      salonId: appointment.salonId?._id,
+      ownerId: appointment.salonId?.ownerId,
+      services: appointment.services?.map(s => ({
+        serviceId: s.serviceId?._id,
+        serviceName: s.serviceId?.name,
+        price: s.price
+      }))
+    });
+
+    // Validate required appointment fields
+    if (!appointment.customerId || !appointment.salonId) {
+      console.error('Missing required appointment data:', {
+        customerId: !!appointment.customerId,
+        salonId: !!appointment.salonId,
+        ownerId: !!appointment.salonId?.ownerId
+      });
+      return errorResponse(res, 'Incomplete appointment data', 500);
+    }
+
+    // Update appointment status to approved and payment status to paid
+    // Using 'Approved' instead of 'Confirmed' as it's a valid enum value
+    appointment.status = 'Approved';
     appointment.paymentStatus = 'Paid';
     appointment.paymentId = razorpay_payment_id;
     await appointment.save();
 
+    console.log('Appointment updated successfully');
+
     // Create revenue records for each service
-    for (const service of appointment.services) {
-      const revenueRecord = new Revenue({
-        service: service.serviceId.name,
-        amount: service.price,
-        appointmentId: appointment._id,
-        salonId: appointment.salonId._id,
-        ownerId: appointment.salonId.ownerId,
-        customerId: appointment.customerId._id,
-        date: new Date(),
-        description: `Payment for ${service.serviceId.name} - Appointment #${appointment._id}`,
-        source: 'Appointment Payment'
-      });
-      await revenueRecord.save();
+    if (appointment.services && appointment.services.length > 0) {
+      for (const service of appointment.services) {
+        try {
+          // Add safety checks for service data
+          if (!service.serviceId || !service.serviceId.name) {
+            console.log('Skipping service due to missing data:', service);
+            continue;
+          }
+          
+          if (!appointment.salonId || !appointment.salonId._id) {
+            console.log('Skipping revenue record due to missing salon data');
+            continue;
+          }
+          
+          if (!appointment.salonId.ownerId) {
+            console.log('Skipping revenue record due to missing salon owner data');
+            continue;
+          }
+          
+          if (!appointment.customerId || !appointment.customerId._id) {
+            console.log('Skipping revenue record due to missing customer data');
+            continue;
+          }
+
+          const revenueRecord = new Revenue({
+            service: service.serviceId.name,
+            amount: service.price || 0,
+            appointmentId: appointment._id,
+            salonId: appointment.salonId._id,
+            ownerId: appointment.salonId.ownerId,
+            customerId: appointment.customerId._id,
+            date: new Date(),
+            description: `Payment for ${service.serviceId.name} - Appointment #${appointment._id}`,
+            source: 'Appointment Payment'
+          });
+          
+          await revenueRecord.save();
+          console.log('Revenue record created:', revenueRecord._id);
+        } catch (revenueError) {
+          console.error('Error creating revenue record:', revenueError);
+          // Continue with other services even if one fails
+        }
+      }
     }
 
     return successResponse(res, {
@@ -127,6 +201,7 @@ export const verifyPayment = asyncHandler(async (req, res) => {
     }, 'Payment verified and appointment confirmed successfully');
   } catch (error) {
     console.error('Error verifying payment:', error);
+    console.error('Error stack:', error.stack);
     return errorResponse(res, 'Failed to verify payment', 500);
   }
 });

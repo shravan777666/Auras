@@ -42,9 +42,12 @@ const CancellationPolicyManager = ({ salonId }) => {
     setError('');
 
     try {
+      // Don't pass salonId, let the backend find it by ownerId
       const policyData = {
-        salonId,
-        ...policy,
+        noticePeriod: policy.noticePeriod,
+        lateCancellationPenalty: policy.lateCancellationPenalty,
+        noShowPenalty: policy.noShowPenalty,
+        isActive: policy.isActive,
         policyMessage: `Please cancel your appointment at least ${policy.noticePeriod} hours in advance to avoid penalties.`
       };
 

@@ -2330,7 +2330,7 @@ export const getCancellationStats = asyncHandler(async (req, res) => {
       updatedAt: { $gte: thirtyDaysAgo }
     });
 
-    // Calculate total fees from cancellations (assuming there's a cancellationFee field)
+    // Calculate total fees from cancellations
     const cancellationFees = await Appointment.aggregate([
       {
         $match: {
@@ -2351,6 +2351,28 @@ export const getCancellationStats = asyncHandler(async (req, res) => {
 
     const totalFees = cancellationFees.length > 0 ? cancellationFees[0].totalFees : 0;
     const avgFee = cancellationFees.length > 0 ? cancellationFees[0].avgFee : 0;
+
+    // Calculate total refunds processed
+    const refundStats = await Appointment.aggregate([
+      {
+        $match: {
+          salonId,
+          status: 'Cancelled',
+          refundStatus: 'Processed',
+          refundProcessedAt: { $gte: thirtyDaysAgo }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalRefunds: { $sum: '$refundAmount' },
+          refundCount: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const totalRefunds = refundStats.length > 0 ? refundStats[0].totalRefunds : 0;
+    const refundCount = refundStats.length > 0 ? refundStats[0].refundCount : 0;
 
     // Get recent cancellations (last 10)
     const recentCancellations = await Appointment.find({
@@ -2378,7 +2400,9 @@ export const getCancellationStats = asyncHandler(async (req, res) => {
       lateCancellations: lateCancellationCount,
       noShows,
       totalFees,
-      avgFee: parseFloat(avgFee.toFixed(2))
+      avgFee: parseFloat(avgFee.toFixed(2)),
+      totalRefunds,
+      refundCount
     };
 
     return successResponse(res, {
@@ -2388,6 +2412,157 @@ export const getCancellationStats = asyncHandler(async (req, res) => {
   } catch (error) {
     console.error('Error fetching cancellation stats:', error);
     return errorResponse(res, `Failed to retrieve cancellation stats: ${error.message}`, 500);
+  }
+});
+
+// Get refund eligible cancellations
+export const getRefundEligibleCancellations = asyncHandler(async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Get user record to find salon
+    const User = (await import('../models/User.js')).default;
+    const user = await User.findById(userId);
+    if (!user || user.type !== 'salon') {
+      return errorResponse(res, 'Access denied: Only salon owners can access refund eligible cancellations', 403);
+    }
+
+    // Find salon by email
+    const salon = await Salon.findOne({ email: user.email });
+    if (!salon) {
+      return notFoundResponse(res, 'Salon profile');
+    }
+
+    const salonId = salon._id;
+
+    // Import Appointment and Customer models
+    const Appointment = (await import('../models/Appointment.js')).default;
+    const Customer = (await import('../models/Customer.js')).default;
+
+    // Get refund eligible cancellations (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const refundEligibleAppointments = await Appointment.find({
+      salonId,
+      status: 'Cancelled',
+      refundStatus: 'Eligible',
+      updatedAt: { $gte: thirtyDaysAgo }
+    })
+    .sort({ updatedAt: -1 })
+    .populate('customerId', 'name')
+    .select('customerId appointmentDate appointmentTime cancellationType cancellationFee refundAmount refundStatus paymentMethod updatedAt');
+
+    // Format refund eligible cancellations for frontend
+    const formattedRefundEligibleCancellations = refundEligibleAppointments.map(appointment => {
+      // Calculate refund amount (use refundAmount if set, otherwise use cancellationFee, fallback to 0)
+      const refundAmount = appointment.refundAmount && appointment.refundAmount > 0 
+        ? appointment.refundAmount 
+        : (appointment.cancellationFee && appointment.cancellationFee > 0 
+            ? appointment.cancellationFee 
+            : 0);
+      
+      return {
+        _id: appointment._id,
+        customerName: appointment.customerId?.name || 'Unknown Customer',
+        appointmentDate: appointment.appointmentDate,
+        appointmentTime: appointment.appointmentTime,
+        cancellationType: appointment.cancellationType || 'Late',
+        fee: appointment.cancellationFee || 0,
+        refundAmount: refundAmount,
+        refundStatus: appointment.refundStatus,
+        paymentMethod: appointment.paymentMethod || 'Online'
+      };
+    });
+
+    return successResponse(res, formattedRefundEligibleCancellations, 'Refund eligible cancellations retrieved successfully');
+  } catch (error) {
+    console.error('Error fetching refund eligible cancellations:', error);
+    return errorResponse(res, `Failed to retrieve refund eligible cancellations: ${error.message}`, 500);
+  }
+});
+
+// Process refund for a cancellation
+export const processRefund = asyncHandler(async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { appointmentId } = req.params;
+
+    // Get user record to find salon
+    const User = (await import('../models/User.js')).default;
+    const user = await User.findById(userId);
+    if (!user || user.type !== 'salon') {
+      return errorResponse(res, 'Access denied: Only salon owners can process refunds', 403);
+    }
+
+    // Find salon by email
+    const salon = await Salon.findOne({ email: user.email });
+    if (!salon) {
+      return notFoundResponse(res, 'Salon profile');
+    }
+
+    const salonId = salon._id;
+
+    // Import Appointment, Customer, and CustomerNotification models
+    const Appointment = (await import('../models/Appointment.js')).default;
+    const Customer = (await import('../models/Customer.js')).default;
+    const CustomerNotification = (await import('../models/CustomerNotification.js')).default;
+
+    // Find the appointment
+    const appointment = await Appointment.findOne({
+      _id: appointmentId,
+      salonId,
+      status: 'Cancelled',
+      refundStatus: 'Eligible'
+    }).populate('customerId', 'name email');
+
+    if (!appointment) {
+      return notFoundResponse(res, 'Refund eligible appointment');
+    }
+
+    // Calculate refund amount (use refundAmount if set, otherwise use cancellationFee, fallback to 0)
+    const refundAmount = appointment.refundAmount && appointment.refundAmount > 0 
+      ? appointment.refundAmount 
+      : (appointment.cancellationFee && appointment.cancellationFee > 0 
+          ? appointment.cancellationFee 
+          : 0);
+
+    // Update appointment with refund details
+    appointment.refundStatus = 'Processed';
+    appointment.refundProcessedAt = new Date();
+    appointment.refundAmount = refundAmount;
+    
+    await appointment.save();
+
+    // Create a notification for the customer
+    const refundNotification = await CustomerNotification.create({
+      customerId: appointment.customerId._id,
+      customerName: appointment.customerId.name,
+      customerEmail: appointment.customerId.email,
+      senderId: salonId,
+      senderType: 'Salon',
+      senderName: salon.salonName,
+      senderEmail: salon.email,
+      senderSalonName: salon.salonName,
+      type: 'refund',
+      category: 'refund',
+      subject: 'Refund Processed for Your Cancelled Appointment',
+      message: `Your refund of ₹${refundAmount} for your cancelled appointment has been processed successfully. The amount will be credited back to your original payment method within 5-7 business days.`,
+      refundAmount: refundAmount,
+      refundProcessedAt: appointment.refundProcessedAt,
+      appointmentId: appointment._id,
+      priority: 'high'
+    });
+
+    return successResponse(res, {
+      appointmentId: appointment._id,
+      refundAmount: appointment.refundAmount,
+      refundProcessedAt: appointment.refundProcessedAt,
+      notificationId: refundNotification._id
+    }, 'Refund processed successfully and customer notified');
+  } catch (error) {
+    console.error('Error processing refund:', error);
+    return errorResponse(res, `Failed to process refund: ${error.message}`, 500);
   }
 });
 
@@ -2426,5 +2601,7 @@ export default {
   getStaffAvailability,
   markStaffAttendance,
   addStaffShift,
-  getCancellationStats
+  getCancellationStats,
+  getRefundEligibleCancellations,
+  processRefund
 };

@@ -31,8 +31,14 @@ export const createOrUpdatePolicy = asyncHandler(async (req, res) => {
   const salonOwnerId = req.user.id;
   const { salonId, noticePeriod, lateCancellationPenalty, noShowPenalty, isActive, policyMessage } = req.body;
 
-  // Verify salon ownership
-  const salon = await Salon.findOne({ ownerId: salonOwnerId, _id: salonId });
+  // If salonId is provided, verify the salon belongs to the owner
+  // If salonId is not provided, find the salon by ownerId
+  let salon;
+  if (salonId) {
+    salon = await Salon.findOne({ ownerId: salonOwnerId, _id: salonId });
+  } else {
+    salon = await Salon.findOne({ ownerId: salonOwnerId });
+  }
 
   if (!salon) {
     return errorResponse(res, 'Salon not found or you do not have permission to modify this salon', 403);
@@ -53,7 +59,7 @@ export const createOrUpdatePolicy = asyncHandler(async (req, res) => {
   }
 
   // Create or update policy
-  let policy = await CancellationPolicy.findOne({ salonId });
+  let policy = await CancellationPolicy.findOne({ salonId: salon._id });
 
   if (policy) {
     // Update existing policy
@@ -67,7 +73,7 @@ export const createOrUpdatePolicy = asyncHandler(async (req, res) => {
   } else {
     // Create new policy
     policy = await CancellationPolicy.create({
-      salonId,
+      salonId: salon._id,
       noticePeriod,
       lateCancellationPenalty,
       noShowPenalty,

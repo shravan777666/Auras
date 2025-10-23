@@ -76,6 +76,7 @@ import payrollRoutes from './routes/payroll.js';
 
 // Import cancellation policy routes
 import cancellationPolicyRoutes from './routes/cancellationPolicy.js';
+import customerNotificationRoutes from './routes/customerNotification.js';
 
 // Create Express app
 const app = express();
@@ -369,6 +370,9 @@ app.use('/api/payment', paymentRoutes);
 // Add payroll routes
 app.use('/api/payroll', payrollRoutes);
 
+// Add customer notification routes
+app.use('/api/customer/notifications', customerNotificationRoutes);
+
 // Handle undefined routes
 app.all('*', (req, res) => {
   res.status(404).json({
@@ -391,7 +395,8 @@ app.all('*', (req, res) => {
       salonSettings: '/api/salon-settings',
       addon: '/api/addon',
       addonDashboard: '/api/addon-dashboard',
-      expenseForecast: '/api/expense-forecast'
+      expenseForecast: '/api/expense-forecast',
+      customerNotifications: '/api/customer/notifications'
     }
   });
 });

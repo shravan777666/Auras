@@ -72,7 +72,16 @@ const AppointmentSchema = new mongoose.Schema(
       default: 'Pending'
     },
     paymentId: { type: String },
-    paymentError: { type: String }
+    paymentError: { type: String },
+    // Refund fields
+    refundStatus: {
+      type: String,
+      enum: ['Eligible', 'Processed', 'Rejected'],
+      default: 'Eligible'
+    },
+    refundAmount: { type: Number, default: 0 },
+    refundProcessedAt: { type: Date },
+    paymentMethod: { type: String, default: 'Online' }
   },
   { 
     timestamps: true,

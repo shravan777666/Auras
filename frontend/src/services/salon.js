@@ -521,6 +521,28 @@ export const salonService = {
       console.error('Error fetching cancellation stats:', error);
       throw error;
     }
+  },
+
+  // Add method to get refund eligible cancellations
+  async getRefundEligibleCancellations() {
+    try {
+      const response = await api.get('/salon/cancellations/refund-eligible');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching refund eligible cancellations:', error);
+      throw error;
+    }
+  },
+
+  // Add method to process refund
+  async processRefund(appointmentId) {
+    try {
+      const response = await api.post(`/salon/cancellations/${appointmentId}/refund`);
+      return response.data;
+    } catch (error) {
+      console.error('Error processing refund:', error);
+      throw error;
+    }
   }
 };
 
