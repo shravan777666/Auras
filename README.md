@@ -95,6 +95,92 @@ The application will automatically:
 5. Add authorized redirect URI: `http://localhost:5000/api/auth/google/callback`
 6. Update `.env` files with your client ID and secret
 
+## 🚀 Deployment
+
+### Deploying to Render
+
+1. **Create Render Accounts**
+   - Go to [render.com](https://render.com) and create an account
+   - Connect your GitHub repository
+
+2. **Deploy the Backend**
+   - In Render dashboard, click "New+" → "Web Service"
+   - Connect your GitHub repository
+   - Set the following configuration:
+     - Name: `auracare-backend`
+     - Runtime: `Node`
+     - Build command: `npm install`
+     - Start command: `npm start`
+     - Root directory: `backend`
+   - Add environment variables in the Render dashboard:
+     - `NODE_ENV`: `production`
+     - `MONGODB_URI`: Your MongoDB connection string
+     - `JWT_SECRET`: Your JWT secret
+     - `GOOGLE_CLIENT_ID`: Your Google OAuth client ID
+     - `GOOGLE_CLIENT_SECRET`: Your Google OAuth client secret
+     - `GOOGLE_CALLBACK_URL`: Your backend URL + `/api/auth/google/callback`
+     - `EMAIL_USER`: Your email for sending notifications
+     - `EMAIL_PASS`: Your email app password
+     - `FRONTEND_URL`: Your frontend URL
+     - `RAZORPAY_KEY_ID`: Your Razorpay key ID
+     - `RAZORPAY_KEY_SECRET`: Your Razorpay key secret
+
+3. **Deploy the Frontend**
+   - In Render dashboard, click "New+" → "Static Site"
+   - Connect your GitHub repository
+   - Set the following configuration:
+     - Name: `auracare-frontend`
+     - Build command: `npm install && npm run build`
+     - Publish directory: `dist`
+     - Root directory: `frontend`
+   - Add environment variables:
+     - `VITE_API_URL`: Your backend URL + `/api`
+
+4. **Update URLs**
+   - After deployment, update the `GOOGLE_CALLBACK_URL` in your backend settings to use the Render backend URL
+   - Update the `FRONTEND_URL` in your backend settings to use the Render frontend URL
+
+### Environment Variables
+
+#### Backend (.env)
+```
+# Database Configuration
+MONGODB_URI=your_mongodb_connection_string
+
+# Server Configuration
+PORT=5011
+NODE_ENV=production
+
+# JWT Configuration
+JWT_SECRET=your_jwt_secret
+
+# Google OAuth Configuration
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+GOOGLE_CALLBACK_URL=your_backend_url/api/auth/google/callback
+
+# Email Configuration
+EMAIL_USER=your_email
+EMAIL_PASS=your_email_app_password
+EMAIL_FROM="Auracare Beauty Parlor" <noreply@auracare.com>
+
+# Frontend URL
+FRONTEND_URL=your_frontend_url
+
+# Admin Default Credentials
+ADMIN_EMAIL=admin@gmail.com
+ADMIN_PASSWORD=Admin@123
+
+# Razorpay Configuration
+RAZORPAY_KEY_ID=your_razorpay_key_id
+RAZORPAY_KEY_SECRET=your_razorpay_key_secret
+```
+
+#### Frontend (.env)
+```
+VITE_API_URL=your_backend_url/api
+```
+
 ## 📁 Project Structure
 
 ```
@@ -198,184 +284,3 @@ GET    /api/loyalty/customer/:id/details          # Get customer loyalty details
 GET    /api/loyalty/salon/dashboard-metrics       # Get loyalty analytics
 GET    /api/loyalty/salon/top-customers           # Get top loyalty customers
 ```
-
-## 🎨 UI/UX Features
-
-### Design System
-- **Color Palette**: Primary blues and secondary purples
-- **Typography**: Inter font family
-- **Components**: Consistent button styles, form inputs, cards
-- **Icons**: Lucide React icon library
-- **Animations**: Smooth transitions and hover effects
-
-### Responsive Design
-- Mobile-first approach
-- Breakpoints: sm (640px), md (768px), lg (1024px), xl (1280px)
-- Touch-friendly interface
-- Optimized for all screen sizes
-
-### Accessibility
-- ARIA labels and roles
-- Keyboard navigation support
-- High contrast colors
-- Screen reader friendly
-
-## 🔒 Security Features
-
-### Authentication Security
-- JWT tokens with expiration
-- Secure password requirements
-- Rate limiting on auth endpoints
-- Session management
-
-### Data Protection
-- Input validation and sanitization
-- XSS protection
-- CSRF protection
-- Secure headers with Helmet
-
-### API Security
-- Role-based access control
-- Protected routes
-- Request rate limiting
-- Error handling without data exposure
-
-## 📧 Email Configuration
-
-The system uses Nodemailer with Gmail for:
-- Welcome emails
-- OTP for password reset
-- Appointment confirmations
-- Appointment reminders
-- Salon approval notifications
-- Salon rejection notifications
-- Staff approval notifications
-
-### Gmail Setup
-1. Enable 2-factor authentication
-2. Generate App Password
-3. Use app password in environment variables
-
-### Environment Variables
-```env
-EMAIL_USER=your-email@gmail.com
-EMAIL_PASS=your-app-password
-```
-
-### Email Templates
-- **OTP Email**: Password reset requests
-- **Appointment Confirmation**: Booking confirmations
-- **Salon Approval**: Notification when salon is approved
-- **Salon Rejection**: Notification when salon is rejected
-- **Staff Approval**: Notification to salon owner when staff is approved
-
-## 🚀 Deployment
-
-### Backend Deployment (Railway/Heroku)
-```bash
-# Set environment variables
-# Deploy with git push
-```
-
-### Frontend Deployment (Vercel/Netlify)
-```bash
-npm run build
-# Deploy dist folder
-```
-
-### Database Deployment
-- Use MongoDB Atlas for production
-- Configure connection string
-- Set up proper indexing
-
-## 🧪 Testing
-
-### Running Tests
-```bash
-# Backend tests
-cd backend
-npm test
-
-# Frontend tests
-cd frontend
-npm test
-```
-
-### Test Coverage
-- Unit tests for utilities
-- Integration tests for API endpoints
-- Component tests for React components
-
-## 📈 Performance Optimization
-
-### Frontend
-- Code splitting with React.lazy
-- Image optimization
-- Bundle size optimization
-- Caching strategies
-
-### Backend
-- Database indexing
-- Query optimization
-- Connection pooling
-- Response compression
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-### Code Style
-- Use ESLint and Prettier
-- Follow React and Node.js best practices
-- Write meaningful commit messages
-- Add comments for complex logic
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🐛 Known Issues
-
-- Google OAuth requires HTTPS in production
-- File uploads limited to 5MB
-- Email rate limiting may affect high-volume usage
-
-## 🔮 Future Enhancements
-
-- [ ] Mobile app (React Native)
-- [ ] Payment gateway integration
-- [ ] Advanced analytics dashboard
-- [ ] Multi-language support
-- [ ] Push notifications
-- [ ] Video consultations
-- [ ] Loyalty program
-- [ ] Advanced reporting
-- [ ] Enhanced financial prediction with more sophisticated ML models
-- [ ] Seasonal and trend analysis for financial forecasting
-- [ ] Real-time financial data updates
-- [ ] Custom financial report templates
-- [ ] Budget planning and forecasting tools
-
-## 📞 Support
-
-For support and questions:
-- Email: support@auracare.com
-- Documentation: [docs.auracare.com](https://docs.auracare.com)
-- Issues: GitHub Issues
-
-## 🙏 Acknowledgments
-
-- React team for the amazing framework
-- MongoDB team for the excellent database
-- TailwindCSS for the utility-first CSS framework
-- All the open-source contributors
-
----
-
-**Built with ❤️ for the beauty industry**
-
-*Auracare - Your Beauty, Our Priority* ✨
