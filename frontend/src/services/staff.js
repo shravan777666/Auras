@@ -78,6 +78,32 @@ export const staffService = {
     }
   },
   
+  // Get profile method
+  async getProfile() {
+    try {
+      const response = await api.get('/staff/profile');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching staff profile:', error);
+      throw error;
+    }
+  },
+  
+  // Update profile method
+  async updateProfile(formData) {
+    try {
+      const response = await api.patch('/staff/profile', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error updating staff profile:', error);
+      throw error;
+    }
+  },
+  
   // Get appointments method
   async getAppointments(params = {}) {
     try {
@@ -156,5 +182,9 @@ export const staffService = {
     }
   }
 };
+
+// Export individual functions for backward compatibility
+export const getProfile = staffService.getProfile;
+export const updateProfile = staffService.updateProfile;
 
 export default staffService;
