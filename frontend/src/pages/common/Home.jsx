@@ -156,20 +156,18 @@ const Home = () => {
     {
       name: 'Sarah Johnson',
       text: 'The best salon booking experience I\'ve ever had. So easy and convenient!',
-      rating: 5,
-      avatar: 'https://randomuser.me/api/portraits/women/32.jpg'
+      rating: 5
+  
     },
     {
       name: 'Michael Chen',
       text: 'Found an amazing stylist through AuraCares. My haircut exceeded expectations!',
-      rating: 5,
-      avatar: 'https://randomuser.me/api/portraits/men/44.jpg'
+      rating: 5
     },
     {
       name: 'Emma Rodriguez',
       text: 'The facial treatment I booked was incredible. Will definitely use again!',
-      rating: 4,
-      avatar: 'https://randomuser.me/api/portraits/women/68.jpg'
+      rating: 4
     }
   ];
 

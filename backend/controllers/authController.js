@@ -144,54 +144,43 @@ export const register = async (req, res) => {
   }
 };
 
-// Login with email/password and role
+// Login with email/password and automatic role detection
 export const login = async (req, res) => {
   try {
-    const { email, password, userType } = req.body;
-    console.log('Login attempt:', { email, userType });
+    const { email, password } = req.body;
+    console.log('Login attempt:', { email });
 
-    if (!email || !password || !userType) {
-      return errorResponse(res, 'Email, password, and user type are required', 400);
+    if (!email || !password) {
+      return errorResponse(res, 'Email and password are required', 400);
     }
 
-    // Refactored path for staff login for clarity and robustness
-    if (userType === 'staff') {
+    // Find user by email first to determine their role
+    const user = await User.findOne({ email, isActive: true }).select('+password');
+    
+    if (!user) {
+      return errorResponse(res, 'No user found with provided credentials.', 401);
+    }
+
+    // Check password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return errorResponse(res, 'Incorrect password.', 401);
+    }
+
+    // Handle staff login with special checks
+    if (user.type === 'staff') {
       try {
-        console.log('=== STAFF LOGIN REFACTORED PATH ===');
+        console.log('=== STAFF LOGIN PATH ===');
         const Staff = (await import('../models/Staff.js')).default;
 
-        // 1. Find the central User record, which is the source of truth for auth
-        const centralUser = await User.findOne({ email, type: 'staff' }).select('+password');
-        if (!centralUser) {
-          console.log(`Staff login failed for ${email}: Central user record not found.`);
-          return errorResponse(res, 'Authentication failed. User not found.', 401);
-        }
-
-        if (!centralUser.isActive) {
-          console.log(`Staff login failed for ${email}: User account is inactive.`);
-          return errorResponse(res, 'Your account is inactive. Please contact support.', 403);
-        }
-
-        if (!centralUser.password) {
-          console.log(`Staff login failed for ${email}: No password set for user (e.g., social login).`);
-          return errorResponse(res, 'Authentication failed. No password set for this account.', 401);
-        }
-
-        // 2. Compare password
-        const isMatch = await bcrypt.compare(password, centralUser.password);
-        if (!isMatch) {
-          console.log(`Staff login failed for ${email}: Incorrect password.`);
-          return errorResponse(res, 'Authentication failed. Incorrect password.', 401);
-        }
-
-        // 3. Find the associated Staff profile for business logic checks
-        const staffProfile = await Staff.findOne({ user: centralUser._id });
+        // Find the associated Staff profile for business logic checks
+        const staffProfile = await Staff.findOne({ user: user._id });
         if (!staffProfile) {
           console.log(`Staff login auth successful for ${email}, but staff profile not found.`);
           return errorResponse(res, 'Login successful, but your staff profile could not be found.', 404);
         }
 
-        // 4. Check approval status from the staff profile
+        // Check approval status from the staff profile
         if (staffProfile.approvalStatus !== 'approved') {
           let message = 'Your staff application is not yet approved for login.';
           if (staffProfile.approvalStatus === 'pending') {
@@ -203,11 +192,11 @@ export const login = async (req, res) => {
           return errorResponse(res, message, 403);
         }
 
-        // 5. Success: All checks passed. Sign token and return response.
+        // Success: All checks passed. Sign token and return response.
         const userForToken = {
-          _id: centralUser._id,
-          email: centralUser.email,
-          type: centralUser.type,
+          _id: user._id,
+          email: user.email,
+          type: user.type,
           setupCompleted: staffProfile.setupCompleted,
           name: staffProfile.name,
           approvalStatus: staffProfile.approvalStatus,
@@ -215,10 +204,10 @@ export const login = async (req, res) => {
         const token = signToken(userForToken);
         
         const safeUser = {
-          id: centralUser._id.toString(),
+          id: user._id.toString(),
           name: staffProfile.name,
-          email: centralUser.email,
-          type: centralUser.type,
+          email: user.email,
+          type: user.type,
           setupCompleted: staffProfile.setupCompleted,
           approvalStatus: staffProfile.approvalStatus,
         };
@@ -227,93 +216,34 @@ export const login = async (req, res) => {
         return successResponse(res, { token, user: safeUser }, 'Logged in successfully');
 
       } catch (staffError) {
-        console.error('An error occurred during the refactored staff login path:', staffError);
+        console.error('An error occurred during the staff login path:', staffError);
         return errorResponse(res, 'An unexpected error occurred during login.', 500);
       }
     }
 
-    // --- Original logic for other user types (customer, salon, admin) ---
-    let user = null;
-    let specificModelUser = null;
-
-    try {
-      switch (userType) {
-        case 'customer':
-          const Customer = (await import('../models/Customer.js')).default;
-          specificModelUser = await Customer.findOne({ email, isActive: true });
-          break;
-        case 'salon':
-          const Salon = (await import('../models/Salon.js')).default;
-          specificModelUser = await Salon.findOne({ email, isActive: true });
-          break;
-        case 'admin':
-          const Admin = (await import('../models/Admin.js')).default;
-          specificModelUser = await Admin.findOne({ email, isActive: true });
-          break;
-        default:
-          return errorResponse(res, 'Invalid user type provided.', 400);
-      }
-    } catch (importError) {
-      console.error('Model import error:', importError);
-      return errorResponse(res, 'System error occurred during authentication.', 500);
-    }
-
-    if (!specificModelUser) {
-      user = await User.findOne({ email, type: userType, isActive: true }).select('+password');
-      if (!user) {
-        return errorResponse(res, 'No user found with provided credentials and role.', 401);
-      }
-    } else {
-      let centralUser = null;
+    // Handle salon login with special checks
+    if (user.type === 'salon') {
       try {
-        if (specificModelUser.ownerId) {
-          centralUser = await User.findById(specificModelUser.ownerId).select('+password');
-        } else {
-          centralUser = await User.findOne({ email: specificModelUser.email, type: userType }).select('+password');
-        }
-      } catch (dbError) {
-        console.error('Database error when finding central user:', dbError);
-        return errorResponse(res, 'System error occurred during authentication.', 500);
-      }
-
-      if (!centralUser) {
-        return errorResponse(res, 'Associated central user not found.', 401);
-      }
-
-      user = {
-        _id: userType === 'customer' ? specificModelUser._id : centralUser._id,
-        name: specificModelUser.name,
-        email: specificModelUser.email,
-        password: centralUser.password,
-        type: userType,
-        setupCompleted: specificModelUser.setupCompleted || false,
-        isActive: specificModelUser.isActive,
-        approvalStatus: specificModelUser.approvalStatus || undefined,
-      };
-    }
-
-    if (!user.password) {
-        return errorResponse(res, 'Authentication failed. No password set for this account.', 401);
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return errorResponse(res, 'Incorrect password.', 401);
-    }
-
-    if (userType === 'salon') {
         const Salon = (await import('../models/Salon.js')).default;
-        const salon = specificModelUser || await Salon.findOne({ email: user.email });
+        const salon = await Salon.findOne({ ownerId: user._id });
         if (!salon) {
           return errorResponse(res, 'Salon profile not found.', 404);
         }
-        user.approvalStatus = salon.approvalStatus;
+        
         if (salon.approvalStatus !== 'approved') {
           let message = 'Your salon is not approved for login.';
           if(salon.approvalStatus === 'pending') message = 'Your salon registration is pending approval.';
           if(salon.approvalStatus === 'rejected') message = `Your salon registration has been rejected. Reason: ${salon.rejectionReason || 'No reason provided'}`;
           return errorResponse(res, message, 403);
         }
+        
+        // Update user with salon-specific data
+        user.approvalStatus = salon.approvalStatus;
+        user.setupCompleted = salon.setupCompleted;
+      } catch (salonError) {
+        console.error('An error occurred during salon login path:', salonError);
+        return errorResponse(res, 'An unexpected error occurred during login.', 500);
+      }
     }
 
     const token = signToken(user);
@@ -324,6 +254,7 @@ export const login = async (req, res) => {
       type: user.type,
       setupCompleted: user.setupCompleted,
     };
+    
     if ((user.type === 'salon' || user.type === 'staff') && user.approvalStatus) {
       safeUser.approvalStatus = user.approvalStatus;
     }
@@ -335,7 +266,7 @@ export const login = async (req, res) => {
   }
 };
 
-// Google OAuth initiation with role parameter
+// Google OAuth initiation with optional role parameter
 export const googleAuth = (req, res, next) => {
   console.log('Google OAuth request received:', {
     query: req.query,
@@ -343,30 +274,21 @@ export const googleAuth = (req, res, next) => {
     session: req.session
   });
   
-  const { role } = req.query;
-  
-  if (!role || !['customer', 'salon', 'staff'].includes(role)) {
-    console.log('Invalid role parameter:', role);
-    return res.status(400).json({
-      success: false,
-      message: 'Valid role parameter (customer, salon, staff) is required'
-    });
-  }
-
   // Store role in session state to pass to callback
+  // If no role is provided, we'll determine it after authentication
   if (req.session) {
-    req.session.oauthRole = role;
-    console.log('Stored role in session:', role);
+    req.session.oauthRole = req.query.role || 'customer'; // Default to customer if not provided
+    console.log('Stored role in session:', req.session.oauthRole);
   }
   
-  // Initiate Google OAuth with role as state parameter
+  // Initiate Google OAuth
   passport.authenticate('google', {
     scope: ['profile', 'email'],
-    state: role
+    state: req.query.role || 'customer' // Pass role as state or default to customer
   })(req, res, next);
 };
 
-// Google OAuth callback with role-based redirection
+// Google OAuth callback with automatic role detection
 export const googleCallback = async (req, res) => {
   try {
     const user = req.user;
@@ -375,6 +297,18 @@ export const googleCallback = async (req, res) => {
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3007';
       return res.redirect(`${frontendUrl}/auth/callback?error=oauth_failed`);
     }
+
+    // Find the user in our database to get their actual role
+    const dbUser = await User.findOne({ email: user.email });
+    if (!dbUser) {
+      // If user doesn't exist in our database, we can't authenticate them
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3007';
+      return res.redirect(`${frontendUrl}/auth/callback?error=user_not_found`);
+    }
+
+    // Update the user object with the actual role from database
+    user.type = dbUser.type;
+    user.setupCompleted = dbUser.setupCompleted;
 
     // Generate JWT token
     const token = signToken(user);

@@ -195,7 +195,6 @@ export const validateUserLogin = [
     .isEmail()
     .custom(validateEmailDomain),
   body('password').isString(),
-  body('userType').isIn(['admin', 'salon', 'staff', 'customer']).withMessage('Invalid userType'),
   handleValidation
 ];
 

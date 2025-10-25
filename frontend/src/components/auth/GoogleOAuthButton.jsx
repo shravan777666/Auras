@@ -1,15 +1,17 @@
 import React from 'react';
 import { Button } from '@mui/material';
 
-const GoogleOAuthButton = ({ role, variant = "outlined", fullWidth = true, children }) => {
+const GoogleOAuthButton = ({ role = 'customer', variant = "outlined", fullWidth = true, children }) => {
   const handleGoogleAuth = () => {
     // Use the OAuth endpoint - get backend URL from environment variables
     const backendUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5011';
+    // For automatic role detection, we can still pass a default role for the initial OAuth flow
+    // The backend will determine the actual role after authentication
     const authUrl = `${backendUrl}/api/auth/google?role=${role}`;
     
     // Debug logging
     console.log('Google OAuth Button - Generated URL:', authUrl);
-    console.log('Role parameter:', role);
+    console.log('Role parameter (default):', role);
     
     // Redirect to Google OAuth
     window.location.href = authUrl;
@@ -52,7 +54,7 @@ const GoogleOAuthButton = ({ role, variant = "outlined", fullWidth = true, child
         },
       }}
     >
-      {children || `Continue with Google as ${role.charAt(0).toUpperCase() + role.slice(1)}`}
+      {children || 'Continue with Google'}
     </Button>
   );
 };
