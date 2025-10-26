@@ -11,7 +11,6 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, '.env') });
 
 import express from 'express';
-import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
@@ -111,6 +110,7 @@ const allowedOrigins = [
   'https://auracare-frontend.onrender.com', // Add Render frontend URL
   'https://auras.onrender.com', // Add your actual Render frontend URL
   'https://auras-silk.vercel.app', // Add your Vercel frontend URL
+  'https://auras-hbxd6s8qb-shravan-ss-projects.vercel.app', // Add the actual Vercel frontend URL from logs
   'http://localhost:3000',
   'http://localhost:3001',
   'http://localhost:3002',
@@ -146,9 +146,13 @@ app.use((req, res, next) => {
   if (origin && allowedOrigins.includes(origin)) {
     res.header('Access-Control-Allow-Origin', origin);
     res.header('Access-Control-Allow-Credentials', 'true');
+    console.log(`✅ CORS headers set for origin: ${origin}`);
   } else if (!origin) {
     // For requests with no origin (mobile apps, Postman, curl)
     res.header('Access-Control-Allow-Origin', '*');
+    console.log('✅ CORS headers set for request with no origin');
+  } else {
+    console.log(`❌ Origin ${origin} not in allowed list`);
   }
   
   // Handle preflight requests explicitly
@@ -156,6 +160,7 @@ app.use((req, res, next) => {
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Cache-Control, Pragma');
     res.header('Access-Control-Max-Age', '86400'); // Cache preflight for 24 hours
+    console.log('✅ Preflight request handled');
     return res.status(204).send();
   }
   
