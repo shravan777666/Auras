@@ -29,6 +29,10 @@ frontend/.env.development.local
 frontend/.env.test.local
 frontend/.env.production.local
 frontend/.env.production
+# Backup environment files
+env.production.backup
+*.env.backup
+*.env.local.backup
 
 # IDE files
 .vscode/
