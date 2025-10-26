@@ -3,6 +3,10 @@ import api from './api'
 export const authService = {
   // Authentication
   async login(credentials) {
+    console.log('🔐 Login attempt with credentials:', credentials);
+    console.log('🔐 API base URL:', api.defaults.baseURL);
+    console.log('🔐 Full login URL will be:', `${api.defaults.baseURL}/auth/login`);
+    
     const response = await api.post('/auth/login', credentials)
     return response
   },

@@ -9,6 +9,12 @@ console.log('🔧 API Configuration:', {
   API_BASE_URL: API_BASE_URL
 });
 
+// DEBUG: Log the actual environment variables being used
+console.log('🔧 All VITE_ environment variables:', Object.keys(import.meta.env).filter(key => key.startsWith('VITE_')).reduce((obj, key) => {
+  obj[key] = import.meta.env[key];
+  return obj;
+}, {}));
+
 // Create axios instance with base configuration
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -43,6 +49,14 @@ api.interceptors.request.use(
       baseURL: config.baseURL,
       fullURL: `${config.baseURL}${config.url}`,
       data: config.data
+    });
+    
+    // DEBUG: Log the actual request being made
+    console.log('🔍 Full request details:', {
+      baseURL: config.baseURL,
+      url: config.url,
+      fullURL: `${config.baseURL}${config.url}`,
+      headers: config.headers
     });
     
     const token = localStorage.getItem('auracare_token')
@@ -94,7 +108,7 @@ api.interceptors.response.use(
     const AUTH_ROUTES = [
       '/auth/login',
       '/auth/register',
-...
+      '/auth/logout',
       '/auth/refresh-token'
     ];
 
