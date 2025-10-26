@@ -108,6 +108,8 @@ app.use(helmet({
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   'https://aura-3arw.onrender.com',
+  'https://auracare-frontend.onrender.com', // Add Render frontend URL
+  'https://auras.onrender.com', // Add your actual Render frontend URL
   'http://localhost:3000',
   'http://localhost:3001',
   'http://localhost:3002',
@@ -326,10 +328,16 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Root URL → redirect to frontend Home
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3007';
+// Root URL → return API information instead of redirecting
 app.get('/', (req, res) => {
-  return res.redirect(FRONTEND_URL);
+  res.status(200).json({
+    success: true,
+    message: 'Auracare Backend API Server',
+    version: '1.0.0',
+    documentation: '/api/docs', // If you have API docs
+    health: '/health',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // API routes
@@ -439,8 +447,9 @@ const startServer = (port, attemptsLeft = 5) => {
   });
 };
 
-// Start the server
-startServer(DEFAULT_PORT);
+// Start the server - Use PORT 10000 for Render if in production
+const PORT = process.env.NODE_ENV === 'production' ? 10000 : DEFAULT_PORT;
+startServer(PORT);
 
 // Start background jobs
 // startLowBookingAlerts(); // Function not implemented

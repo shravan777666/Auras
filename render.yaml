@@ -10,7 +10,9 @@ services:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 5011
+        value: 10000  # Render requires port 10000 for web services
+      # Note: Other environment variables (MONGODB_URI, JWT_SECRET, etc.) 
+      # should be set in the Render dashboard for security
     healthCheckPath: /health
     autoDeploy: true
 
@@ -19,10 +21,12 @@ services:
     name: auracare-frontend
     env: static
     buildCommand: npm install && npm run build
-    staticPublishPath: ./dist
+    staticPublishPath: dist
     envVars:
       - key: NODE_ENV
         value: production
+      - key: VITE_API_URL
+        value: https://auracare-backend-4e5k.onrender.com/api
     routes:
       - type: rewrite
         source: /*
