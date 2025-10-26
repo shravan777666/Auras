@@ -50,6 +50,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       },
       async (req, accessToken, refreshToken, profile, done) => {
         try {
+          console.log('=== GOOGLE OAUTH CALLBACK EXECUTED ===');
           console.log('Google OAuth callback received:', {
             profile: {
               id: profile.id,
@@ -167,6 +168,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           return done(null, user);
         } catch (err) {
           console.error('Google OAuth Error:', err);
+          console.error('Error stack:', err.stack);
           return done(err);
         }
       }

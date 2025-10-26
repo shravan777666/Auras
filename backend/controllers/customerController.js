@@ -13,46 +13,64 @@ import {
   asyncHandler 
 } from '../utils/responses.js';
 
-// Helper function to convert file path to full URL
-const getFileUrl = (filePath) => {
-  if (!filePath) return null;
-  
-  // If it's already a full URL, return as is
-  if (filePath.startsWith('http')) {
-    return filePath;
+// Helper function to get the server base URL from the current request
+const getRequestBaseUrl = (req) => {
+  try {
+    // Prefer explicit BASE_URL when provided
+    if (process.env.BASE_URL) return process.env.BASE_URL.replace(/\/$/, '');
+    const protocol = (req && req.protocol) ? req.protocol : 'http';
+    const host = (req && req.get) ? req.get('host') : undefined;
+    if (host) return `${protocol}://${host}`;
+  } catch (e) {
+    // fallthrough
   }
-  
-  // Construct full URL based on environment
-  const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5011';
-  // Remove leading slash if filePath already has one
-  const cleanPath = filePath.startsWith('/') ? filePath.substring(1) : filePath;
-  return `${baseUrl}/${cleanPath}`;
+  // Final fallback to localhost using the actual running port if provided
+  return `http://localhost:${process.env.PORT || 5011}`;
+};
+
+// Helper function to convert file path to full URL
+const getFileUrl = (filePath, req) => {
+  if (!filePath) return null;
+
+  // Normalize path separators
+  const normalizedPath = String(filePath).replace(/\\/g, '/');
+
+  // Compute base URL from request or env
+  const baseUrl = getRequestBaseUrl(req);
+
+  // Ensure leading slash for path part
+  const pathWithSlash = normalizedPath.startsWith('/') ? normalizedPath : `/${normalizedPath}`;
+
+  // Construct the full URL
+  const fullUrl = `${baseUrl}${pathWithSlash}`;
+
+  return fullUrl;
 };
 
 // Helper function to convert documents object with file paths to URLs
-const convertDocumentsToUrls = (documents) => {
+const convertDocumentsToUrls = (documents, req) => {
   if (!documents) return {};
   
   const converted = {};
   
   // Handle businessLicense
   if (documents.businessLicense) {
-    converted.businessLicense = getFileUrl(documents.businessLicense);
+    converted.businessLicense = getFileUrl(documents.businessLicense, req);
   }
   
   // Handle salonLogo
   if (documents.salonLogo) {
-    converted.salonLogo = getFileUrl(documents.salonLogo);
+    converted.salonLogo = getFileUrl(documents.salonLogo, req);
   }
   
   // Handle salonImages array
   if (documents.salonImages && Array.isArray(documents.salonImages)) {
-    converted.salonImages = documents.salonImages.map(imagePath => getFileUrl(imagePath));
+    converted.salonImages = documents.salonImages.map(imagePath => getFileUrl(imagePath, req));
   }
   
   // Handle profileImage (for staff)
   if (documents.profileImage) {
-    converted.profileImage = getFileUrl(documents.profileImage);
+    converted.profileImage = getFileUrl(documents.profileImage, req);
   }
   
   return converted;
@@ -298,17 +316,17 @@ export const browseSalons = asyncHandler(async (req, res) => {
     
     // Handle profileImage
     if (salonObj.profileImage) {
-      salonObj.profileImage = getFileUrl(salonObj.profileImage);
+      salonObj.profileImage = getFileUrl(salonObj.profileImage, req);
     }
     
     // Handle salonImage
     if (salonObj.salonImage) {
-      salonObj.salonImage = getFileUrl(salonObj.salonImage);
+      salonObj.salonImage = getFileUrl(salonObj.salonImage, req);
     }
     
     // Handle documents
     if (salonObj.documents) {
-      salonObj.documents = convertDocumentsToUrls(salonObj.documents);
+      salonObj.documents = convertDocumentsToUrls(salonObj.documents, req);
     }
     
     return salonObj;
@@ -349,17 +367,17 @@ export const getSalonDetails = asyncHandler(async (req, res) => {
   
   // Handle profileImage
   if (salonObj.profileImage) {
-    salonObj.profileImage = getFileUrl(salonObj.profileImage);
+    salonObj.profileImage = getFileUrl(salonObj.profileImage, req);
   }
   
   // Handle salonImage
   if (salonObj.salonImage) {
-    salonObj.salonImage = getFileUrl(salonObj.salonImage);
+    salonObj.salonImage = getFileUrl(salonObj.salonImage, req);
   }
   
   // Handle documents
   if (salonObj.documents) {
-    salonObj.documents = convertDocumentsToUrls(salonObj.documents);
+    salonObj.documents = convertDocumentsToUrls(salonObj.documents, req);
   }
   
   // Handle staff profile pictures
@@ -367,7 +385,7 @@ export const getSalonDetails = asyncHandler(async (req, res) => {
     salonObj.staff = salonObj.staff.map(staff => {
       const staffObj = staff.toObject ? staff.toObject() : staff;
       if (staffObj.profilePicture) {
-        staffObj.profilePicture = getFileUrl(staffObj.profilePicture);
+        staffObj.profilePicture = getFileUrl(staffObj.profilePicture, req);
       }
       return staffObj;
     });
@@ -378,7 +396,7 @@ export const getSalonDetails = asyncHandler(async (req, res) => {
     salonObj.services = salonObj.services.map(service => {
       const serviceObj = service.toObject ? service.toObject() : service;
       if (serviceObj.images && Array.isArray(serviceObj.images)) {
-        serviceObj.images = serviceObj.images.map(imagePath => getFileUrl(imagePath));
+        serviceObj.images = serviceObj.images.map(imagePath => getFileUrl(imagePath, req));
       }
       return serviceObj;
     });

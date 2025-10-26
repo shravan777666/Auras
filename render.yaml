@@ -11,9 +11,9 @@ services:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 10000  # Render requires port 10000 for web services
-      # Note: Other environment variables (MONGODB_URI, JWT_SECRET, etc.) 
-      # should be set in the Render dashboard for security
+        value: 10000
+      - key: BASE_URL
+        value: https://auracare-backend.onrender.com
     healthCheckPath: /health
     autoDeploy: true
 

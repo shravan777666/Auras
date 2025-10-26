@@ -268,10 +268,12 @@ export const login = async (req, res) => {
 
 // Google OAuth initiation with optional role parameter
 export const googleAuth = (req, res, next) => {
+  console.log('=== GOOGLE OAUTH AUTHENTICATION INITIATED ===');
   console.log('Google OAuth request received:', {
     query: req.query,
     role: req.query.role,
-    session: req.session
+    session: req.session,
+    headers: req.headers
   });
   
   // Store role in session state to pass to callback
@@ -282,26 +284,34 @@ export const googleAuth = (req, res, next) => {
   }
   
   // Initiate Google OAuth
-  passport.authenticate('google', {
+  const authParams = {
     scope: ['profile', 'email'],
     state: req.query.role || 'customer' // Pass role as state or default to customer
-  })(req, res, next);
+  };
+  
+  console.log('Initiating Google OAuth with params:', authParams);
+  passport.authenticate('google', authParams)(req, res, next);
 };
 
 // Google OAuth callback with automatic role detection
 export const googleCallback = async (req, res) => {
   try {
+    console.log('=== GOOGLE OAUTH CALLBACK RECEIVED ===');
     console.log('Google OAuth callback received:', {
       user: req.user,
-      session: req.session
+      session: req.session,
+      query: req.query,
+      headers: req.headers
     });
     
     const user = req.user;
     
     if (!user) {
       console.log('❌ No user found in request');
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3007';
-      return res.redirect(`${frontendUrl}/auth/callback?error=oauth_failed`);
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3008';
+      const errorUrl = `${frontendUrl}/auth/callback?error=oauth_failed`;
+      console.log('Redirecting to error URL:', errorUrl);
+      return res.redirect(errorUrl);
     }
 
     // Find the user in our database to get their actual role
@@ -309,8 +319,10 @@ export const googleCallback = async (req, res) => {
     if (!dbUser) {
       console.log('❌ User not found in database:', user.email);
       // If user doesn't exist in our database, we can't authenticate them
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3007';
-      return res.redirect(`${frontendUrl}/auth/callback?error=user_not_found`);
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3008';
+      const errorUrl = `${frontendUrl}/auth/callback?error=user_not_found`;
+      console.log('Redirecting to error URL:', errorUrl);
+      return res.redirect(errorUrl);
     }
 
     // Update the user object with the actual role from database
@@ -336,24 +348,33 @@ export const googleCallback = async (req, res) => {
     });
     
     // Redirect to frontend OAuth callback with token and user info
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3007';
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3008';
     const redirectUrl = `${frontendUrl}/auth/callback?token=${token}&user=${encodeURIComponent(JSON.stringify(userData))}`;
     
-    console.log('Redirecting to:', redirectUrl);
+    console.log('Redirecting to frontend callback URL:', redirectUrl);
     res.redirect(redirectUrl);
     
   } catch (error) {
     console.error('Google OAuth callback error:', error);
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3007';
-    const errorUrl = `${frontendUrl}/auth/callback?error=oauth_error`;
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3008';
+    const errorUrl = `${frontendUrl}/auth/callback?error=oauth_error&message=${encodeURIComponent(error.message)}`;
+    console.log('Redirecting to error URL:', errorUrl);
     return res.redirect(errorUrl);
   }
 };
 
 // Google OAuth failure handler
 export const googleFailure = (req, res) => {
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3007';
+  console.log('=== GOOGLE OAUTH FAILURE ===');
+  console.log('Google OAuth failed:', {
+    query: req.query,
+    session: req.session,
+    headers: req.headers
+  });
+  
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3008';
   const errorUrl = `${frontendUrl}/auth/callback?error=oauth_cancelled`;
+  console.log('Redirecting to error URL:', errorUrl);
   return res.redirect(errorUrl);
 };
 

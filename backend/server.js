@@ -242,7 +242,7 @@ if (process.env.NODE_ENV === 'development') {
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your-session-secret',
   resave: false,
-  saveUninitialized: false,
+  saveUninitialized: false, // This might cause issues with OAuth, let's keep it as is for now
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     maxAge: 24 * 60 * 60 * 1000 // 24 hours

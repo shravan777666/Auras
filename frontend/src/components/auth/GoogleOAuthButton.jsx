@@ -6,30 +6,18 @@ const GoogleOAuthButton = ({ role = 'customer', variant = "outlined", fullWidth 
     // Get the backend API URL from environment variables
     const apiUrl = import.meta.env.VITE_API_URL;
     
-    // Construct the backend URL by removing '/api' from the end
-    let backendUrl;
-    if (apiUrl) {
-      backendUrl = apiUrl.endsWith('/api') ? apiUrl.slice(0, -4) : apiUrl.replace('/api/', '/');
-    } else {
-      backendUrl = 'http://localhost:5011';
-    }
-    
-    // Ensure the backend URL doesn't end with a slash
-    if (backendUrl.endsWith('/')) {
-      backendUrl = backendUrl.slice(0, -1);
-    }
-    
-    // Construct the OAuth URL
-    const authUrl = `${backendUrl}/api/auth/google?role=${role}`;
-    
     // Debug logging
     console.log('Google OAuth Button - Environment Variables:', {
       VITE_API_URL: import.meta.env.VITE_API_URL,
       apiUrl,
-      backendUrl,
-      authUrl,
       role
     });
+    
+    // Construct the OAuth URL
+    // The OAuth endpoint is at /api/auth/google relative to the API base URL
+    const authUrl = `${apiUrl.replace('/api', '')}/api/auth/google?role=${role}`;
+    
+    console.log('Constructed Google OAuth URL:', authUrl);
     
     // Redirect to Google OAuth
     window.location.href = authUrl;
