@@ -80,6 +80,12 @@ import customerNotificationRoutes from './routes/customerNotification.js';
 // Create Express app
 const app = express();
 
+// Add debugging middleware at the very beginning
+app.use((req, res, next) => {
+  console.log(`🔍 Middleware chain start: ${req.method} ${req.url}`);
+  next();
+});
+
 app.use((req, res, next) => {
   console.log(`Request received: ${req.method} ${req.url}`);
   next();
@@ -137,7 +143,7 @@ const allowedOrigins = [
   'http://127.0.0.1:5173'
 ].filter(Boolean);
 
-// Add explicit CORS headers middleware
+// Add explicit CORS headers middleware - Version 2 with enhanced error handling
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   console.log(`🔧 Request: ${req.method} ${req.url} from origin: ${origin}`);
@@ -153,6 +159,13 @@ app.use((req, res, next) => {
     console.log('✅ CORS headers set for request with no origin');
   } else {
     console.log(`❌ Origin ${origin} not in allowed list`);
+    // Even if origin is not allowed, we still need to handle preflight requests
+    if (req.method === 'OPTIONS') {
+      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+      res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Cache-Control, Pragma');
+      res.header('Access-Control-Max-Age', '86400');
+      return res.status(204).send();
+    }
   }
   
   // Handle preflight requests explicitly
