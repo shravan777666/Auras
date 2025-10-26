@@ -109,78 +109,55 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
-// CORS configuration
-const allowedOrigins = [
-  process.env.FRONTEND_URL,
-  'https://aura-3arw.onrender.com',
-  'https://auracare-frontend.onrender.com', // Add Render frontend URL
-  'https://auras.onrender.com', // Add your actual Render frontend URL
-  'https://auras-silk.vercel.app', // Add your Vercel frontend URL
-  'https://auras-hbxd6s8qb-shravan-ss-projects.vercel.app', // Add the actual Vercel frontend URL from logs
-  'http://localhost:3000',
-  'http://localhost:3001',
-  'http://localhost:3002',
-  'http://localhost:3003',
-  'http://localhost:3004',
-  'http://localhost:3005',
-  'http://localhost:3006',
-  'http://localhost:3007',
-  'http://localhost:3008',
-  'http://localhost:3009',
-  'http://localhost:3010',  // Add this line for the current frontend port
-  'http://localhost:5173',
-  'http://127.0.0.1:3000',
-  'http://127.0.0.1:3001',
-  'http://127.0.0.1:3002',
-  'http://127.0.0.1:3003',
-  'http://127.0.0.1:3004',
-  'http://127.0.0.1:3005',
-  'http://127.0.0.1:3006',
-  'http://127.0.0.1:3007',
-  'http://127.0.0.1:3008',
-  'http://127.0.0.1:3009',
-  'http://127.0.0.1:3010',  // Add this line for the current frontend port
-  'http://127.0.0.1:5173'
-].filter(Boolean);
+// ========== SIMPLIFIED CORS CONFIGURATION ==========
+import cors from 'cors';
 
-// Add explicit CORS headers middleware - Version 2 with enhanced error handling
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  console.log(`🔧 Request: ${req.method} ${req.url} from origin: ${origin}`);
-  
-  // Set CORS headers for all requests
-  if (origin && allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
-    res.header('Access-Control-Allow-Credentials', 'true');
-    console.log(`✅ CORS headers set for origin: ${origin}`);
-  } else if (!origin) {
-    // For requests with no origin (mobile apps, Postman, curl)
-    res.header('Access-Control-Allow-Origin', '*');
-    console.log('✅ CORS headers set for request with no origin');
-  } else {
-    console.log(`❌ Origin ${origin} not in allowed list`);
-    // Even if origin is not allowed, we still need to handle preflight requests
-    if (req.method === 'OPTIONS') {
-      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-      res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Cache-Control, Pragma');
-      res.header('Access-Control-Max-Age', '86400');
-      return res.status(204).send();
+// Simple CORS configuration that works with all your domains
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, Postman, curl)
+    if (!origin) return callback(null, true);
+    
+    // List of allowed origins
+    const allowedOrigins = [
+      'https://auras-silk.vercel.app',
+      'https://auras-hbxd6s8qb-shravan-ss-projects.vercel.app',
+      'https://*.vercel.app',
+      'https://*.onrender.com',
+      'http://localhost:3000',
+      'http://localhost:3008',
+      'http://localhost:5173',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:3008'
+    ];
+    
+    // Check if the origin is allowed
+    if (allowedOrigins.some(pattern => {
+      if (pattern.includes('*')) {
+        // Handle wildcard patterns
+        const regex = new RegExp(pattern.replace('*', '.*'));
+        return regex.test(origin);
+      }
+      return origin === pattern;
+    })) {
+      callback(null, true);
+    } else {
+      console.log('🚫 CORS blocked origin:', origin);
+      callback(new Error('Not allowed by CORS'));
     }
-  }
-  
-  // Handle preflight requests explicitly
-  if (req.method === 'OPTIONS') {
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Cache-Control, Pragma');
-    res.header('Access-Control-Max-Age', '86400'); // Cache preflight for 24 hours
-    console.log('✅ Preflight request handled');
-    return res.status(204).send();
-  }
-  
-  next();
-});
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Cache-Control', 'Pragma'],
+  maxAge: 86400 // 24 hours
+};
 
-// Serve static files with proper CORS headers (handled below at the consolidated handler)
+// Apply CORS middleware
+app.use(cors(corsOptions));
+
+// Handle preflight requests globally
+app.options('*', cors(corsOptions));
+// ========== END CORS CONFIGURATION ==========
 
 // Rate limiting with debugging
 const limiter = rateLimit({
@@ -457,8 +434,8 @@ const startServer = (port, attemptsLeft = 5) => {
   });
 };
 
-// Start the server - Use PORT 10000 for Render if in production
-const PORT = process.env.NODE_ENV === 'production' ? 10000 : DEFAULT_PORT;
+// Start the server - Use environment PORT or 10000 for Render
+const PORT = process.env.PORT || 10000;
 startServer(PORT);
 
 // Start background jobs
