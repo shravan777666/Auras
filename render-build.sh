@@ -16,6 +16,31 @@ print_status "Current directory: $(pwd)"
 print_status "Directory contents:"
 ls -la
 
+# Check if RENDER_SERVICE_NAME is set (Render sets this for each service)
+if [ -n "$RENDER_SERVICE_NAME" ]; then
+  print_status "Render service name: $RENDER_SERVICE_NAME"
+  
+  # Try to determine service type based on service name
+  if [[ "$RENDER_SERVICE_NAME" == *"frontend"* ]]; then
+    print_status "This appears to be the frontend service"
+    if [ -d "frontend" ]; then
+      print_status "Changing to frontend directory"
+      cd frontend
+    fi
+  elif [[ "$RENDER_SERVICE_NAME" == *"backend"* ]]; then
+    print_status "This appears to be the backend service"
+    if [ -d "backend" ]; then
+      print_status "Changing to backend directory"
+      cd backend
+    fi
+  fi
+fi
+
+# Debug: Print current directory after potential cd
+print_status "Working directory after service-specific setup: $(pwd)"
+print_status "Directory contents after setup:"
+ls -la
+
 # Check if we're in the right directory by looking for package.json
 if [ ! -f "package.json" ]; then
   print_status "Error: package.json not found in current directory"
@@ -35,8 +60,8 @@ if [ ! -f "package.json" ]; then
 fi
 
 # Debug: Print current directory after potential cd
-print_status "Working directory after setup: $(pwd)"
-print_status "Directory contents after setup:"
+print_status "Working directory after package.json check: $(pwd)"
+print_status "Directory contents after package.json check:"
 ls -la
 
 # Check if this is frontend or backend by looking for specific files/directories
