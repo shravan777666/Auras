@@ -14,6 +14,17 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [focusedField, setFocusedField] = useState('');
 
+  // DEBUG: Log environment variables on component mount
+  React.useEffect(() => {
+    console.log('=== LOGIN PAGE ENVIRONMENT DEBUG ===');
+    console.log('VITE_API_URL from import.meta.env:', import.meta.env.VITE_API_URL);
+    console.log('All VITE_ env vars:', Object.keys(import.meta.env).filter(key => key.startsWith('VITE_')).reduce((obj, key) => {
+      obj[key] = import.meta.env[key];
+      return obj;
+    }, {}));
+    console.log('====================================');
+  }, []);
+
   // Redirects user to the appropriate dashboard based on their role
   const getRedirectPath = (user) => {
     if (!user) return '/login';
@@ -63,39 +74,24 @@ const Login = () => {
               <Sparkles className="h-12 w-12 text-white" />
             </div>
           </div>
-          <h1 className="text-4xl font-bold mb-4">Welcome to Auracare</h1>
-          <p className="text-xl text-center max-w-md opacity-90">
-            Experience luxury beauty services tailored just for you
+          <h2 className="mt-6 text-3xl font-bold text-gray-900">Sign in to Account</h2>
+          <p className="mt-2 text-sm text-gray-600">
+            Welcome back! Please enter your details
           </p>
-          <div className="mt-8 grid grid-cols-3 gap-8 text-center">
-            <div>
-              <div className="text-3xl font-bold">500+</div>
-              <div className="text-sm opacity-80">Salons</div>
-            </div>
-            <div>
-              <div className="text-3xl font-bold">10K+</div>
-              <div className="text-sm opacity-80">Happy Clients</div>
-            </div>
-            <div>
-              <div className="text-3xl font-bold">4.9</div>
-              <div className="text-sm opacity-80">Rating</div>
-            </div>
-          </div>
         </div>
       </div>
 
       {/* Right side - Login form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12">
-        <div className="w-full max-w-md">
-          {/* Header */}
-          <div className="text-center mb-10">
-            <div className="flex justify-center lg:justify-start">
+      <div className="flex-1 flex items-center justify-center p-8 bg-white">
+        <div className="max-w-md w-full space-y-8">
+          <div>
+            <div className="flex justify-center mb-6">
               <div className="bg-gradient-to-r from-purple-600 to-pink-500 p-3 rounded-full">
                 <Sparkles className="h-8 w-8 text-white" />
               </div>
             </div>
-            <h2 className="mt-6 text-3xl font-bold text-gray-900">Sign in to Account</h2>
-            <p className="mt-2 text-sm text-gray-600">
+            <h2 className="mt-6 text-3xl font-bold text-gray-900 text-center">Sign in to Account</h2>
+            <p className="mt-2 text-sm text-gray-600 text-center">
               Welcome back! Please enter your details
             </p>
           </div>
