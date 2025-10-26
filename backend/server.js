@@ -124,6 +124,7 @@ const corsOptions = {
       'https://auras-hbxd6s8qb-shravan-ss-projects.vercel.app',
       'https://*.vercel.app',
       'https://*.onrender.com',
+      'https://auras.onrender.com',
       'https://auracare-backend.onrender.com', // Add your specific Render backend URL
       'http://localhost:3000',
       'http://localhost:3008',
