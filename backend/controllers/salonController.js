@@ -980,7 +980,7 @@ export const updateProfile = asyncHandler(async (req, res) => {
   // Convert document file paths to full URLs for response
   const salonResponse = salon.toObject();
   if (salonResponse.documents) {
-    salonResponse.documents = convertDocumentsToUrls(salonResponse.documents);
+    salonResponse.documents = convertDocumentsToUrls(salonResponse.documents, req);
   }
 
   return successResponse(res, salonResponse, 'Profile updated successfully');
