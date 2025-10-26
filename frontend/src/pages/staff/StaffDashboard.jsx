@@ -132,7 +132,7 @@ const StaffDashboard = () => {
   };
 
   const handleEditProfile = () => {
-    navigate('/staff/profile/edit');
+    navigate('/staff/edit-profile');
   };
 
   // Add new handler functions for schedule requests
