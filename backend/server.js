@@ -258,14 +258,15 @@ import fs from 'fs';
 
 // __filename and __dirname are already defined at the top
 
-// Ensure uploads directories exist
+// Ensure uploads directories exist in the correct location (project root)
+const uploadsDir = path.join(__dirname, '..', 'uploads');
 try {
   const requiredDirs = [
-    path.join(__dirname, 'uploads'),
-    path.join(__dirname, 'uploads', 'customers'),
-    path.join(__dirname, 'uploads', 'staff'),
-    path.join(__dirname, 'uploads', 'images'),
-    path.join(__dirname, 'uploads', 'licenses')
+    uploadsDir,
+    path.join(uploadsDir, 'customers'),
+    path.join(uploadsDir, 'staff'),
+    path.join(uploadsDir, 'images'),
+    path.join(uploadsDir, 'licenses')
   ];
   requiredDirs.forEach((dir) => {
     try { fs.mkdirSync(dir, { recursive: true }); } catch (_) {}
@@ -282,7 +283,7 @@ app.use('/uploads', (req, res, next) => {
     return res.sendStatus(200);
   }
   next();
-}, express.static(path.join(__dirname, 'uploads'), {
+}, express.static(path.join(__dirname, '..', 'uploads'), {
   setHeaders: (res, filePath) => {
     // Set cache control for images
     if (/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(filePath)) {

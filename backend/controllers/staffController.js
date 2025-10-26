@@ -277,6 +277,83 @@ const convertDocumentsToUrls = (documents, req) => {
   return converted;
 };
 
+// Update staff profile
+export const updateProfile = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+  const {
+    name,
+    contactNumber,
+    phone,
+    gender,
+    dateOfBirth,
+    address,
+    position,
+    specialization,
+    experience,
+    skills
+  } = req.body;
+
+  try {
+    // Find staff record by user reference
+    let staff = await Staff.findOne({ user: userId });
+
+    // If no staff profile exists, return error
+    if (!staff) {
+      return errorResponse(res, 'Staff profile not found', 404);
+    }
+
+    // Parse JSON strings if they come from FormData
+    const parseIfString = (val) => {
+      if (!val) return val;
+      if (typeof val === 'string') {
+        try {
+          return JSON.parse(val);
+        } catch (e) {
+          return val;
+        }
+      }
+      return val;
+    };
+
+    const parsedAddress = parseIfString(address);
+    const parsedExperience = parseIfString(experience);
+    const parsedSkills = parseIfString(skills);
+
+    // Update staff information
+    if (name) staff.name = name;
+    if (contactNumber !== undefined) staff.contactNumber = contactNumber;
+    if (phone !== undefined) staff.phone = phone;
+    if (gender) staff.gender = gender;
+    if (dateOfBirth) staff.dateOfBirth = dateOfBirth;
+    if (parsedAddress) staff.address = parsedAddress;
+    if (position) staff.position = position;
+    if (specialization) staff.specialization = specialization;
+    if (parsedExperience) staff.experience = parsedExperience;
+    if (parsedSkills && Array.isArray(parsedSkills)) staff.skills = parsedSkills;
+
+    // Handle uploaded profile picture
+    if (req.files && req.files.profilePicture && req.files.profilePicture[0]) {
+      staff.profilePicture = req.files.profilePicture[0].path;
+      console.log('Profile picture updated:', staff.profilePicture);
+    }
+
+    // Save updated staff profile
+    await staff.save();
+
+    // Convert profile picture path to URL if it exists
+    const responseData = {
+      ...staff.toObject(),
+      profilePicture: staff.profilePicture ? getFileUrl(staff.profilePicture, req) : null,
+      documents: convertDocumentsToUrls(staff.documents, req)
+    };
+
+    return successResponse(res, responseData, 'Profile updated successfully');
+  } catch (error) {
+    console.error('Error updating staff profile:', error);
+    return errorResponse(res, 'Failed to update profile', 500);
+  }
+});
+
 // Complete staff profile setup
 export const setupProfile = asyncHandler(async (req, res) => {
   const userId = req.user.id;
