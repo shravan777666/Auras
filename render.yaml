@@ -4,6 +4,7 @@ services:
     name: auracare-backend
     env: node
     plan: free
+    rootDir: backend
     buildCommand: npm install
     startCommand: npm start
     envVars:
@@ -20,6 +21,7 @@ services:
   - type: web
     name: auracare-frontend
     env: static
+    rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
     envVars:
