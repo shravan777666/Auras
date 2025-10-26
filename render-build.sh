@@ -16,6 +16,10 @@ print_status "Current directory: $(pwd)"
 print_status "Directory contents:"
 ls -la
 
+# Debug: Print all environment variables related to Vite
+print_status "Vite-related environment variables:"
+env | grep -E "^(VITE_|NODE_ENV)" || echo "No Vite-related environment variables found"
+
 # Check if RENDER_SERVICE_NAME is set (Render sets this for each service)
 if [ -n "$RENDER_SERVICE_NAME" ]; then
   print_status "Render service name: $RENDER_SERVICE_NAME"
@@ -82,9 +86,9 @@ print_status "Confirmed project type: $PROJECT_TYPE"
 if [ "$PROJECT_TYPE" = "frontend" ]; then
   print_status "Building frontend application"
   
-  # Debug: Print environment variables
-  print_status "Environment variables:"
-  env | grep -E "^(VITE_|NODE_ENV)" || true
+  # Debug: Print environment variables again before build
+  print_status "Environment variables before build:"
+  env | grep -E "^(VITE_|NODE_ENV)" || echo "No Vite-related environment variables found"
   
   # Install dependencies with legacy peer deps to avoid conflicts
   print_status "Installing frontend dependencies"
