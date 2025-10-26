@@ -110,6 +110,7 @@ const allowedOrigins = [
   'https://aura-3arw.onrender.com',
   'https://auracare-frontend.onrender.com', // Add Render frontend URL
   'https://auras.onrender.com', // Add your actual Render frontend URL
+  'https://auras-silk.vercel.app', // Add your Vercel frontend URL
   'http://localhost:3000',
   'http://localhost:3001',
   'http://localhost:3002',
@@ -136,39 +137,30 @@ const allowedOrigins = [
   'http://127.0.0.1:5173'
 ].filter(Boolean);
 
-const corsOptions = {
-  origin: function (origin, callback) {
-    try {
-      // Allow requests with no origin (mobile apps, Postman, curl)
-      if (!origin) return callback(null, true);
-
-      // Direct allowlist match
-      if (allowedOrigins.includes(origin)) return callback(null, true);
-
-      // In development, allow any localhost origin (covers different ports)
-      if (process.env.NODE_ENV !== 'production' && /localhost|127\.0\.0\.1/.test(origin)) {
-        return callback(null, true);
-      }
-
-      // Not allowed - log for debugging and return explicit failure
-      console.warn('Blocked CORS origin:', origin);
-      return callback(new Error('Not allowed by CORS'));
-    } catch (e) {
-      console.error('CORS origin check error:', e);
-      // Fail-open in case of unexpected errors during development
-      if (process.env.NODE_ENV !== 'production') return callback(null, true);
-      return callback(new Error('CORS error'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Cache-Control', 'Pragma']
-};
-
-// Register CORS middleware
-app.use(cors(corsOptions));
-// Handle preflight
-app.options('*', cors(corsOptions));
+// Add explicit CORS headers middleware
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  console.log(`🔧 Request: ${req.method} ${req.url} from origin: ${origin}`);
+  
+  // Set CORS headers for all requests
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+  } else if (!origin) {
+    // For requests with no origin (mobile apps, Postman, curl)
+    res.header('Access-Control-Allow-Origin', '*');
+  }
+  
+  // Handle preflight requests explicitly
+  if (req.method === 'OPTIONS') {
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Cache-Control, Pragma');
+    res.header('Access-Control-Max-Age', '86400'); // Cache preflight for 24 hours
+    return res.status(204).send();
+  }
+  
+  next();
+});
 
 // Serve static files with proper CORS headers (handled below at the consolidated handler)
 
