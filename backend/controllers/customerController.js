@@ -159,7 +159,13 @@ export const getProfile = asyncHandler(async (req, res) => {
     return notFoundResponse(res, 'Customer profile');
   }
 
-  return successResponse(res, customer, 'Profile retrieved successfully');
+  // Convert profile picture path to URL if it exists
+  const responseData = {
+    ...customer.toObject(),
+    profilePic: customer.profilePic ? getFileUrl(customer.profilePic, req) : null,
+  };
+
+  return successResponse(res, responseData, 'Profile retrieved successfully');
 });
 
 export const updateProfile = asyncHandler(async (req, res) => {
