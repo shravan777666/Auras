@@ -332,7 +332,7 @@ app.get('/', (req, res) => {
 // API routes
 app.use('/api/admin', adminRoutes);
 app.use('/api/auth', authRoutes);
-app.use('/api/auth', oauthRoutes); // Mount OAuth routes under /api/auth
+app.use('/api/oauth', oauthRoutes); // ✅ FIXED: Changed from '/api/auth' to '/api/oauth'
 app.use('/api/customer', customerRoutes);
 app.use('/api/salon', salonRoutes);
 app.use('/api/staff', staffRoutes);
