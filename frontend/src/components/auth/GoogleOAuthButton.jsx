@@ -15,7 +15,8 @@ const GoogleOAuthButton = ({ role = 'customer', variant = "outlined", fullWidth 
     
     // Construct the OAuth URL
     // The OAuth endpoint is at /api/auth/google relative to the API base URL
-    const authUrl = `${apiUrl.replace('/api', '')}/api/auth/google?role=${role}`;
+    // Fix: Use apiUrl directly without replacing '/api'
+    const authUrl = `${apiUrl}/auth/google?role=${role}`;
     
     console.log('Constructed Google OAuth URL:', authUrl);
     
