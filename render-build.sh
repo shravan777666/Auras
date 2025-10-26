@@ -82,6 +82,10 @@ print_status "Confirmed project type: $PROJECT_TYPE"
 if [ "$PROJECT_TYPE" = "frontend" ]; then
   print_status "Building frontend application"
   
+  # Debug: Print environment variables
+  print_status "Environment variables:"
+  env | grep -E "^(VITE_|NODE_ENV)" || true
+  
   # Install dependencies with legacy peer deps to avoid conflicts
   print_status "Installing frontend dependencies"
   npm ci --legacy-peer-deps

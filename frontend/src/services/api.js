@@ -2,6 +2,14 @@ import axios from 'axios'
 import toast from 'react-hot-toast'
 import { authService } from './auth'
 
+// DEBUG: Log environment detection
+console.log('=== ENVIRONMENT DETECTION ===');
+console.log('NODE_ENV:', import.meta.env.NODE_ENV);
+console.log('PROD:', import.meta.env.PROD);
+console.log('DEV:', import.meta.env.DEV);
+console.log('MODE:', import.meta.env.MODE);
+console.log('============================');
+
 // Base API configuration - Using actual backend port (5007 to match Vite proxy)
 const API_BASE_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, '') || 'http://localhost:5011/api';
 console.log('🔧 API Configuration:', {
