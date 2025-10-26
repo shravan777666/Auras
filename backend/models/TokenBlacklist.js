@@ -1,4 +1,3 @@
-
 import mongoose from 'mongoose';
 
 const tokenBlacklistSchema = new mongoose.Schema({
@@ -10,9 +9,12 @@ const tokenBlacklistSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now,
-    expires: '7d', // Automatically remove blacklisted tokens after 7 days
+    // Remove the expires option to prevent duplicate index warning
   },
 });
+
+// Create TTL index explicitly to expire documents after 7 days (604800 seconds)
+tokenBlacklistSchema.index({ createdAt: 1 }, { expireAfterSeconds: 604800 });
 
 const TokenBlacklist = mongoose.model('TokenBlacklist', tokenBlacklistSchema);
 
