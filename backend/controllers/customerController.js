@@ -13,6 +13,51 @@ import {
   asyncHandler 
 } from '../utils/responses.js';
 
+// Helper function to convert file path to full URL
+const getFileUrl = (filePath) => {
+  if (!filePath) return null;
+  
+  // If it's already a full URL, return as is
+  if (filePath.startsWith('http')) {
+    return filePath;
+  }
+  
+  // Construct full URL based on environment
+  const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5011';
+  // Remove leading slash if filePath already has one
+  const cleanPath = filePath.startsWith('/') ? filePath.substring(1) : filePath;
+  return `${baseUrl}/${cleanPath}`;
+};
+
+// Helper function to convert documents object with file paths to URLs
+const convertDocumentsToUrls = (documents) => {
+  if (!documents) return {};
+  
+  const converted = {};
+  
+  // Handle businessLicense
+  if (documents.businessLicense) {
+    converted.businessLicense = getFileUrl(documents.businessLicense);
+  }
+  
+  // Handle salonLogo
+  if (documents.salonLogo) {
+    converted.salonLogo = getFileUrl(documents.salonLogo);
+  }
+  
+  // Handle salonImages array
+  if (documents.salonImages && Array.isArray(documents.salonImages)) {
+    converted.salonImages = documents.salonImages.map(imagePath => getFileUrl(imagePath));
+  }
+  
+  // Handle profileImage (for staff)
+  if (documents.profileImage) {
+    converted.profileImage = getFileUrl(documents.profileImage);
+  }
+  
+  return converted;
+};
+
 // Get customer dashboard
 export const getDashboard = asyncHandler(async (req, res) => {
   const customerId = req.user?.id;
@@ -240,16 +285,38 @@ export const browseSalons = asyncHandler(async (req, res) => {
   const [salons, totalSalons] = await Promise.all([
     Salon.find(filter)
       .populate('services', 'name category price')
-      .select('salonName salonAddress contactNumber description businessHours rating documents services')
+      .select('salonName salonAddress contactNumber description businessHours rating documents services profileImage salonImage')
       .skip(skip)
       .limit(limit)
       .sort({ 'rating.average': -1, createdAt: -1 }),
     Salon.countDocuments(filter)
   ]);
 
+  // Convert file paths to full URLs
+  const salonsWithUrls = salons.map(salon => {
+    const salonObj = salon.toObject();
+    
+    // Handle profileImage
+    if (salonObj.profileImage) {
+      salonObj.profileImage = getFileUrl(salonObj.profileImage);
+    }
+    
+    // Handle salonImage
+    if (salonObj.salonImage) {
+      salonObj.salonImage = getFileUrl(salonObj.salonImage);
+    }
+    
+    // Handle documents
+    if (salonObj.documents) {
+      salonObj.documents = convertDocumentsToUrls(salonObj.documents);
+    }
+    
+    return salonObj;
+  });
+
   const totalPages = Math.ceil(totalSalons / limit);
 
-  return paginatedResponse(res, salons, {
+  return paginatedResponse(res, salonsWithUrls, {
     page,
     limit,
     totalPages,
@@ -277,7 +344,47 @@ export const getSalonDetails = asyncHandler(async (req, res) => {
     return notFoundResponse(res, 'Salon');
   }
 
-  return successResponse(res, salon, 'Salon details retrieved successfully');
+  // Convert file paths to full URLs
+  const salonObj = salon.toObject();
+  
+  // Handle profileImage
+  if (salonObj.profileImage) {
+    salonObj.profileImage = getFileUrl(salonObj.profileImage);
+  }
+  
+  // Handle salonImage
+  if (salonObj.salonImage) {
+    salonObj.salonImage = getFileUrl(salonObj.salonImage);
+  }
+  
+  // Handle documents
+  if (salonObj.documents) {
+    salonObj.documents = convertDocumentsToUrls(salonObj.documents);
+  }
+  
+  // Handle staff profile pictures
+  if (salonObj.staff && Array.isArray(salonObj.staff)) {
+    salonObj.staff = salonObj.staff.map(staff => {
+      const staffObj = staff.toObject ? staff.toObject() : staff;
+      if (staffObj.profilePicture) {
+        staffObj.profilePicture = getFileUrl(staffObj.profilePicture);
+      }
+      return staffObj;
+    });
+  }
+  
+  // Handle service images
+  if (salonObj.services && Array.isArray(salonObj.services)) {
+    salonObj.services = salonObj.services.map(service => {
+      const serviceObj = service.toObject ? service.toObject() : service;
+      if (serviceObj.images && Array.isArray(serviceObj.images)) {
+        serviceObj.images = serviceObj.images.map(imagePath => getFileUrl(imagePath));
+      }
+      return serviceObj;
+    });
+  }
+
+  return successResponse(res, salonObj, 'Salon details retrieved successfully');
 });
 
 // Get salon availability for a specific date
@@ -685,14 +792,151 @@ export const getRecentSalons = asyncHandler(async (req, res) => {
   return successResponse(res, uniqueSalons, 'Recent salons retrieved successfully');
 });
 
-export default {
-  getDashboard,
-  getProfile,
-  updateProfile,
-  browseSalons,
-  getSalonDetails,
-  searchServices,
-  getBookings,
-  cancelBooking,
-  rateAppointment
-};
+// Add salon to favorites (multiple favorites support)
+export const addFavoriteSalon = asyncHandler(async (req, res) => {
+  try {
+    const customerId = req.user.id;
+    const { salonId } = req.body;
+
+    if (!salonId) {
+      return errorResponse(res, 'Salon ID is required', 400);
+    }
+
+    // Try multiple approaches to find the customer:
+    // 1. Find by user reference (Google OAuth users might have this)
+    let customer = await Customer.findOne({ user: customerId });
+    
+    // 2. If not found, try to find by ID directly (regular registration users)
+    if (!customer) {
+      customer = await Customer.findById(customerId);
+    }
+    
+    // 3. If still not found, try to find by email (fallback)
+    if (!customer) {
+      customer = await Customer.findOne({ email: req.user.email });
+    }
+
+    if (!customer) {
+      return notFoundResponse(res, 'Customer');
+    }
+
+    // Initialize preferredSalons array if it doesn't exist
+    if (!customer.preferences) {
+      customer.preferences = {};
+    }
+    if (!customer.preferences.preferredSalons) {
+      customer.preferences.preferredSalons = [];
+    }
+
+    // Check if salon is already in favorites
+    const isAlreadyFavorite = customer.preferences.preferredSalons.some(
+      id => id.toString() === salonId
+    );
+
+    if (isAlreadyFavorite) {
+      return successResponse(res, customer.preferences.preferredSalons, 'Salon is already in favorites');
+    }
+
+    // Add salon to favorites
+    customer.preferences.preferredSalons.push(salonId);
+    await customer.save();
+
+    return successResponse(res, customer.preferences.preferredSalons, 'Salon added to favorites successfully');
+  } catch (error) {
+    console.error('Error adding favorite salon:', error);
+    return errorResponse(res, 'Failed to add salon to favorites', 500);
+  }
+});
+
+// Remove salon from favorites
+export const removeFavoriteSalon = asyncHandler(async (req, res) => {
+  try {
+    const customerId = req.user.id;
+    const { salonId } = req.params;
+
+    if (!salonId) {
+      return errorResponse(res, 'Salon ID is required', 400);
+    }
+
+    // Try multiple approaches to find the customer:
+    // 1. Find by user reference (Google OAuth users might have this)
+    let customer = await Customer.findOne({ user: customerId });
+    
+    // 2. If not found, try to find by ID directly (regular registration users)
+    if (!customer) {
+      customer = await Customer.findById(customerId);
+    }
+    
+    // 3. If still not found, try to find by email (fallback)
+    if (!customer) {
+      customer = await Customer.findOne({ email: req.user.email });
+    }
+
+    if (!customer) {
+      return notFoundResponse(res, 'Customer');
+    }
+
+    // Initialize preferredSalons array if it doesn't exist
+    if (!customer.preferences) {
+      customer.preferences = {};
+    }
+    if (!customer.preferences.preferredSalons) {
+      customer.preferences.preferredSalons = [];
+    }
+
+    // Remove salon from favorites
+    customer.preferences.preferredSalons = customer.preferences.preferredSalons.filter(
+      id => id.toString() !== salonId
+    );
+    await customer.save();
+
+    return successResponse(res, customer.preferences.preferredSalons, 'Salon removed from favorites successfully');
+  } catch (error) {
+    console.error('Error removing favorite salon:', error);
+    return errorResponse(res, 'Failed to remove salon from favorites', 500);
+  }
+});
+
+// Get favorite salons
+export const getFavoriteSalons = asyncHandler(async (req, res) => {
+  try {
+    const customerId = req.user.id;
+
+    // Try multiple approaches to find the customer:
+    // 1. Find by user reference (Google OAuth users might have this)
+    let customer = await Customer.findOne({ user: customerId });
+    
+    // 2. If not found, try to find by ID directly (regular registration users)
+    if (!customer) {
+      customer = await Customer.findById(customerId);
+    }
+    
+    // 3. If still not found, try to find by email (fallback)
+    if (!customer) {
+      customer = await Customer.findOne({ email: req.user.email });
+    }
+
+    if (!customer) {
+      return notFoundResponse(res, 'Customer');
+    }
+
+    // Initialize preferredSalons array if it doesn't exist
+    if (!customer.preferences) {
+      customer.preferences = {};
+    }
+    if (!customer.preferences.preferredSalons) {
+      customer.preferences.preferredSalons = [];
+    }
+
+    // Populate salon details
+    await customer.populate({
+      path: 'preferences.preferredSalons',
+      select: 'salonName salonAddress salonContact profileImage salonImage rating documents'
+    });
+
+    return successResponse(res, customer.preferences.preferredSalons, 'Favorite salons retrieved successfully');
+  } catch (error) {
+    console.error('Error fetching favorite salons:', error);
+    return errorResponse(res, 'Failed to retrieve favorite salons', 500);
+  }
+});

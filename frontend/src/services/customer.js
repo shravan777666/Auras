@@ -102,6 +102,21 @@ export const customerService = {
     return response.data;
   },
 
+  async addFavoriteSalon(salonId) {
+    const response = await api.post('/customer/favorite-salons', { salonId });
+    return response.data;
+  },
+
+  async removeFavoriteSalon(salonId) {
+    const response = await api.delete(`/customer/favorite-salons/${salonId}`);
+    return response.data;
+  },
+
+  async getFavoriteSalons() {
+    const response = await api.get('/customer/favorite-salons');
+    return response.data;
+  },
+
   async getRecentSalons() {
     const response = await api.get('/customer/recent-salons');
     return response.data;

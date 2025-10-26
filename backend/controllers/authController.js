@@ -291,9 +291,15 @@ export const googleAuth = (req, res, next) => {
 // Google OAuth callback with automatic role detection
 export const googleCallback = async (req, res) => {
   try {
+    console.log('Google OAuth callback received:', {
+      user: req.user,
+      session: req.session
+    });
+    
     const user = req.user;
     
     if (!user) {
+      console.log('❌ No user found in request');
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3007';
       return res.redirect(`${frontendUrl}/auth/callback?error=oauth_failed`);
     }
@@ -301,6 +307,7 @@ export const googleCallback = async (req, res) => {
     // Find the user in our database to get their actual role
     const dbUser = await User.findOne({ email: user.email });
     if (!dbUser) {
+      console.log('❌ User not found in database:', user.email);
       // If user doesn't exist in our database, we can't authenticate them
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3007';
       return res.redirect(`${frontendUrl}/auth/callback?error=user_not_found`);
@@ -323,10 +330,16 @@ export const googleCallback = async (req, res) => {
       avatar: user.avatar
     };
     
+    console.log('Redirecting with user data:', {
+      token: token ? 'Present' : 'Missing',
+      userData: userData
+    });
+    
     // Redirect to frontend OAuth callback with token and user info
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3007';
     const redirectUrl = `${frontendUrl}/auth/callback?token=${token}&user=${encodeURIComponent(JSON.stringify(userData))}`;
     
+    console.log('Redirecting to:', redirectUrl);
     res.redirect(redirectUrl);
     
   } catch (error) {

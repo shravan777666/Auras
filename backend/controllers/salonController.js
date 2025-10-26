@@ -18,8 +18,17 @@ import {
 // Helper function to convert file path to full URL
 const getFileUrl = (filePath) => {
   if (!filePath) return null;
-  const baseUrl = process.env.BASE_URL || 'http://localhost:' + (process.env.PORT || 5002);
-  return baseUrl + '/' + filePath.replace(/\\/g, '/');
+  
+  // If it's already a full URL, return as is
+  if (filePath.startsWith('http')) {
+    return filePath;
+  }
+  
+  // Construct full URL based on environment
+  const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5011';
+  // Remove leading slash if filePath already has one
+  const cleanPath = filePath.startsWith('/') ? filePath.substring(1) : filePath;
+  return `${baseUrl}/${cleanPath}`;
 };
 
 // Helper function to convert documents object with file paths to URLs
@@ -28,16 +37,24 @@ const convertDocumentsToUrls = (documents) => {
   
   const converted = {};
   
+  // Handle businessLicense
   if (documents.businessLicense) {
     converted.businessLicense = getFileUrl(documents.businessLicense);
   }
   
+  // Handle salonLogo
   if (documents.salonLogo) {
     converted.salonLogo = getFileUrl(documents.salonLogo);
   }
   
+  // Handle salonImages array
   if (documents.salonImages && Array.isArray(documents.salonImages)) {
     converted.salonImages = documents.salonImages.map(imagePath => getFileUrl(imagePath));
+  }
+  
+  // Handle profileImage (for staff)
+  if (documents.profileImage) {
+    converted.profileImage = getFileUrl(documents.profileImage);
   }
   
   return converted;
@@ -316,7 +333,7 @@ export const getDashboard = asyncHandler(async (req, res) => {
     Appointment.countDocuments({ salonId }),
     Appointment.countDocuments({ salonId, status: 'Pending' }),
     Appointment.countDocuments({
-      salonId, 
+      salonId,
       appointmentDate: {
         $gte: new Date(new Date().setHours(0, 0, 0, 0)),
         $lt: new Date(new Date().setHours(23, 59, 59, 999))
@@ -341,11 +358,39 @@ export const getDashboard = asyncHandler(async (req, res) => {
     return notFoundResponse(res, 'Salon information');
   }
 
+  // Convert file paths to full URLs
+  const salonInfoWithUrls = { ...salonInfo };
+  
+  // Handle profileImage
+  if (salonInfoWithUrls.profileImage) {
+    salonInfoWithUrls.profileImage = getFileUrl(salonInfoWithUrls.profileImage);
+  }
+  
+  // Handle salonImage
+  if (salonInfoWithUrls.salonImage) {
+    salonInfoWithUrls.salonImage = getFileUrl(salonInfoWithUrls.salonImage);
+  }
+  
+  // Handle documents
+  if (salonInfoWithUrls.documents) {
+    salonInfoWithUrls.documents = convertDocumentsToUrls(salonInfoWithUrls.documents);
+  }
+  
+  // Handle staff profile pictures
+  if (salonInfoWithUrls.staff && Array.isArray(salonInfoWithUrls.staff)) {
+    salonInfoWithUrls.staff = salonInfoWithUrls.staff.map(staff => {
+      if (staff.profilePicture) {
+        return { ...staff, profilePicture: getFileUrl(staff.profilePicture) };
+      }
+      return staff;
+    });
+  }
+
   const revenue = monthlyRevenue.length > 0 ? monthlyRevenue[0].total : 0;
 
   // Ensure a complete object is always returned
   return successResponse(res, {
-    salonInfo,
+    salonInfo: salonInfoWithUrls,
     statistics: {
       totalStaff: totalStaff || 0,
       totalServices: totalServices || 0,
@@ -394,7 +439,7 @@ export const getDashboardById = asyncHandler(async (req, res) => {
     Appointment.countDocuments({ salonId }),
     Appointment.countDocuments({ salonId, status: 'Pending' }),
     Appointment.countDocuments({
-      salonId, 
+      salonId,
       appointmentDate: {
         $gte: new Date(new Date().setHours(0, 0, 0, 0)),
         $lt: new Date(new Date().setHours(23, 59, 59, 999))
@@ -402,7 +447,7 @@ export const getDashboardById = asyncHandler(async (req, res) => {
     }),
     Appointment.aggregate([
       {
-        $match: { 
+        $match: {
           salonId: salonId,
           status: 'Completed',
           createdAt: {
@@ -414,14 +459,43 @@ export const getDashboardById = asyncHandler(async (req, res) => {
     ])
   ]);
 
+  // If salonInfo is not found, it's a critical error.
   if (!salonInfo) {
     return notFoundResponse(res, 'Salon information');
+  }
+
+  // Convert file paths to full URLs
+  const salonInfoWithUrls = { ...salonInfo };
+  
+  // Handle profileImage
+  if (salonInfoWithUrls.profileImage) {
+    salonInfoWithUrls.profileImage = getFileUrl(salonInfoWithUrls.profileImage);
+  }
+  
+  // Handle salonImage
+  if (salonInfoWithUrls.salonImage) {
+    salonInfoWithUrls.salonImage = getFileUrl(salonInfoWithUrls.salonImage);
+  }
+  
+  // Handle documents
+  if (salonInfoWithUrls.documents) {
+    salonInfoWithUrls.documents = convertDocumentsToUrls(salonInfoWithUrls.documents);
+  }
+  
+  // Handle staff profile pictures
+  if (salonInfoWithUrls.staff && Array.isArray(salonInfoWithUrls.staff)) {
+    salonInfoWithUrls.staff = salonInfoWithUrls.staff.map(staff => {
+      if (staff.profilePicture) {
+        return { ...staff, profilePicture: getFileUrl(staff.profilePicture) };
+      }
+      return staff;
+    });
   }
 
   const revenue = monthlyRevenue.length > 0 ? monthlyRevenue[0].total : 0;
 
   return successResponse(res, {
-    salonInfo,
+    salonInfo: salonInfoWithUrls,
     statistics: {
       totalStaff: totalStaff || 0,
       totalServices: totalServices || 0,

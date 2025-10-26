@@ -3,15 +3,33 @@ import { Button } from '@mui/material';
 
 const GoogleOAuthButton = ({ role = 'customer', variant = "outlined", fullWidth = true, children }) => {
   const handleGoogleAuth = () => {
-    // Use the OAuth endpoint - get backend URL from environment variables
-    const backendUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5011';
-    // For automatic role detection, we can still pass a default role for the initial OAuth flow
-    // The backend will determine the actual role after authentication
+    // Get the backend API URL from environment variables
+    const apiUrl = import.meta.env.VITE_API_URL;
+    
+    // Construct the backend URL by removing '/api' from the end
+    let backendUrl;
+    if (apiUrl) {
+      backendUrl = apiUrl.endsWith('/api') ? apiUrl.slice(0, -4) : apiUrl.replace('/api/', '/');
+    } else {
+      backendUrl = 'http://localhost:5011';
+    }
+    
+    // Ensure the backend URL doesn't end with a slash
+    if (backendUrl.endsWith('/')) {
+      backendUrl = backendUrl.slice(0, -1);
+    }
+    
+    // Construct the OAuth URL
     const authUrl = `${backendUrl}/api/auth/google?role=${role}`;
     
     // Debug logging
-    console.log('Google OAuth Button - Generated URL:', authUrl);
-    console.log('Role parameter (default):', role);
+    console.log('Google OAuth Button - Environment Variables:', {
+      VITE_API_URL: import.meta.env.VITE_API_URL,
+      apiUrl,
+      backendUrl,
+      authUrl,
+      role
+    });
     
     // Redirect to Google OAuth
     window.location.href = authUrl;

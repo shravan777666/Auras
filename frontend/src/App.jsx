@@ -57,8 +57,12 @@ const BookAppointment = React.lazy(() => import('./pages/customer/BookAppointmen
 const SalonDetails = React.lazy(() => import('./pages/customer/SalonDetails'))
 const MyBookings = React.lazy(() => import('./pages/customer/MyBookings'))
 const EditCustomerProfile = React.lazy(() => import('./pages/customer/EditCustomerProfile'))
-const CustomerMessages = React.lazy(() => import('./pages/customer/CustomerMessages'))
-const ExploreSalons = React.lazy(() => import('./pages/customer/ExploreSalons'))
+const CustomerProfile = React.lazy(() => import('./pages/customer/CustomerProfile'));
+const CustomerMessages = React.lazy(() => import('./pages/customer/CustomerMessages'));
+const ExploreSalons = React.lazy(() => import('./pages/customer/ExploreSalons'));
+const MapView = React.lazy(() => import('./pages/customer/MapView'));
+const Favorites = React.lazy(() => import('./pages/customer/Favorites'));
+const Recommendations = React.lazy(() => import('./pages/customer/Recommendations'));
 const SearchResults = React.lazy(() => import('./pages/common/SearchResults'))
 
 // Common Pages
@@ -511,6 +515,22 @@ function App() {
             }
           />
           <Route
+            path="/customer/profile"
+            element={
+              <ProtectedRoute allowedRoles={['customer']}>
+                <CustomerProfile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile/*"
+            element={
+              <ProtectedRoute allowedRoles={['customer']}>
+                <CustomerProfile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/customer/messages"
             element={
               <ProtectedRoute allowedRoles={['customer']}>
@@ -523,6 +543,30 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['customer']}>
                 <ExploreSalons />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/customer/map"
+            element={
+              <ProtectedRoute allowedRoles={['customer']}>
+                <MapView />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/customer/favorites"
+            element={
+              <ProtectedRoute allowedRoles={['customer']}>
+                <Favorites />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/customer/recommendations"
+            element={
+              <ProtectedRoute allowedRoles={['customer']}>
+                <Recommendations />
               </ProtectedRoute>
             }
           />

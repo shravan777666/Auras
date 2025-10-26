@@ -26,9 +26,15 @@ import {
   CreditCard,
   RefreshCw,
   Zap,
-  XCircle
+  XCircle,
+  Home,
+  PieChart,
+  BarChart3,
+  User,
+  Settings,
+  Bell,
+  FileText
 } from 'lucide-react';
-import { PieChart, BarChart3 } from 'lucide-react';
 import {
   Chart as ChartJS,
   ArcElement,
@@ -50,6 +56,17 @@ import StaffFeedbackInbox from '../../components/salon/StaffFeedbackInbox';
 import BackButton from '../../components/common/BackButton';
 import PayrollProcessingCard from '../../components/salon/PayrollProcessingCard';
 import PayrollSummaryTable from '../../components/salon/PayrollSummaryTable';
+
+// Register Chart.js components
+ChartJS.register(
+  ArcElement,
+  Tooltip,
+  Legend,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title
+);
 
 // A reusable card for displaying statistics
 const StatCard = ({ icon, title, value, color, onClick }) => (
@@ -223,21 +240,23 @@ const SalonDashboard = () => {
   const [loadingRevenue, setLoadingRevenue] = useState(true);
   const [expenses, setExpenses] = useState([]);
   const [totalExpenses, setTotalExpenses] = useState(0);
-
-  ChartJS.register(
-    ArcElement,
-    Tooltip,
-    Legend,
-    CategoryScale,
-    LinearScale,
-    BarElement,
-    Title
-  );
+  const [activeTab, setActiveTab] = useState('overview'); // New state for navigation tabs
 
   const heroImages = [
     'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80',
     'https://images.unsplash.com/photo-1595475887736-79d6420c4db6?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80',
     'https://images.unsplash.com/photo-1600857062241-98c0a9ed8f5f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80',
+  ];
+
+  // Navigation tabs configuration
+  const navTabs = [
+    { id: 'overview', label: 'Overview', icon: Home },
+    { id: 'appointments', label: 'Appointments', icon: Calendar },
+    { id: 'staff', label: 'Staff', icon: User },
+    { id: 'services', label: 'Services', icon: Briefcase },
+    { id: 'finance', label: 'Finance', icon: DollarSign },
+    { id: 'reports', label: 'Reports', icon: FileText },
+    { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
   useEffect(() => {
@@ -441,63 +460,52 @@ const SalonDashboard = () => {
     navigate('/salon/expenses');
   };
 
-  if (loading) {
-    return <LoadingSpinner />;
-  }
+  // Render content based on active tab
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'overview':
+        return renderOverviewContent();
+      case 'appointments':
+        return renderAppointmentsContent();
+      case 'staff':
+        return renderStaffContent();
+      case 'services':
+        return renderServicesContent();
+      case 'finance':
+        return renderFinanceContent();
+      case 'reports':
+        return renderReportsContent();
+      case 'settings':
+        return renderSettingsContent();
+      default:
+        return renderOverviewContent();
+    }
+  };
 
-  if (error) {
-    return <div className="text-center text-red-500">{error}</div>;
-  }
+  // Overview content (important content shown on front page)
+  const renderOverviewContent = () => {
+    if (loading) {
+      return <LoadingSpinner />;
+    }
 
-  if (!dashboardData) {
-    return <div className="text-center">No dashboard data available.</div>;
-  }
+    if (error) {
+      return <div className="text-center text-red-500">{error}</div>;
+    }
 
-  const { salonInfo, statistics } = dashboardData;
-  const workingDays = Array.isArray(salonInfo?.businessHours?.workingDays)
-    ? salonInfo.businessHours.workingDays.join(', ')
-    : 'Working days not specified';
+    if (!dashboardData) {
+      return <div className="text-center">No dashboard data available.</div>;
+    }
 
-  return (
-    <div className="bg-gray-50 min-h-screen">
-      {/* Hero Section */}
-      <section className="relative h-80 mb-8 rounded-2xl overflow-hidden flex items-center justify-center text-white shadow-lg">
-        {heroImages.map((src, index) => (
-          <img
-            key={src}
-            src={src}
-            alt="Salon background"
-            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out ${index === currentImageIndex ? 'opacity-100' : 'opacity-0'}`}
-          />
-        ))}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-black/30"></div>
-        <div className="relative z-10 w-full max-w-7xl mx-auto px-6 sm:px-8 lg:px-10">
-            <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                <div className="flex items-center">
-                  <BackButton fallbackPath="/salon/dashboard" className="mr-4 text-white" />
-                  <div>
-                    <h1 className="text-4xl font-bold text-white mb-2">Welcome, {salonInfo.salonName}!</h1>
-                    <p className="text-gray-200 text-lg">Here is your salon's performance at a glance.</p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    onClick={() => navigate('/salon/edit-profile')}
-                    className="flex items-center px-5 py-3 bg-white/10 backdrop-blur-sm text-white rounded-xl hover:bg-white/20 transition-all duration-300 font-medium border border-white/20"
-                  >
-                    <Edit className="h-5 w-5 mr-2" />
-                    Edit Profile
-                  </button>
-                  <LogoutButton />
-                </div>
-            </header>
-        </div>
-      </section>
+    const { salonInfo, statistics } = dashboardData;
+    const workingDays = Array.isArray(salonInfo?.businessHours?.workingDays)
+      ? salonInfo.businessHours.workingDays.join(', ')
+      : 'Working days not specified';
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+    return (
+      <div className="space-y-8">
         {/* Welcome Banner after Setup Completion */}
         {showWelcome && (
-          <div className="mb-8 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-lg p-6 text-white relative animate-fade-in">
+          <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-lg p-6 text-white relative animate-fade-in">
             <button 
               onClick={() => setShowWelcome(false)}
               className="absolute top-4 right-4 text-white hover:text-gray-200"
@@ -830,7 +838,7 @@ const SalonDashboard = () => {
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">{customerName}</div>
                             <div className="text-sm text-gray-500">{customerEmail}</div>
-                            <div className="text-xs text-gray-400">ID: {bookingId.slice(-6)}</div>
+                            <div className="text-xs text-gray-400 mt-1">ID: {bookingId.slice(-6)}</div>
                           </div>
                         </div>
                       </td>
@@ -1086,6 +1094,257 @@ const SalonDashboard = () => {
               </button>
             </div>
           </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Appointments content
+  const renderAppointmentsContent = () => {
+    return (
+      <div className="bg-white p-6 rounded-xl shadow-sm">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">Appointments Management</h2>
+          <button
+            onClick={() => navigate('/salon/appointments')}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+          >
+            View All Appointments
+          </button>
+        </div>
+        <div className="text-gray-600">
+          <p className="mb-4">Manage all your salon appointments from this section.</p>
+          <ul className="list-disc pl-5 space-y-2">
+            <li>View and manage pending appointments</li>
+            <li>Assign staff to appointments</li>
+            <li>Track appointment history</li>
+            <li>Handle cancellations and rescheduling</li>
+          </ul>
+        </div>
+      </div>
+    );
+  };
+
+  // Staff content
+  const renderStaffContent = () => {
+    return (
+      <div className="bg-white p-6 rounded-xl shadow-sm">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">Staff Management</h2>
+          <div className="space-x-2">
+            <button
+              onClick={() => navigate('/salon/staff')}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+            >
+              Manage Staff
+            </button>
+            <button
+              onClick={() => navigate('/salon/staff/new')}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+            >
+              Add New Staff
+            </button>
+          </div>
+        </div>
+        <div className="text-gray-600">
+          <p className="mb-4">Manage your salon staff and their availability.</p>
+          <ul className="list-disc pl-5 space-y-2">
+            <li>Add and remove staff members</li>
+            <li>Set staff availability and working hours</li>
+            <li>Assign services to staff members</li>
+            <li>View staff performance and schedules</li>
+          </ul>
+        </div>
+      </div>
+    );
+  };
+
+  // Services content
+  const renderServicesContent = () => {
+    return (
+      <div className="bg-white p-6 rounded-xl shadow-sm">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">Service Management</h2>
+          <button
+            onClick={() => setIsAddServiceModalOpen(true)}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center gap-2"
+          >
+            <PlusCircle className="h-4 w-4" />
+            Add New Service
+          </button>
+        </div>
+        <div className="text-gray-600">
+          <p className="mb-4">Manage the services your salon offers.</p>
+          <ul className="list-disc pl-5 space-y-2">
+            <li>Add, edit, and remove services</li>
+            <li>Set pricing and duration for each service</li>
+            <li>Assign services to staff members</li>
+            <li>Organize services by category</li>
+          </ul>
+        </div>
+      </div>
+    );
+  };
+
+  // Finance content
+  const renderFinanceContent = () => {
+    return (
+      <div className="bg-white p-6 rounded-xl shadow-sm">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">Financial Management</h2>
+          <button
+            onClick={() => navigate('/salon/expenses')}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+          >
+            View Financial Details
+          </button>
+        </div>
+        <div className="text-gray-600">
+          <p className="mb-4">Track and manage your salon's finances.</p>
+          <ul className="list-disc pl-5 space-y-2">
+            <li>Track income and expenses</li>
+            <li>Monitor revenue by service</li>
+            <li>Manage payroll for staff</li>
+            <li>Generate financial reports</li>
+          </ul>
+        </div>
+      </div>
+    );
+  };
+
+  // Reports content
+  const renderReportsContent = () => {
+    return (
+      <div className="bg-white p-6 rounded-xl shadow-sm">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">Reports & Analytics</h2>
+          <button
+            onClick={() => navigate('/salon/reports')}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+          >
+            View Detailed Reports
+          </button>
+        </div>
+        <div className="text-gray-600">
+          <p className="mb-4">Access detailed reports and analytics for your salon.</p>
+          <ul className="list-disc pl-5 space-y-2">
+            <li>View revenue reports</li>
+            <li>Analyze service performance</li>
+            <li>Track staff productivity</li>
+            <li>Review customer feedback trends</li>
+          </ul>
+        </div>
+      </div>
+    );
+  };
+
+  // Settings content
+  const renderSettingsContent = () => {
+    return (
+      <div className="bg-white p-6 rounded-xl shadow-sm">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">Settings</h2>
+          <button
+            onClick={() => navigate('/salon/edit-profile')}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center gap-2"
+          >
+            <Edit className="h-4 w-4" />
+            Edit Profile
+          </button>
+        </div>
+        <div className="text-gray-600">
+          <p className="mb-4">Manage your salon settings and preferences.</p>
+          <ul className="list-disc pl-5 space-y-2">
+            <li>Update salon information and contact details</li>
+            <li>Set business hours and working days</li>
+            <li>Configure notification preferences</li>
+            <li>Manage account security settings</li>
+          </ul>
+        </div>
+      </div>
+    );
+  };
+
+  if (loading && activeTab === 'overview') {
+    return <LoadingSpinner />;
+  }
+
+  if (error && activeTab === 'overview') {
+    return <div className="text-center text-red-500">{error}</div>;
+  }
+
+  if (!dashboardData && activeTab === 'overview') {
+    return <div className="text-center">No dashboard data available.</div>;
+  }
+
+  const { salonInfo } = dashboardData || {};
+  const workingDays = Array.isArray(salonInfo?.businessHours?.workingDays)
+    ? salonInfo.businessHours.workingDays.join(', ')
+    : 'Working days not specified';
+
+  return (
+    <div className="bg-gray-50 min-h-screen">
+      {/* Hero Section */}
+      <section className="relative h-60 mb-8 rounded-2xl overflow-hidden flex items-center justify-center text-white shadow-lg">
+        {heroImages.map((src, index) => (
+          <img
+            key={src}
+            src={src}
+            alt="Salon background"
+            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out ${index === currentImageIndex ? 'opacity-100' : 'opacity-0'}`}
+          />
+        ))}
+        <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-black/30"></div>
+        <div className="relative z-10 w-full max-w-7xl mx-auto px-6 sm:px-8 lg:px-10">
+            <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div className="flex items-center">
+                  <BackButton fallbackPath="/salon/dashboard" className="mr-4 text-white" />
+                  <div>
+                    <h1 className="text-3xl font-bold text-white mb-2">Welcome, {salonInfo?.salonName}!</h1>
+                    <p className="text-gray-200">Here is your salon's performance at a glance.</p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={() => navigate('/salon/edit-profile')}
+                    className="flex items-center px-4 py-2 bg-white/10 backdrop-blur-sm text-white rounded-xl hover:bg-white/20 transition-all duration-300 font-medium border border-white/20 text-sm"
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit Profile
+                  </button>
+                  <LogoutButton />
+                </div>
+            </header>
+        </div>
+      </section>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+        {/* Horizontal Navigation Bar */}
+        <div className="bg-white rounded-xl shadow-sm mb-8 overflow-hidden">
+          <div className="flex overflow-x-auto">
+            {navTabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center px-6 py-4 text-sm font-medium whitespace-nowrap transition-colors duration-200 border-b-2 ${
+                    activeTab === tab.id
+                      ? 'border-indigo-600 text-indigo-600 bg-indigo-50'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <Icon className="h-5 w-5 mr-2" />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Tab Content */}
+        <div className="transition-all duration-300">
+          {renderTabContent()}
         </div>
       </div>
 

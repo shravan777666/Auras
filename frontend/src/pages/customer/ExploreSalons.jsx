@@ -48,10 +48,10 @@ const ExploreSalons = () => {
         setSalons(res.data || []);
         setFilteredSalons(res.data || []);
         
-        // Get user's current favorite salon
-        const profileRes = await customerService.getProfile();
-        if (profileRes?.data?.favoriteSalon) {
-          setFavoriteSalons(new Set([profileRes.data.favoriteSalon]));
+        // Get user's current favorite salons
+        const profileRes = await customerService.getFavoriteSalons();
+        if (profileRes?.data) {
+          setFavoriteSalons(new Set(profileRes.data.map(salon => salon._id)));
         }
       }
     } catch (error) {
@@ -89,19 +89,35 @@ const ExploreSalons = () => {
 
   const toggleFavorite = async (salonId) => {
     try {
-      await customerService.updateFavoriteSalon(salonId);
+      const isCurrentlyFavorite = favoriteSalons.has(salonId);
       
+      // Add or remove from favorites
+      if (isCurrentlyFavorite) {
+        await customerService.removeFavoriteSalon(salonId);
+        toast.success('Removed from favorites');
+      } else {
+        await customerService.addFavoriteSalon(salonId);
+        toast.success('Added to favorites!');
+      }
+      
+      // Update local state
       setFavoriteSalons(prev => {
         const newFavorites = new Set(prev);
-        if (newFavorites.has(salonId)) {
+        if (isCurrentlyFavorite) {
           newFavorites.delete(salonId);
-          toast.success('Removed from favorites');
         } else {
           newFavorites.add(salonId);
-          toast.success('Added to favorites!');
         }
         return newFavorites;
       });
+      
+      // Navigate to favorites page only after adding a new favorite
+      if (!isCurrentlyFavorite) {
+        // Use setTimeout to ensure navigation happens after render cycle
+        setTimeout(() => {
+          navigate('/customer/favorites');
+        }, 1000);
+      }
     } catch (error) {
       console.error('Error updating favorite:', error);
       toast.error('Failed to update favorite');

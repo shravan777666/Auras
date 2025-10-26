@@ -15,7 +15,8 @@ import {
   XCircle,
   AlertCircle,
   MoreHorizontal,
-  X
+  X,
+  Filter
 } from 'lucide-react';
 
 const MyBookings = () => {
@@ -26,7 +27,7 @@ const MyBookings = () => {
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
-  const [error, setError] = useState(null); // Add error state
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchBookings();
@@ -35,7 +36,7 @@ const MyBookings = () => {
   const fetchBookings = async () => {
     try {
       setLoading(true);
-      setError(null); // Clear previous errors
+      setError(null);
       console.log('Fetching bookings for user:', user?.id);
       const res = await customerService.getBookings({ page: 1, limit: 50 });
       console.log('Bookings response:', res);
@@ -192,15 +193,15 @@ const MyBookings = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50" style={{ animation: 'fadeIn 0.3s ease-in' }}>
+    <div className="min-h-screen bg-gray-50">
       <style>
         {`
           @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
           }
           .animate-fadeIn {
-            animation: fadeIn 0.3s ease-in;
+            animation: fadeIn 0.3s ease-out;
           }
         `}
       </style>
@@ -242,11 +243,15 @@ const MyBookings = () => {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Time Filter Tabs */}
-        <div className="mb-6">
-          <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
+        {/* Modern Filter Pills */}
+        <div className="mb-8">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center text-sm font-medium text-gray-700">
+              <Filter className="h-4 w-4 mr-2" />
+              Filter by:
+            </div>
             {[
-              { key: 'recent', label: 'Recent (7 days)' },
+              { key: 'recent', label: 'Recent' },
               { key: 'thisMonth', label: 'This Month' },
               { key: 'lastMonth', label: 'Last Month' },
               { key: 'older', label: 'Older' }
@@ -254,10 +259,10 @@ const MyBookings = () => {
               <button
                 key={tab.key}
                 onClick={() => setFilter(tab.key)}
-                className={`px-4 py-2 text-sm font-medium rounded-md transition-all duration-300 ease-in-out ${
+                className={`px-4 py-2 text-sm font-medium rounded-full transition-all duration-200 ${
                   filter === tab.key
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'bg-primary-600 text-white shadow-md'
+                    : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
                 }`}
               >
                 {tab.label}
@@ -268,27 +273,29 @@ const MyBookings = () => {
 
         {/* Bookings List */}
         {filteredBookings.length === 0 ? (
-          <div className="text-center py-12">
-            <Calendar className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No bookings found</h3>
-            <p className="text-gray-500 mb-6">
-              {filter === 'recent' 
-                ? "You haven't made any bookings in the last 7 days."
-                : filter === 'thisMonth'
-                ? "You haven't made any bookings this month."
-                : filter === 'lastMonth'
-                ? "You didn't have any bookings last month."
-                : "You don't have any older bookings."}
-            </p>
-            <Link
-              to="/customer/book-appointment"
-              className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-            >
-              Book Your First Appointment
-            </Link>
+          <div className="text-center py-16">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 max-w-md mx-auto">
+              <Calendar className="h-16 w-16 text-gray-300 mx-auto mb-6" />
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">No bookings found</h3>
+              <p className="text-gray-500 mb-8">
+                {filter === 'recent' 
+                  ? "You haven't made any bookings in the last 7 days."
+                  : filter === 'thisMonth'
+                  ? "You haven't made any bookings this month."
+                  : filter === 'lastMonth'
+                  ? "You didn't have any bookings last month."
+                  : "You don't have any older bookings."}
+              </p>
+              <Link
+                to="/customer/book-appointment"
+                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-primary-600 to-secondary-600 text-white font-medium rounded-lg hover:from-primary-700 hover:to-secondary-700 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+              >
+                Book Your First Appointment
+              </Link>
+            </div>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {filteredBookings.map((booking) => {
               const salonName = booking.salonId?.salonName || 'Unknown Salon';
               const salonAddress = booking.salonId?.salonAddress;
@@ -296,54 +303,71 @@ const MyBookings = () => {
               const staffName = booking.staffId?.name || 'Not Assigned';
               
               return (
-                <div key={booking._id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 animate-fadeIn">
-                  <div className="flex items-start justify-between">
+                <div key={booking._id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-all duration-200 animate-fadeIn">
+                  <div className="flex flex-col md:flex-row md:items-start md:justify-between">
+                    {/* Left Column - Booking Details */}
                     <div className="flex-1">
-                      <div className="flex items-center mb-3">
-                        {getStatusIcon(booking.status)}
-                        <h3 className="text-lg font-semibold text-gray-900 ml-2">{salonName}</h3>
-                        <span className={`ml-3 px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(booking.status)}`}>
-                          {booking.status}
-                        </span>
-                        {booking.cancellationType && booking.cancellationType !== 'Early' && (
-                          <span className="ml-2 px-2 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-800">
-                            {booking.cancellationType}
+                      <div className="flex flex-col sm:flex-row sm:items-center mb-4">
+                        <div className="flex items-center">
+                          {getStatusIcon(booking.status)}
+                          <h3 className="text-xl font-bold text-gray-900 ml-3">{salonName}</h3>
+                        </div>
+                        <div className="flex flex-wrap items-center mt-2 sm:mt-0 sm:ml-4 gap-2">
+                          <span className={`px-3 py-1 text-sm font-medium rounded-full ${getStatusColor(booking.status)}`}>
+                            {booking.status}
                           </span>
-                        )}
+                          {booking.cancellationType && booking.cancellationType !== 'Early' && (
+                            <span className="px-3 py-1 text-sm font-medium rounded-full bg-orange-100 text-orange-800">
+                              {booking.cancellationType}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div className="flex items-center text-sm text-gray-600">
-                          <Calendar className="h-4 w-4 mr-2" />
-                          <span>{formatDate(booking.appointmentDate)}</span>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div className="flex items-center text-gray-600">
+                          <Calendar className="h-5 w-5 mr-3 text-primary-500" />
+                          <div>
+                            <p className="text-sm text-gray-500">Date</p>
+                            <p className="font-medium">{formatDate(booking.appointmentDate)}</p>
+                          </div>
                         </div>
-                        <div className="flex items-center text-sm text-gray-600">
-                          <Clock className="h-4 w-4 mr-2" />
-                          <span>{formatTime(booking.appointmentTime)}</span>
+                        <div className="flex items-center text-gray-600">
+                          <Clock className="h-5 w-5 mr-3 text-primary-500" />
+                          <div>
+                            <p className="text-sm text-gray-500">Time</p>
+                            <p className="font-medium">{formatTime(booking.appointmentTime)}</p>
+                          </div>
                         </div>
-                        <div className="flex items-center text-sm text-gray-600">
-                          <User className="h-4 w-4 mr-2" />
-                          <span>{staffName}</span>
+                        <div className="flex items-center text-gray-600">
+                          <User className="h-5 w-5 mr-3 text-primary-500" />
+                          <div>
+                            <p className="text-sm text-gray-500">Staff</p>
+                            <p className="font-medium">{staffName}</p>
+                          </div>
                         </div>
-                        <div className="flex items-center text-sm text-gray-600">
-                          <MapPin className="h-4 w-4 mr-2" />
-                          <span>
-                            {typeof salonAddress === 'string' 
-                              ? salonAddress 
-                              : salonAddress?.city || 'Address not available'
-                            }
-                          </span>
+                        <div className="flex items-center text-gray-600">
+                          <MapPin className="h-5 w-5 mr-3 text-primary-500" />
+                          <div>
+                            <p className="text-sm text-gray-500">Location</p>
+                            <p className="font-medium">
+                              {typeof salonAddress === 'string' 
+                                ? salonAddress 
+                                : salonAddress?.city || 'Address not available'
+                              }
+                            </p>
+                          </div>
                         </div>
                       </div>
 
                       {services.length > 0 && (
-                        <div className="mb-4">
-                          <h4 className="text-sm font-medium text-gray-900 mb-2">Services:</h4>
+                        <div className="mb-6">
+                          <h4 className="text-sm font-semibold text-gray-900 mb-3 uppercase tracking-wide">Services</h4>
                           <div className="flex flex-wrap gap-2">
                             {services.map((service, index) => (
                               <span
                                 key={index}
-                                className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full"
+                                className="px-3 py-1.5 bg-primary-50 text-primary-700 text-sm font-medium rounded-lg"
                               >
                                 {service.serviceName || service.serviceId?.name || `Service ${index + 1}`}
                               </span>
@@ -353,49 +377,53 @@ const MyBookings = () => {
                       )}
 
                       {booking.customerNotes && (
-                        <div className="mb-4">
-                          <h4 className="text-sm font-medium text-gray-900 mb-1">Notes:</h4>
-                          <p className="text-sm text-gray-600">{booking.customerNotes}</p>
-                        </div>
-                      )}
-
-                      {booking.cancellationFee > 0 && (
-                        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                          <div className="flex items-center">
-                            <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
-                            <span className="text-sm font-medium text-red-800">
-                              Cancellation Fee: ₹{booking.cancellationFee}
-                            </span>
+                        <div className="mb-6">
+                          <h4 className="text-sm font-semibold text-gray-900 mb-2 uppercase tracking-wide">Your Notes</h4>
+                          <div className="bg-gray-50 rounded-lg p-3">
+                            <p className="text-gray-700">{booking.customerNotes}</p>
                           </div>
                         </div>
                       )}
 
-                      <div className="flex items-center justify-between">
-                        <div className="text-lg font-semibold text-gray-900">
-                          Total: ₹{booking.finalAmount || booking.totalAmount || 0}
+                      {booking.cancellationFee > 0 && (
+                        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
+                          <div className="flex items-center">
+                            <AlertCircle className="h-5 w-5 text-red-500 mr-3" />
+                            <div>
+                              <p className="text-sm font-semibold text-red-800">Cancellation Fee</p>
+                              <p className="text-lg font-bold text-red-800">₹{booking.cancellationFee}</p>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex space-x-2">
-                          <button className="px-3 py-1 text-sm text-gray-600 hover:text-gray-900">
-                            View Details
+                      )}
+                    </div>
+
+                    {/* Right Column - Actions and Total */}
+                    <div className="md:w-64 md:ml-6 mt-6 md:mt-0">
+                      <div className="bg-gray-50 rounded-xl p-4 mb-4">
+                        <p className="text-sm text-gray-500 mb-1">Total Amount</p>
+                        <p className="text-2xl font-bold text-gray-900">₹{booking.finalAmount || booking.totalAmount || 0}</p>
+                      </div>
+
+                      <div className="space-y-3">
+                        {booking.status === 'Pending' && (
+                          <button 
+                            onClick={() => handleOpenCancelModal(booking)}
+                            className="w-full px-4 py-2.5 text-sm font-medium text-red-600 bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-colors flex items-center justify-center"
+                          >
+                            <X className="h-4 w-4 mr-2" />
+                            Cancel Booking
                           </button>
-                          {booking.status === 'Pending' && (
-                            <button 
-                              onClick={() => handleOpenCancelModal(booking)}
-                              className="px-3 py-1 text-sm text-red-600 hover:text-red-700 flex items-center"
-                            >
-                              <X className="h-4 w-4 mr-1" />
-                              Cancel
-                            </button>
-                          )}
-                          {booking.status === 'Completed' && !booking.rating?.overall && (
-                            <button 
-                              onClick={() => handleOpenRatingModal(booking)}
-                              className="px-3 py-1 text-sm text-primary-600 hover:text-primary-700"
-                            >
-                              Rate Experience
-                            </button>
-                          )}
-                        </div>
+                        )}
+                        
+                        {booking.status === 'Completed' && !booking.rating?.overall && (
+                          <button 
+                            onClick={() => handleOpenRatingModal(booking)}
+                            className="w-full px-4 py-2.5 text-sm font-medium text-primary-600 bg-white border border-primary-200 rounded-lg hover:bg-primary-50 transition-colors"
+                          >
+                            Rate Experience
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

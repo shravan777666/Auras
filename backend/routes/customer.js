@@ -11,7 +11,10 @@ import {
   rateAppointment,
   getSalonAvailability,
   updateFavoriteSalon,
-  getRecentSalons
+  getRecentSalons,
+  addFavoriteSalon,
+  removeFavoriteSalon,
+  getFavoriteSalons
 } from '../controllers/customerController.js';
 import { requireCustomer } from '../middleware/roleAuth.js';
 import { upload } from '../middleware/upload.js';
@@ -49,6 +52,9 @@ router.post('/bookings/:appointmentId/rate',
 
 // Favorite and Recent Salons
 router.patch('/favorite-salon', updateFavoriteSalon);
+router.post('/favorite-salons', addFavoriteSalon);
+router.delete('/favorite-salons/:salonId', validateObjectId('salonId'), removeFavoriteSalon);
+router.get('/favorite-salons', getFavoriteSalons);
 router.get('/recent-salons', getRecentSalons);
 
 export default router;

@@ -36,6 +36,7 @@ passport.deserializeUser(async (sessionData, done) => {
 console.log('Checking Google OAuth environment variables...');
 console.log('GOOGLE_CLIENT_ID:', process.env.GOOGLE_CLIENT_ID ? 'Set' : 'Not set');
 console.log('GOOGLE_CLIENT_SECRET:', process.env.GOOGLE_CLIENT_SECRET ? 'Set' : 'Not set');
+console.log('GOOGLE_CALLBACK_URL:', process.env.GOOGLE_CALLBACK_URL || 'Not set (using default)');
 
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   console.log('✅ Registering Google OAuth strategy');
@@ -49,6 +50,17 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       },
       async (req, accessToken, refreshToken, profile, done) => {
         try {
+          console.log('Google OAuth callback received:', {
+            profile: {
+              id: profile.id,
+              displayName: profile.displayName,
+              emails: profile.emails,
+              photos: profile.photos
+            },
+            reqQuery: req.query,
+            reqSession: req.session
+          });
+
           const email = profile.emails?.[0]?.value;
           const googleId = profile.id;
           const name = profile.displayName;
@@ -63,10 +75,12 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           
           // Clear the session role after use to prevent conflicts
           if (req.session?.oauthRole) {
+            console.log('Clearing session role:', req.session.oauthRole);
             delete req.session.oauthRole;
           }
 
           if (!email) {
+            console.log('❌ No email found in Google profile');
             return done(new Error('No email found in Google profile'));
           }
 
@@ -79,19 +93,24 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           });
 
           if (user) {
+            console.log('User already exists:', user.email, user.type);
             // Existing user - update Google info if needed
             if (!user.googleId) {
               user.googleId = googleId;
               user.provider = 'google';
               user.avatar = avatar;
               await user.save();
+              console.log('Updated existing user with Google info');
             }
             return done(null, user);
           }
 
           // New user - create based on role
           if (!role || !['customer', 'salon', 'staff'].includes(role)) {
-            return done(new Error('Invalid or missing role parameter'));
+            console.log('Invalid or missing role parameter:', role);
+            // Default to customer if no valid role provided
+            role = 'customer';
+            console.log('Defaulting to customer role');
           }
 
           // Create new user
@@ -106,11 +125,13 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
             isActive: true
           };
 
+          console.log('Creating new user with data:', userData);
           user = await User.create(userData);
 
           // Create corresponding profile based on role
           switch (role) {
             case 'customer':
+              console.log('Creating customer profile');
               await Customer.create({
                 _id: user._id, // Use the same ID as the User document for consistency
                 name,
@@ -120,6 +141,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
               break;
             
             case 'salon':
+              console.log('Creating salon profile');
               await Salon.create({
                 ownerName: name,
                 email,
@@ -130,6 +152,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
               break;
             
             case 'staff':
+              console.log('Creating staff profile');
               await Staff.create({
                 name,
                 email,
@@ -140,6 +163,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
               break;
           }
 
+          console.log('User created successfully:', user.email, user.type);
           return done(null, user);
         } catch (err) {
           console.error('Google OAuth Error:', err);

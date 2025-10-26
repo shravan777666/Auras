@@ -48,23 +48,23 @@
 
   /* Form inputs */
   .form-input {
-    @apply block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm;
+    @apply block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm;
   }
 
   .form-textarea {
-    @apply block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm resize-none;
+    @apply block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm resize-none;
   }
 
   .form-select {
-    @apply block w-full px-3 py-2 border border-gray-300 bg-white rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm;
+    @apply block w-full px-4 py-3 border border-gray-300 bg-white rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm;
   }
 
   .form-checkbox {
-    @apply h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded;
+    @apply h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300 rounded;
   }
 
   .form-radio {
-    @apply h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300;
+    @apply h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300;
   }
 
   /* Cards */
@@ -78,7 +78,7 @@
 
   /* Navigation */
   .nav-link {
-    @apply inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors duration-200;
+    @apply inline-flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors duration-200;
   }
 
   .nav-link-active {
@@ -91,7 +91,7 @@
 
   /* Badges */
   .badge {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium;
   }
 
   .badge-primary {
@@ -124,11 +124,11 @@
   }
 
   .gradient-bg {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #2aa8a8 0%, #1e293b 100%);
   }
 
   .gradient-text {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #2aa8a8 0%, #1e293b 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -205,20 +205,20 @@
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: #f1f5f9;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 3px;
+  background: #cbd5e1;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #a1a1a1;
+  background: #94a3b8;
 }
 
 /* Loading animations */
