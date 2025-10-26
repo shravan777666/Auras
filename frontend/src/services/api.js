@@ -17,11 +17,27 @@ console.log('All import.meta.env keys:', Object.keys(import.meta.env));
 const isProduction = import.meta.env.PROD || import.meta.env.NODE_ENV === 'production';
 console.log('Is Production:', isProduction);
 
-// Base API configuration - Using actual backend port (5007 to match Vite proxy)
-const API_BASE_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, '') || 'http://localhost:5011/api';
-console.log('🔧 API Configuration:', {
+// Base API configuration - More robust handling for production vs development
+let API_BASE_URL = 'http://localhost:5011/api'; // Default fallback
+
+// Check for VITE_API_URL first
+if (import.meta.env.VITE_API_URL) {
+  API_BASE_URL = import.meta.env.VITE_API_URL.replace(/\/$/, '');
+  console.log('🔧 Using VITE_API_URL:', API_BASE_URL);
+} 
+// Check if we're in production and use the Render backend URL
+else if (isProduction) {
+  API_BASE_URL = 'https://auracare-backend.onrender.com/api';
+  console.log('🔧 Using production default URL:', API_BASE_URL);
+} 
+// Otherwise use development fallback
+else {
+  console.log('🔧 Using development fallback URL:', API_BASE_URL);
+}
+
+console.log('🔧 Final API Configuration:', {
   VITE_API_URL: import.meta.env.VITE_API_URL,
-  fallbackURL: 'http://localhost:5011/api',
+  isProduction: isProduction,
   finalAPIBaseURL: API_BASE_URL
 });
 
@@ -39,6 +55,9 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+// DEBUG: Add a check to verify the baseURL is set correctly
+console.log('🔧 Axios instance baseURL:', api.defaults.baseURL);
 
 // Track if we're already refreshing token to prevent multiple refresh calls
 let isRefreshing = false;
