@@ -11,20 +11,47 @@ print_status() {
 # Print build start message
 print_status "Starting AuraCares build process"
 
-# Check if we're in the right directory
+# Debug: Print current directory and contents
+print_status "Current directory: $(pwd)"
+print_status "Directory contents:"
+ls -la
+
+# Check if we're in the right directory by looking for package.json
 if [ ! -f "package.json" ]; then
   print_status "Error: package.json not found in current directory"
+  print_status "Looking for package.json in subdirectories..."
+  
+  # Try to find package.json in common locations
+  if [ -f "frontend/package.json" ]; then
+    print_status "Found package.json in frontend directory"
+    cd frontend
+  elif [ -f "backend/package.json" ]; then
+    print_status "Found package.json in backend directory"
+    cd backend
+  else
+    print_status "Could not find package.json in expected locations"
+    exit 1
+  fi
+fi
+
+# Debug: Print current directory after potential cd
+print_status "Working directory after setup: $(pwd)"
+print_status "Directory contents after setup:"
+ls -la
+
+# Check if this is frontend or backend by looking for specific files/directories
+if [ -d "src" ]; then
+  PROJECT_TYPE="frontend"
+  print_status "Detected as frontend project (found src directory)"
+elif [ -f "server.js" ]; then
+  PROJECT_TYPE="backend"
+  print_status "Detected as backend project (found server.js)"
+else
+  print_status "Could not determine project type"
   exit 1
 fi
 
-# Check if this is frontend or backend
-if [ -d "src" ]; then
-  PROJECT_TYPE="frontend"
-else
-  PROJECT_TYPE="backend"
-fi
-
-print_status "Detected project type: $PROJECT_TYPE"
+print_status "Confirmed project type: $PROJECT_TYPE"
 
 # Build based on project type
 if [ "$PROJECT_TYPE" = "frontend" ]; then
