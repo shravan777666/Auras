@@ -32,7 +32,9 @@ export default defineConfig(({ command, mode }) => {
     build: {
       outDir: 'dist',
       assetsDir: 'assets',
-      sourcemap: true
+      sourcemap: true,
+      // Ensure _redirects file is copied to dist
+      copyPublicDir: true
     },
     define: {
       // Properly define environment variables for the client
