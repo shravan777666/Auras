@@ -26,7 +26,7 @@ services:
     name: auracare-frontend
     env: static
     rootDir: frontend
-    buildCommand: npm install && npm run build
+    buildCommand: chmod +x build-for-render.sh && ./build-for-render.sh
     staticPublishPath: dist
     headers:
       - path: /*
