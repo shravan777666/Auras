@@ -11,11 +11,16 @@ const OAuthCallback = () => {
   const toastShownRef = useRef(false); // Ref to track if toast has been shown
 
   useEffect(() => {
+    console.log('OAuthCallback component mounted');
+    console.log('Current search params:', Object.fromEntries(searchParams.entries()));
+    
     const handleOAuthCallback = async () => {
       try {
         const token = searchParams.get('token');
         const userParam = searchParams.get('user');
         const error = searchParams.get('error');
+
+        console.log('Parsed params:', { token, userParam, error });
 
         if (error) {
           let errorMessage = 'Authentication failed';
@@ -36,18 +41,21 @@ const OAuthCallback = () => {
               errorMessage = 'Authentication failed. Please try again.';
           }
           
+          console.log('OAuth error:', errorMessage);
           toast.error(errorMessage);
           navigate('/login');
           return;
         }
 
         if (!token || !userParam) {
+          console.log('Missing token or user parameter');
           toast.error('Invalid authentication response');
           navigate('/login');
           return;
         }
 
         const user = JSON.parse(decodeURIComponent(userParam));
+        console.log('Parsed user:', user);
         
         // Store token and user info
         localStorage.setItem('auracare_token', token);
@@ -97,6 +105,7 @@ const OAuthCallback = () => {
       <div className="text-center">
         <LoadingSpinner />
         <p className="mt-4 text-gray-600">Processing your authentication...</p>
+        <p className="mt-2 text-sm text-gray-500">If you see this page for more than a few seconds, please check the browser console for errors.</p>
       </div>
     </div>
   );
