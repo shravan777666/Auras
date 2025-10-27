@@ -166,7 +166,7 @@ const PendingApprovals = () => {
                   {salon.documents?.salonLogo && (
                     <Box className="relative h-48 bg-gradient-to-br from-blue-100 to-purple-100">
                       <img
-                        src={salon.documents.salonLogo}
+                        src={salon.documents.salonLogo.startsWith('http') ? salon.documents.salonLogo : `${import.meta.env.VITE_API_URL || ''}${salon.documents.salonLogo}`}
                         alt={`${salon.salonName} Logo`}
                         className="w-full h-full object-cover"
                         onError={(e) => {
@@ -434,7 +434,7 @@ const PendingApprovals = () => {
                     </Typography>
                     <Box className="relative group">
                       <img
-                        src={selectedSalon.documents.salonLogo}
+                        src={selectedSalon.documents.salonLogo.startsWith('http') ? selectedSalon.documents.salonLogo : `${import.meta.env.VITE_API_URL || ''}${selectedSalon.documents.salonLogo}`}
                         alt="Salon Logo"
                         className="w-full max-w-md h-64 object-contain bg-white rounded-2xl shadow-lg border-4 border-gray-100 hover:shadow-xl transition-all duration-300 group-hover:scale-105"
                         onError={(e) => {
@@ -464,7 +464,7 @@ const PendingApprovals = () => {
                         <Grid item xs={12} sm={6} md={4} key={index}>
                           <Box className="relative group">
                             <img
-                              src={image}
+                              src={image.startsWith('http') ? image : `${import.meta.env.VITE_API_URL || ''}${image}`}
                               alt={`Salon Image ${index + 1}`}
                               className="w-full h-48 object-cover bg-white rounded-2xl shadow-lg border-4 border-gray-100 hover:shadow-xl transition-all duration-300 group-hover:scale-105"
                               onError={(e) => {

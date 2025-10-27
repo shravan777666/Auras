@@ -24,6 +24,15 @@ const ManageStaff = () => {
       try {
         setLoading(true);
         const data = await adminService.getAllStaff({ page, limit });
+        // Add debugging to see the actual data structure
+        console.log('Staff data received:', data);
+        // Log the first few staff members to check image URLs
+        if (data && data.length > 0) {
+          console.log('First staff member:', data[0]);
+          if (data[0].profilePicture) {
+            console.log('Profile picture URL:', data[0].profilePicture);
+          }
+        }
         setStaff(data);
       } catch (e) {
         console.error('Failed to load staff:', e);
@@ -60,7 +69,13 @@ const ManageStaff = () => {
               <div className="flex items-center space-x-4 mb-4">
                 <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
                   {profilePicture ? (
-                    <img src={profilePicture} alt={s.name} className="w-full h-full object-cover" />
+                    <img src={profilePicture.startsWith('http') ? profilePicture : `${import.meta.env.VITE_API_URL || ''}${profilePicture}`} alt={s.name} className="w-full h-full object-cover" onError={(e) => { 
+                      console.log('Profile picture failed to load:', profilePicture);
+                      console.log('Generated URL:', profilePicture.startsWith('http') ? profilePicture : `${import.meta.env.VITE_API_URL || ''}${profilePicture}`);
+                      e.target.style.display = 'none'; 
+                    }} onLoad={(e) => {
+                      console.log('Profile picture loaded successfully:', profilePicture);
+                    }} />
                   ) : (
                     <span className="text-2xl">👤</span>
                   )}
@@ -102,10 +117,18 @@ const ManageStaff = () => {
                   <div className="flex flex-col items-center">
                     {profilePicture ? (
                       <img
-                        src={profilePicture}
+                        src={profilePicture.startsWith('http') ? profilePicture : `${import.meta.env.VITE_API_URL || ''}${profilePicture}`}
                         alt="Profile"
                         className="w-20 h-20 object-cover rounded-lg cursor-pointer hover:opacity-80"
                         onClick={() => window.open(profilePicture, '_blank')}
+                        onError={(e) => { 
+                          console.log('Document profile picture failed to load:', profilePicture);
+                          console.log('Generated URL:', profilePicture.startsWith('http') ? profilePicture : `${import.meta.env.VITE_API_URL || ''}${profilePicture}`);
+                          e.target.style.display = 'none'; 
+                        }}
+                        onLoad={(e) => {
+                          console.log('Document profile picture loaded successfully:', profilePicture);
+                        }}
                       />
                     ) : (
                       <div className="w-20 h-20 bg-blue-50 rounded-lg flex items-center justify-center">🖼️</div>
@@ -118,10 +141,18 @@ const ManageStaff = () => {
                     {documents.governmentId ? (
                       getFileType(documents.governmentId) === 'image' ? (
                         <img
-                          src={documents.governmentId}
+                          src={documents.governmentId.startsWith('http') ? documents.governmentId : `${import.meta.env.VITE_API_URL || ''}${documents.governmentId}`}
                           alt="Government ID"
                           className="w-20 h-20 object-cover rounded-lg cursor-pointer hover:opacity-80"
                           onClick={() => window.open(documents.governmentId, '_blank')}
+                          onError={(e) => { 
+                            console.log('Government ID failed to load:', documents.governmentId);
+                            console.log('Generated URL:', documents.governmentId.startsWith('http') ? documents.governmentId : `${import.meta.env.VITE_API_URL || ''}${documents.governmentId}`);
+                            e.target.style.display = 'none'; 
+                          }}
+                          onLoad={(e) => {
+                            console.log('Government ID loaded successfully:', documents.governmentId);
+                          }}
                         />
                       ) : (
                         <div
@@ -180,11 +211,18 @@ const ManageStaff = () => {
                 <div className="bg-white rounded-xl border-2 border-gray-100 p-4 shadow-md">
                   <h3 className="font-semibold text-gray-800 mb-3 text-center">Profile Picture</h3>
                   <img
-                    src={profilePicture}
+                    src={profilePicture.startsWith('http') ? profilePicture : `${import.meta.env.VITE_API_URL || ''}${profilePicture}`}
                     alt="Profile"
                     className="w-full h-48 object-cover rounded-lg mb-3 cursor-pointer hover:opacity-80"
                     onClick={() => window.open(profilePicture, '_blank')}
-                    onError={(e) => { e.target.style.display = 'none'; }}
+                    onError={(e) => { 
+                      console.log('Modal profile picture failed to load:', profilePicture);
+                      console.log('Generated URL:', profilePicture.startsWith('http') ? profilePicture : `${import.meta.env.VITE_API_URL || ''}${profilePicture}`);
+                      e.target.style.display = 'none'; 
+                    }}
+                    onLoad={(e) => {
+                      console.log('Modal profile picture loaded successfully:', profilePicture);
+                    }}
                   />
                   <button
                     onClick={() => window.open(profilePicture, '_blank')}
@@ -200,10 +238,18 @@ const ManageStaff = () => {
                   <h3 className="font-semibold text-gray-800 mb-3 text-center">Government ID</h3>
                   {getFileType(documents.governmentId) === 'image' ? (
                     <img
-                      src={documents.governmentId}
+                      src={documents.governmentId.startsWith('http') ? documents.governmentId : `${import.meta.env.VITE_API_URL || ''}${documents.governmentId}`}
                       alt="Government ID"
                       className="w-full h-48 object-cover rounded-lg mb-3 cursor-pointer hover:opacity-80"
                       onClick={() => window.open(documents.governmentId, '_blank')}
+                      onError={(e) => { 
+                        console.log('Modal government ID failed to load:', documents.governmentId);
+                        console.log('Generated URL:', documents.governmentId.startsWith('http') ? documents.governmentId : `${import.meta.env.VITE_API_URL || ''}${documents.governmentId}`);
+                        e.target.style.display = 'none'; 
+                      }}
+                      onLoad={(e) => {
+                        console.log('Modal government ID loaded successfully:', documents.governmentId);
+                      }}
                     />
                   ) : (
                     <div className="w-full h-48 bg-red-50 rounded-lg flex flex-col items-center justify-center mb-3">
@@ -225,10 +271,18 @@ const ManageStaff = () => {
                   <h3 className="font-semibold text-gray-800 mb-3 text-center">Certificate {index + 1}</h3>
                   {getFileType(cert) === 'image' ? (
                     <img
-                      src={cert}
+                      src={cert.startsWith('http') ? cert : `${import.meta.env.VITE_API_URL || ''}${cert}`}
                       alt={`Certificate ${index + 1}`}
                       className="w-full h-48 object-cover rounded-lg mb-3 cursor-pointer hover:opacity-80"
                       onClick={() => window.open(cert, '_blank')}
+                      onError={(e) => { 
+                        console.log(`Certificate ${index + 1} failed to load:`, cert);
+                        console.log('Generated URL:', cert.startsWith('http') ? cert : `${import.meta.env.VITE_API_URL || ''}${cert}`);
+                        e.target.style.display = 'none'; 
+                      }}
+                      onLoad={(e) => {
+                        console.log(`Certificate ${index + 1} loaded successfully:`, cert);
+                      }}
                     />
                   ) : (
                     <div className="w-full h-48 bg-green-50 rounded-lg flex flex-col items-center justify-center mb-3">

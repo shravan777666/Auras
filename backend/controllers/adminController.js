@@ -1,4 +1,4 @@
-﻿﻿﻿﻿import Admin from '../models/Admin.js';
+﻿import Admin from '../models/Admin.js';
 import Salon from '../models/Salon.js';
 import User from '../models/User.js';
 import Staff from '../models/Staff.js';
@@ -24,12 +24,18 @@ const getRequestBaseUrl = (req) => {
   // Final fallback to localhost using the actual running port if provided
   return `http://localhost:${process.env.PORT || 5000}`;
 };
+
 // Helper function to convert file path to full URL
 const getFileUrl = (filePath, req) => {
   if (!filePath) return null;
 
-  // Normalize path separators
-  const normalizedPath = String(filePath).replace(/\\/g, '/');
+  // Normalize path separators (convert Windows backslashes to forward slashes)
+  let normalizedPath = String(filePath).replace(/\\/g, '/');
+
+  // Remove any "backend/" prefix if it exists to prevent double prefixing
+  if (normalizedPath.startsWith('backend/')) {
+    normalizedPath = normalizedPath.substring(7); // Remove "backend/" prefix
+  }
 
   // Compute base URL from request or env
   const baseUrl = getRequestBaseUrl(req);
@@ -632,7 +638,6 @@ export const approveStaff = asyncHandler(async (req, res) => {
   return successResponse(res, staff, 'Staff member approved successfully');
 });
 
-
 // Reject staff member
 export const rejectStaff = asyncHandler(async (req, res) => {
   console.log('=== REJECTING STAFF ===');
@@ -865,12 +870,12 @@ export const approveSalon = asyncHandler(async (req, res) => {
     const ownerName = salon.ownerName || 'Salon Owner';
     const result = await sendSalonApprovalEmail(salon.email, salon.salonName, ownerName);
     if (result.success) {
-      console.log('âœ… Salon approval email sent successfully to:', salon.email);
+      console.log('✅ Salon approval email sent successfully to:', salon.email);
     } else {
-      console.error('âŒ Failed to send salon approval email:', result.error);
+      console.error('❌ Failed to send salon approval email:', result.error);
     }
   } catch (emailError) {
-    console.error('âŒ Error sending salon approval email:', emailError);
+    console.error('❌ Error sending salon approval email:', emailError);
   }
 
   return successResponse(res, salon, 'Salon approved successfully');
@@ -899,12 +904,12 @@ export const rejectSalon = asyncHandler(async (req, res) => {
     const ownerName = salon.ownerName || 'Salon Owner';
     const result = await sendSalonRejectionEmail(salon.email, salon.salonName, ownerName, reason);
     if (result.success) {
-      console.log('âœ… Salon rejection email sent successfully to:', salon.email);
+      console.log('✅ Salon rejection email sent successfully to:', salon.email);
     } else {
-      console.error('âŒ Failed to send salon rejection email:', result.error);
+      console.error('❌ Failed to send salon rejection email:', result.error);
     }
   } catch (emailError) {
-    console.error('âŒ Error sending salon rejection email:', emailError);
+    console.error('❌ Error sending salon rejection email:', emailError);
   }
 
   return successResponse(res, salon, 'Salon rejected successfully');
@@ -1213,24 +1218,3 @@ export const getSalonExpenseBreakdown = asyncHandler(async (req, res) => {
     return errorResponse(res, 'Failed to retrieve salon expense breakdown data', 500);
   }
 });
-
-export default {
-  getDashboardStats,
-  getApprovedSalonsCount,
-  getAllSalons,
-  getAllSalonsDetails,
-  updateSalonStatus,
-  deleteSalon,
-  getAllStaff,
-  getPendingStaff,
-  approveStaff,
-  rejectStaff,
-  getAllCustomers,
-  getAllAppointments,
-  getPendingSalons,
-  approveSalon,
-  rejectSalon,
-  getSalonFinancialData,
-  getSalonRevenueTrend,
-  getSalonExpenseBreakdown
-};

@@ -140,7 +140,12 @@ const ManageStaff = () => {
               
               <div className="flex items-center mb-4">
                 {staff.profilePicture ? (
-                  <img src={staff.profilePicture} alt={staff.name} className="h-12 w-12 rounded-full object-cover mr-3 border" onError={(e)=>{e.currentTarget.style.display='none'}} />
+                  <img 
+                    src={staff.profilePicture.startsWith('http') ? staff.profilePicture : `${import.meta.env.VITE_API_URL || ''}${staff.profilePicture}`} 
+                    alt={staff.name} 
+                    className="h-12 w-12 rounded-full object-cover mr-3 border" 
+                    onError={(e)=>{e.currentTarget.style.display='none'}} 
+                  />
                 ) : (
                   <User className="h-8 w-8 text-indigo-600 mr-3" />
                 )}
@@ -190,7 +195,12 @@ const ManageStaff = () => {
                   {typeof staff.documents.governmentId === 'string' && staff.documents.governmentId.endsWith('.pdf') ? (
                     <a href={staff.documents.governmentId} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline text-sm">Open ID PDF</a>
                   ) : (
-                    <img src={staff.documents.governmentId} alt="Government ID" className="w-full max-h-40 object-contain rounded border" onError={(e)=>{e.currentTarget.style.display='none'}} />
+                    <img 
+                      src={staff.documents.governmentId.startsWith('http') ? staff.documents.governmentId : `${import.meta.env.VITE_API_URL || ''}${staff.documents.governmentId}`} 
+                      alt="Government ID" 
+                      className="w-full max-h-40 object-contain rounded border" 
+                      onError={(e)=>{e.currentTarget.style.display='none'}} 
+                    />
                   )}
                 </div>
               )}

@@ -32,6 +32,11 @@ export const salonService = {
     return response.data;
   },
 
+  async getServiceCategories() {
+    const response = await api.get('/service/categories');
+    return response.data;
+  },
+
   async getRevenueByService() {
     const response = await api.get('/salon/dashboard/revenue-by-service');
     return response.data?.data || [];
@@ -190,11 +195,6 @@ export const salonService = {
   async getServiceCatalog(params = {}) {
     const query = new URLSearchParams(params).toString();
     const response = await api.get(`/service/catalog${query ? `?${query}` : ''}`);
-    return response.data;
-  },
-
-  async getServiceCategories() {
-    const response = await api.get('/service/categories');
     return response.data;
   },
 

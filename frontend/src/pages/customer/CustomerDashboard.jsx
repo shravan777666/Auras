@@ -253,7 +253,7 @@ const CustomerDashboard = () => {
                     <div className="flex items-center">
                       {salon.profileImage || salon.salonImage ? (
                         <img 
-                          src={`${import.meta.env.VITE_API_URL || ''}${salon.profileImage || salon.salonImage}`} 
+                          src={(salon.profileImage || salon.salonImage).startsWith('http') ? (salon.profileImage || salon.salonImage) : `${import.meta.env.VITE_API_URL || ''}${salon.profileImage || salon.salonImage}`} 
                           alt={salon.salonName || salon.name} 
                           className="w-16 h-16 rounded-xl object-cover"
                           onError={(e) => {

@@ -70,7 +70,7 @@ const StaffDetailsCard = ({ staffDetails }) => {
               <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0">
                 {staff.profilePicture ? (
                   <img
-                    src={staff.profilePicture}
+                    src={staff.profilePicture.startsWith('http') ? staff.profilePicture : `${import.meta.env.VITE_API_URL || ''}${staff.profilePicture}`}
                     alt={staff.name}
                     className="w-12 h-12 rounded-full object-cover"
                   />

@@ -10,6 +10,7 @@ import {
   notFoundResponse,
   asyncHandler 
 } from '../utils/responses.js';
+import { sendRegistrationConfirmationEmail } from '../config/email.js';
 
 // Helper function to calculate real performance data for staff
 const getStaffPerformanceData = async (staffId, completedAppointments) => {
@@ -130,21 +131,44 @@ export const register = asyncHandler(async (req, res) => {
   // Create central User for authentication (this hashes password in User pre-save)
   const user = await User.create({ name, email, password, type: 'staff', setupCompleted: false });
 
-  // Create staff profile linked to user
-  const staffProfile = await Staff.create({ name, email, user: user._id });
+  // Create Staff profile (this hashes password in Staff pre-save)
+  const staff = await Staff.create({
+    name,
+    email,
+    user: user._id,
+    setupCompleted: false,
+  });
 
-  // Sign a token using the newly created user (pass the user object so payload has required claims)
   const token = signToken(user);
 
-  const safeUser = {
-    id: user._id.toString(),
-    name: user.name,
-    email: user.email,
-    type: user.type,
-    setupCompleted: user.setupCompleted,
-  };
+  // Send registration confirmation email
+  try {
+    const emailResult = await sendRegistrationConfirmationEmail(email, name, 'staff');
+    if (emailResult.success) {
+      console.log('✅ Registration confirmation email sent successfully to:', email);
+    } else {
+      console.error('❌ Failed to send registration confirmation email:', emailResult.error);
+    }
+  } catch (emailError) {
+    console.error('❌ Exception while sending registration confirmation email:', emailError);
+  }
 
-  return successResponse(res, { token, user: safeUser }, 'Staff registered successfully', 201);
+  res.status(201).json({
+    success: true,
+    token,
+    user: {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      type: user.type,
+      setupCompleted: user.setupCompleted,
+    },
+    staff: {
+      id: staff._id,
+      name: staff.name,
+      email: staff.email,
+    },
+  });
 });
 
 export const createStaff = asyncHandler(async (req, res) => {

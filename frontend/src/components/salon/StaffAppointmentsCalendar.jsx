@@ -309,7 +309,7 @@ const StaffAppointmentsCalendar = ({ embedded = false, onRefresh }) => {
   // Function to get customer profile image with fallback
   const getCustomerProfileImage = (customerProfilePic, customerName) => {
     if (customerProfilePic) {
-      return customerProfilePic;
+      return customerProfilePic.startsWith('http') ? customerProfilePic : `${import.meta.env.VITE_API_URL || ''}${customerProfilePic}`;
     }
     // Fallback to UI avatar if no profile picture
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(customerName || 'Customer')}&background=random&color=fff&rounded=true`;

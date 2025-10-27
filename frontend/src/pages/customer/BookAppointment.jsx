@@ -840,7 +840,12 @@ const BookAppointment = () => {
                   <Link key={s._id} to={`/customer/book-appointment/${s._id}`} className="border rounded-lg p-3 hover:shadow">
                     <div className="flex items-center mb-2">
                       {logo ? (
-                        <img src={logo} alt={s.salonName} className="h-10 w-10 rounded object-cover border mr-2" onError={(e)=>{e.currentTarget.style.display='none'}} />
+                        <img 
+                          src={logo.startsWith('http') ? logo : `${import.meta.env.VITE_API_URL || ''}${logo}`} 
+                          alt={s.salonName} 
+                          className="h-10 w-10 rounded object-cover border mr-2" 
+                          onError={(e)=>{e.currentTarget.style.display='none'}} 
+                        />
                       ) : (
                         <div className="h-10 w-10 bg-gray-100 rounded mr-2" />
                       )}

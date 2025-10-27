@@ -107,7 +107,7 @@ const ManageSalons = () => {
                   objectFit: 'cover',
                   borderRadius: 1
                 }}
-                image={document}
+                image={document.startsWith('http') ? document : `${import.meta.env.VITE_API_URL || ''}${document}`}
                 alt={label}
                 onError={handleImageError}
               />
@@ -564,7 +564,7 @@ const ManageSalons = () => {
           </IconButton>
           {selectedImage && (
             <img
-              src={selectedImage}
+              src={selectedImage.startsWith('http') ? selectedImage : `${import.meta.env.VITE_API_URL || ''}${selectedImage}`}
               alt="Full size view"
               style={{
                 maxWidth: '100%',
@@ -572,6 +572,7 @@ const ManageSalons = () => {
                 objectFit: 'contain',
                 display: 'block'
               }}
+              onError={(e) => { e.target.style.display = 'none'; }}
             />
           )}
         </Box>

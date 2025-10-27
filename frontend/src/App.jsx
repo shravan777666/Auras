@@ -38,6 +38,7 @@ const FinancialDashboard = React.lazy(() => import('./pages/salon/FinancialDashb
 const ClientRecommendationsPage = React.lazy(() => import('./pages/salon/ClientRecommendationsPage'))
 const SalonNotifications = React.lazy(() => import('./pages/salon/SalonNotifications'))
 const CancellationDashboard = React.lazy(() => import('./pages/salon/CancellationDashboard'))
+const Reports = React.lazy(() => import('./pages/salon/Reports'))
 
 // Staff Pages
 const StaffDashboard = React.lazy(() => import('./pages/staff/StaffDashboard'))
@@ -354,6 +355,16 @@ function App() {
               <ProtectedRoute allowedRoles={['salon']}>
                 <SetupRequiredRoute setupPath="/salon/setup">
                   <CancellationDashboard />
+                </SetupRequiredRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/salon/reports"
+            element={
+              <ProtectedRoute allowedRoles={['salon']}>
+                <SetupRequiredRoute setupPath="/salon/setup">
+                  <Reports />
                 </SetupRequiredRoute>
               </ProtectedRoute>
             }

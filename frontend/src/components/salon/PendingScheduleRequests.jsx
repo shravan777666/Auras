@@ -198,9 +198,10 @@ const PendingScheduleRequests = () => {
                     <div className="flex items-center">
                       {request.staffId?.profilePicture ? (
                         <img 
-                          src={request.staffId.profilePicture} 
+                          src={request.staffId.profilePicture.startsWith('http') ? request.staffId.profilePicture : `${import.meta.env.VITE_API_URL || ''}${request.staffId.profilePicture}`} 
                           alt={request.staffId.name}
                           className="h-10 w-10 rounded-full object-cover"
+                          onError={(e) => { e.target.style.display = 'none'; }}
                         />
                       ) : (
                         <div className="flex-shrink-0 h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">

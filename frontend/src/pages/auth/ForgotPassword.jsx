@@ -108,8 +108,39 @@ const ForgotPassword = () => {
       return;
     }
 
-    if (formData.newPassword.length < 6) {
-      toast.error('Password must be at least 6 characters long');
+    // Enhanced password validation
+    if (formData.newPassword.length < 8) {
+      toast.error('Password must be at least 8 characters long');
+      return;
+    }
+
+    if (formData.newPassword.length > 128) {
+      toast.error('Password is too long (maximum 128 characters)');
+      return;
+    }
+
+    // Check for password strength
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
+    if (!passwordRegex.test(formData.newPassword)) {
+      toast.error('Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character');
+      return;
+    }
+
+    // Check for common weak passwords
+    const weakPasswords = [
+      'password', '12345678', 'qwertyui', 'admin123', 'letmein1', 
+      'welcome1', 'monkey12', '123456789', 'password1', 'abc12345'
+    ];
+    
+    const lowerPassword = formData.newPassword.toLowerCase();
+    if (weakPasswords.some(weak => lowerPassword.includes(weak))) {
+      toast.error('Please choose a stronger password. Avoid common passwords like "password" or "12345678"');
+      return;
+    }
+
+    // Check if password is too simple (all same characters)
+    if (/^(.)\1+$/.test(formData.newPassword)) {
+      toast.error('Password cannot consist of the same character repeated');
       return;
     }
 
@@ -272,7 +303,44 @@ const ForgotPassword = () => {
     </form>
   );
 
-  const renderPasswordStep = () => (
+  const renderPasswordStep = () => {
+    // Password strength calculation
+    const getPasswordStrength = (password) => {
+      if (!password) return 0;
+      
+      let strength = 0;
+      if (password.length >= 8) strength += 1;
+      if (password.length >= 12) strength += 1;
+      if (/[A-Z]/.test(password)) strength += 1;
+      if (/[a-z]/.test(password)) strength += 1;
+      if (/[0-9]/.test(password)) strength += 1;
+      if (/[^A-Za-z0-9]/.test(password)) strength += 1;
+      
+      return Math.min(strength, 5);
+    };
+
+    const getPasswordStrengthLabel = (strength) => {
+      switch (strength) {
+        case 0:
+        case 1:
+          return { label: 'Very Weak', color: 'bg-red-500' };
+        case 2:
+          return { label: 'Weak', color: 'bg-orange-500' };
+        case 3:
+          return { label: 'Medium', color: 'bg-yellow-500' };
+        case 4:
+          return { label: 'Strong', color: 'bg-blue-500' };
+        case 5:
+          return { label: 'Very Strong', color: 'bg-green-500' };
+        default:
+          return { label: '', color: 'bg-gray-200' };
+      }
+    };
+
+    const strength = getPasswordStrength(formData.newPassword);
+    const strengthInfo = getPasswordStrengthLabel(strength);
+
+    return (
     <form onSubmit={handleResetPassword} className="space-y-6">
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -296,6 +364,24 @@ const ForgotPassword = () => {
             {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
           </button>
         </div>
+        
+        {/* Password strength indicator */}
+        {formData.newPassword && (
+          <div className="mt-2">
+            <div className="flex items-center">
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className={`h-2 rounded-full ${strengthInfo.color}`} 
+                  style={{ width: `${(strength / 5) * 100}%` }}
+                ></div>
+              </div>
+              <span className="ml-3 text-sm text-gray-600">{strengthInfo.label}</span>
+            </div>
+            <div className="mt-1 text-xs text-gray-500">
+              Password must be at least 8 characters with uppercase, lowercase, number, and special character
+            </div>
+          </div>
+        )}
       </div>
 
       <div>
@@ -338,7 +424,7 @@ const ForgotPassword = () => {
         Back to OTP
       </button>
     </form>
-  );
+  )};
 
   const getStepTitle = () => {
     switch (step) {

@@ -158,9 +158,10 @@ const PeerShiftSwapReview = ({ isOpen, onClose, onActionComplete }) => {
                 <div className="flex items-center gap-3">
                   {selectedRequest.staffId?.profilePicture ? (
                     <img 
-                      src={selectedRequest.staffId.profilePicture} 
+                      src={selectedRequest.staffId.profilePicture.startsWith('http') ? selectedRequest.staffId.profilePicture : `${import.meta.env.VITE_API_URL || ''}${selectedRequest.staffId.profilePicture}`} 
                       alt={selectedRequest.staffId.name}
                       className="w-10 h-10 rounded-full object-cover"
+                      onError={(e) => { e.target.style.display = 'none'; }}
                     />
                   ) : (
                     <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
@@ -308,9 +309,10 @@ const PeerShiftSwapReview = ({ isOpen, onClose, onActionComplete }) => {
                         <div className="flex items-center gap-3 mb-2">
                           {request.staffId?.profilePicture ? (
                             <img 
-                              src={request.staffId.profilePicture} 
+                              src={request.staffId.profilePicture.startsWith('http') ? request.staffId.profilePicture : `${import.meta.env.VITE_API_URL || ''}${request.staffId.profilePicture}`} 
                               alt={request.staffId.name}
                               className="w-8 h-8 rounded-full object-cover"
+                              onError={(e) => { e.target.style.display = 'none'; }}
                             />
                           ) : (
                             <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">

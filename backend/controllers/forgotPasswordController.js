@@ -323,6 +323,28 @@ export const resetPassword = async (req, res) => {
       });
     }
 
+    // Additional password validation
+    const weakPasswords = [
+      'password', '12345678', 'qwertyui', 'admin123', 'letmein1', 
+      'welcome1', 'monkey12', '123456789', 'password1', 'abc12345'
+    ];
+    
+    const lowerPassword = newPassword.toLowerCase();
+    if (weakPasswords.some(weak => lowerPassword.includes(weak))) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please choose a stronger password. Avoid common passwords.'
+      });
+    }
+
+    // Check if password is too simple (all same characters)
+    if (/^(.)\1+$/.test(newPassword)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password cannot consist of the same character repeated'
+      });
+    }
+
     // Verify OTP record exists and is used (verified) with error handling
     let otpRecord;
     try {

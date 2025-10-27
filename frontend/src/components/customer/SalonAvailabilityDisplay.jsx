@@ -147,7 +147,7 @@ const SalonAvailabilityDisplay = ({ salonId, selectedDate }) => {
               <div className="flex items-center">
                 {staffMember.staff.profilePicture ? (
                   <img 
-                    src={staffMember.staff.profilePicture} 
+                    src={staffMember.staff.profilePicture.startsWith('http') ? staffMember.staff.profilePicture : `${import.meta.env.VITE_API_URL || ''}${staffMember.staff.profilePicture}`} 
                     alt={staffMember.staff.name}
                     className="w-12 h-12 rounded-full object-cover mr-3"
                   />

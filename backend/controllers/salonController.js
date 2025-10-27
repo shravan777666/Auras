@@ -14,6 +14,7 @@ import {
   errorResponse,
   asyncHandler 
 } from '../utils/responses.js';
+import { sendRegistrationConfirmationEmail } from '../config/email.js';
 
 // Helper function to get the server base URL from the current request
 const getRequestBaseUrl = (req) => {
@@ -126,6 +127,18 @@ export const register = asyncHandler(async (req, res) => {
   });
 
   const token = signToken(newUser._id);
+
+  // Send registration confirmation email
+  try {
+    const emailResult = await sendRegistrationConfirmationEmail(email, name, 'salon');
+    if (emailResult.success) {
+      console.log('✅ Registration confirmation email sent successfully to:', email);
+    } else {
+      console.error('❌ Failed to send registration confirmation email:', emailResult.error);
+    }
+  } catch (emailError) {
+    console.error('❌ Exception while sending registration confirmation email:', emailError);
+  }
 
   res.status(201).json({
     success: true,

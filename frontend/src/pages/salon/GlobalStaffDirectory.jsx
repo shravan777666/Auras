@@ -154,7 +154,7 @@ const GlobalStaffDirectory = () => {
             {staff.profilePicture ? (
               <>
                 <img 
-                  src={staff.profilePicture} 
+                  src={staff.profilePicture.startsWith('http') ? staff.profilePicture : `${import.meta.env.VITE_API_URL || ''}${staff.profilePicture}`} 
                   alt={staff.name}
                   className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
                   onError={(e) => {

@@ -201,7 +201,7 @@ const SalonDetails = () => {
       <div className="relative h-64 bg-gradient-to-r from-primary-500 to-secondary-600">
         {salon.documents?.salonImages?.[0] ? (
           <img 
-            src={salon.documents.salonImages[0]} 
+            src={salon.documents.salonImages[0].startsWith('http') ? salon.documents.salonImages[0] : `${import.meta.env.VITE_API_URL || ''}${salon.documents.salonImages[0]}`} 
             alt={salon.salonName}
             className="w-full h-full object-cover opacity-70"
           />
@@ -312,7 +312,7 @@ const SalonDetails = () => {
                         <div key={staff._id} className="flex items-center border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                           {staff.profilePicture ? (
                             <img 
-                              src={staff.profilePicture} 
+                              src={staff.profilePicture.startsWith('http') ? staff.profilePicture : `${import.meta.env.VITE_API_URL || ''}${staff.profilePicture}`} 
                               alt={staff.name || 'Staff'}
                               className="h-16 w-16 rounded-full object-cover"
                               onError={(e) => { e.target.style.display = 'none'; }}
@@ -452,9 +452,10 @@ const SalonDetails = () => {
                   {salon.documents.salonImages.slice(0, 4).map((image, index) => (
                     <img
                       key={index}
-                      src={image}
+                      src={image.startsWith('http') ? image : `${import.meta.env.VITE_API_URL || ''}${image}`}
                       alt={`Salon ${index + 1}`}
                       className="h-24 w-full object-cover rounded-md"
+                      onError={(e) => { e.target.style.display = 'none'; }}
                     />
                   ))}
                 </div>

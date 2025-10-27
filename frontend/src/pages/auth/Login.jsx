@@ -188,13 +188,13 @@ const Login = () => {
                 variant="outlined"
                 fullWidth={true}
               />
-              <button
+              {/* <button
                 type="button"
                 className="w-full inline-flex justify-center items-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-200"
               >
                 <User className="h-5 w-5 text-gray-500 mr-2" />
                 Guest
-              </button>
+              </button> */}
             </div>
           </form>
 

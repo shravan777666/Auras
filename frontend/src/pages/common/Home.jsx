@@ -322,7 +322,12 @@ const Home = () => {
               {featuredSalons.map((salon) => (
                 <div key={salon.id} className="bg-white rounded-2xl shadow-lg overflow-hidden transform hover:-translate-y-2 transition-all duration-300 hover:shadow-xl">
                   <div className="relative">
-                    <img src={salon.image} alt={salon.name} className="h-48 w-full object-cover" />
+                    <img 
+                      src={salon.image.startsWith('http') ? salon.image : `${import.meta.env.VITE_API_URL || ''}${salon.image}`} 
+                      alt={salon.name} 
+                      className="h-48 w-full object-cover" 
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
                     <div className="absolute top-4 right-4 bg-white rounded-full px-3 py-1 flex items-center shadow-md">
                       <Star className="h-4 w-4 text-yellow-400 fill-current mr-1" />
                       <span className="text-sm font-bold">{salon.rating}</span>

@@ -95,7 +95,7 @@ const SalaryConfigurationModal = ({ staff, isOpen, onClose, onSave }) => {
         <div className="p-4">
           {staff.profilePicture ? (
             <img 
-              src={staff.profilePicture} 
+              src={staff.profilePicture.startsWith('http') ? staff.profilePicture : `${import.meta.env.VITE_API_URL || ''}${staff.profilePicture}`} 
               alt={staff.name} 
               className="h-16 w-16 rounded-full object-cover mx-auto mb-4 border"
               onError={(e) => { e.currentTarget.style.display = 'none'; }}

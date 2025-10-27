@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Image CORS Fix</title>
+</head>
+<body>
+    <h1>Test Image CORS Fix</h1>
+    <img src="http://localhost:5011/uploads/staff/profilePicture-1758261052162.jpg" 
+         alt="Test Image" 
+         style="max-width: 300px;"
+         onload="console.log('Image loaded successfully')"
+         onerror="console.log('Image failed to load')">
+    <p>If you can see this image, the CORS fix is working!</p>
+    
+    <script>
+        // Test CORS headers
+        fetch('http://localhost:5011/uploads/staff/profilePicture-1758261052162.jpg', {
+            method: 'HEAD'
+        })
+        .then(response => {
+            console.log('CORS headers:', {
+                'Access-Control-Allow-Origin': response.headers.get('Access-Control-Allow-Origin'),
+                'Cross-Origin-Resource-Policy': response.headers.get('Cross-Origin-Resource-Policy')
+            });
+        })
+        .catch(err => console.error('CORS test failed:', err));
+    </script>
+</body>
+</html>

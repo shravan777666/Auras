@@ -625,6 +625,138 @@ export const sendStaffApprovalEmail = async (staffEmail, staffName, salonName, p
   }
 };
 
+// Send customer registration confirmation email
+export const sendRegistrationConfirmationEmail = async (email, name, userType) => {
+  try {
+    // Validate inputs
+    if (!email || !name || !userType) {
+      throw new Error('Missing required parameters: email, name, or userType');
+    }
+
+    // Check email configuration
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      throw new Error('Email configuration missing: EMAIL_USER or EMAIL_PASS not set');
+    }
+
+    const transporter = createTransporter();
+    
+    // Verify transporter configuration
+    try {
+      await transporter.verify();
+    } catch (verifyError) {
+      console.error('Email transporter verification failed:', verifyError);
+      throw new Error('Email service configuration error');
+    }
+    
+    // Determine user type label for the email
+    const userTypeLabels = {
+      'customer': 'Customer',
+      'salon': 'Salon Owner',
+      'staff': 'Beauty Professional',
+      'admin': 'Administrator'
+    };
+    
+    const userTypeLabel = userTypeLabels[userType] || userType;
+    
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: `Welcome to AuraCare - ${userTypeLabel} Account Created Successfully!`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center;">
+            <h1 style="color: white; margin: 0;">AuraCare</h1>
+            <p style="color: white; margin: 5px 0;">Beauty Salon Management Platform</p>
+          </div>
+          
+          <div style="padding: 30px; background-color: #f9f9f9;">
+            <h2 style="color: #333; margin-bottom: 20px;">Welcome to AuraCare!</h2>
+            
+            <p style="color: #666; line-height: 1.6;">
+              Hi ${name},
+            </p>
+            
+            <p style="color: #666; line-height: 1.6;">
+              Congratulations! Your ${userTypeLabel} account has been successfully created on AuraCare.
+            </p>
+            
+            <div style="background: #e8f5e9; border-left: 4px solid #4caf50; padding: 15px; margin: 20px 0;">
+              <p style="color: #2e7d32; margin: 0; font-weight: bold;">
+                🎉 Account Created Successfully!
+              </p>
+            </div>
+            
+            <p style="color: #666; line-height: 1.6;">
+              ${
+                userType === 'customer' 
+                  ? 'You can now browse salons, book appointments, and manage your beauty services with ease.'
+                  : userType === 'salon'
+                  ? 'You can now manage your salon, staff, services, and appointments through your dashboard.'
+                  : userType === 'staff'
+                  ? 'You can now manage your schedule and provide services to clients through your dashboard.'
+                  : 'You have administrative access to manage the entire platform.'
+              }
+            </p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/login" 
+                 style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                        color: white; 
+                        padding: 12px 30px; 
+                        text-decoration: none; 
+                        border-radius: 5px; 
+                        display: inline-block;
+                        font-weight: bold;">
+                Log In to Your Account
+              </a>
+            </div>
+            
+            <p style="color: #666; line-height: 1.6;">
+              If you have any questions or need assistance, please don't hesitate to contact our support team.
+            </p>
+            
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+              <p style="color: #999; font-size: 12px; margin: 0;">
+                This is an automated email. Please do not reply to this message.
+              </p>
+            </div>
+          </div>
+          
+          <div style="background: #333; padding: 15px; text-align: center;">
+            <p style="color: #999; margin: 0; font-size: 12px;">
+              © 2024 AuraCare. All rights reserved.
+            </p>
+          </div>
+        </div>
+      `
+    };
+
+    const result = await transporter.sendMail(mailOptions);
+    
+    if (!result || !result.messageId) {
+      throw new Error('Failed to send email - no message ID returned');
+    }
+    
+    console.log('Registration confirmation email sent successfully:', result.messageId);
+    console.log('Email sent from:', process.env.EMAIL_USER);
+    console.log('Email sent to:', email);
+    return { success: true, messageId: result.messageId };
+    
+  } catch (error) {
+    console.error('Error sending registration confirmation email:', error);
+    
+    // Provide more specific error messages
+    if (error.code === 'EAUTH') {
+      return { success: false, error: 'Email authentication failed. Please check email credentials.' };
+    } else if (error.code === 'ECONNECTION') {
+      return { success: false, error: 'Failed to connect to email service. Please try again later.' };
+    } else if (error.code === 'EMESSAGE') {
+      return { success: false, error: 'Invalid email message format.' };
+    } else {
+      return { success: false, error: error.message || 'Unknown email sending error' };
+    }
+  }
+};
 
 // Generate 6-digit OTP
 export const generateOTP = () => {

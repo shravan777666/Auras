@@ -92,7 +92,7 @@ app.use((req, res, next) => {
   // Allow all origins for development - in production, you might want to be more specific
   res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma, Expires, If-Modified-Since, If-None-Match');
   res.header('Access-Control-Allow-Credentials', 'true');
   
   // Handle preflight requests
@@ -108,7 +108,7 @@ app.use((req, res, next) => {
 app.options('*', (req, res) => {
   res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma, Expires, If-Modified-Since, If-None-Match');
   res.header('Access-Control-Allow-Credentials', 'true');
   res.status(200).end();
 });
@@ -129,11 +129,14 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       // Allow images from same-origin, data URLs, and other http/https origins (dev backends)
-      imgSrc: ["'self'", "data:", "blob:", "https:", "http:"],
+      imgSrc: ["'self'", "data:", "blob:", "https:", "http:", "*"],
       scriptSrc: ["'self'", "https://apis.google.com"],
+      connectSrc: ["'self'", "https:", "http:"],
+      frameSrc: ["'self'", "https://apis.google.com"]
     },
   },
-  crossOriginEmbedderPolicy: false
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
 // ========== END CORS CONFIGURATION ==========
@@ -237,8 +240,9 @@ import fs from 'fs';
 
 // __filename and __dirname are already defined at the top
 
-// Ensure uploads directories exist in the correct location (project root)
-const uploadsDir = path.join(__dirname, '..', 'uploads');
+// Ensure uploads directories exist in the correct location (backend directory)
+const uploadsDir = path.join(__dirname, 'uploads');
+
 try {
   const requiredDirs = [
     uploadsDir,
@@ -248,7 +252,9 @@ try {
     path.join(uploadsDir, 'licenses')
   ];
   requiredDirs.forEach((dir) => {
-    try { fs.mkdirSync(dir, { recursive: true }); } catch (_) {}
+    try { 
+      fs.mkdirSync(dir, { recursive: true }); 
+    } catch (_) {}
   });
 } catch (_) {}
 
@@ -256,14 +262,26 @@ try {
 app.use('/uploads', (req, res, next) => {
   // Allow all origins for development/static assets
   res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma, Expires, If-Modified-Since, If-None-Match');
+  res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.header('Cross-Origin-Embedder-Policy', 'require-corp');
+  res.header('Cross-Origin-Opener-Policy', 'same-origin');
+  
   // Handle preflight requests
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
   }
   next();
-}, express.static(path.join(__dirname, '..', 'uploads'), {
+}, express.static(path.join(__dirname, 'uploads'), {
   setHeaders: (res, filePath) => {
+    // Set CORS headers for static files
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.set('Cross-Origin-Embedder-Policy', 'require-corp');
+    res.set('Cross-Origin-Opener-Policy', 'same-origin');
+    
     // Set cache control for images
     if (/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(filePath)) {
       res.set('Cache-Control', 'public, max-age=86400');
@@ -295,6 +313,17 @@ app.get('/health', (req, res) => {
     environment: process.env.NODE_ENV,
     version: '1.0.0'
   });
+});
+
+// Test endpoint to check staff data
+app.get('/test-staff', async (req, res) => {
+  try {
+    const adminController = await import('./controllers/adminController.js');
+    const staff = await adminController.default.getAllStaff(req, res);
+    return res.status(200).json({ staff });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
 });
 
 // Root URL → return API information instead of redirecting
@@ -388,6 +417,18 @@ const DEFAULT_PORT = parseInt(process.env.PORT, 10) || 5011;
 console.log('🔧 DEFAULT_PORT calculated:', DEFAULT_PORT);
 
 const startServer = (port, attemptsLeft = 5) => {
+  // Validate port is within valid range
+  if (port < 0 || port > 65535) {
+    console.error(`❌ Invalid port number: ${port}. Port must be between 0 and 65535.`);
+    if (attemptsLeft > 0) {
+      console.log(`🔄 Trying default port 5011...`);
+      return startServer(5011, attemptsLeft - 1);
+    } else {
+      console.error('❌ No valid port found. Exiting...');
+      process.exit(1);
+    }
+  }
+  
   console.log(`🔧 Attempting to start server on port ${port}`);
   const server = app.listen(port, '0.0.0.0');
 
@@ -403,8 +444,15 @@ const startServer = (port, attemptsLeft = 5) => {
     if (err.code === 'EADDRINUSE') {
       console.error(`❌ Port ${port} is already in use.`);
       if (attemptsLeft > 0) {
-        console.log(`🔄 Trying port ${port + 1}...`);
-        server.close(() => startServer(port + 1, attemptsLeft - 1));
+        // Ensure the next port is within valid range
+        const nextPort = port + 1;
+        if (nextPort <= 65535) {
+          console.log(`🔄 Trying port ${nextPort}...`);
+          server.close(() => startServer(nextPort, attemptsLeft - 1));
+        } else {
+          console.error('❌ No available ports found within valid range. Exiting...');
+          process.exit(1);
+        }
       } else {
         console.error('❌ No available ports found. Exiting...');
         process.exit(1);
@@ -416,8 +464,8 @@ const startServer = (port, attemptsLeft = 5) => {
   });
 };
 
-// Start the server - Use environment PORT or 10000 for Render
-const PORT = process.env.PORT || 10000;
+// Start the server - Use environment PORT or 5011 as default
+const PORT = process.env.PORT || 5011;
 startServer(PORT);
 
 // Start background jobs

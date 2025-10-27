@@ -3,7 +3,7 @@ import User from '../models/User.js';
 import { successResponse, errorResponse } from '../utils/responses.js';
 import bcrypt from 'bcryptjs';
 import passport from 'passport';
-
+import { sendRegistrationConfirmationEmail } from '../config/email.js';
 
 // Helper to sign JWT with essential user properties
 const signToken = (user) => {
@@ -123,6 +123,18 @@ export const register = async (req, res) => {
       ...(user.type === 'salon' && { approvalStatus: 'pending' }), // Salons are pending on registration
       ...(user.type === 'staff' && { approvalStatus: 'pending' }), // Staff are pending on registration
     };
+
+    // Send registration confirmation email
+    try {
+      const emailResult = await sendRegistrationConfirmationEmail(email, name, userType);
+      if (emailResult.success) {
+        console.log('✅ Registration confirmation email sent successfully to:', email);
+      } else {
+        console.error('❌ Failed to send registration confirmation email:', emailResult.error);
+      }
+    } catch (emailError) {
+      console.error('❌ Exception while sending registration confirmation email:', emailError);
+    }
 
     return successResponse(res, { token, user: safeUser }, 'Registered successfully');
   } catch (err) {

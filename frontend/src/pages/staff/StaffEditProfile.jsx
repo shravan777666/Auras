@@ -35,7 +35,11 @@ const StaffEditProfile = () => {
         });
         // Set the existing profile picture preview
         if (data.profilePicture) {
-          setProfilePicturePreview(data.profilePicture);
+          setProfilePicturePreview(
+            data.profilePicture.startsWith('http') 
+              ? data.profilePicture 
+              : `${import.meta.env.VITE_API_URL || ''}${data.profilePicture}`
+          );
         }
       } catch (err) {
         console.error('Error fetching profile:', err);

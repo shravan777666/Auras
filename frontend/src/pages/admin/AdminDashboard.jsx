@@ -59,7 +59,7 @@ const DocumentCard = ({ title, url, type, bgColor, buttonColor }) => {
       return (
         <>
           <img
-            src={url}
+            src={url.startsWith('http') ? url : `${import.meta.env.VITE_API_URL || ''}${url}`}
             alt={title}
             className="w-full h-48 object-cover rounded-lg mb-3 cursor-pointer hover:opacity-80 transition-opacity"
             onClick={openFullScreen}
@@ -70,10 +70,11 @@ const DocumentCard = ({ title, url, type, bgColor, buttonColor }) => {
             <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[100]" onClick={() => setIsFullScreenOpen(false)}>
               <div className="relative max-w-[90vw] max-h-[90vh]">
                 <img
-                  src={url}
+                  src={url.startsWith('http') ? url : `${import.meta.env.VITE_API_URL || ''}${url}`}
                   alt={title}
                   className="max-w-full max-h-full object-contain"
                   onClick={(e) => e.stopPropagation()}
+                  onError={(e) => { e.target.style.display = 'none'; }}
                 />
                 <button
                   onClick={() => setIsFullScreenOpen(false)}
@@ -778,7 +779,7 @@ const AdminDashboard = () => {
                           <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
                             {staff.profilePicture ? (
                               <img
-                                src={staff.profilePicture}
+                                src={staff.profilePicture.startsWith('http') ? staff.profilePicture : `${import.meta.env.VITE_API_URL || ''}${staff.profilePicture}`}
                                 alt={staff.name || 'Profile'}
                                 className="w-full h-full object-cover"
                                 onError={(e) => { e.currentTarget.style.display = 'none'; }}
