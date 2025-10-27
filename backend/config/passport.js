@@ -45,8 +45,10 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       {
         clientID: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        callbackURL: process.env.GOOGLE_CALLBACK_URL || `https://auracare-backend.onrender.com/api/auth/google/callback`,
-        passReqToCallback: true // This allows us to access req.query.role
+        callbackURL: process.env.NODE_ENV === 'production' 
+        ? "https://auracare-backend.onrender.com/api/auth/google/callback"
+        : "http://localhost:5011/api/auth/google/callback",
+        passReqToCallback: true
       },
       async (req, accessToken, refreshToken, profile, done) => {
         try {
