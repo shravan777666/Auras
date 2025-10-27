@@ -30,76 +30,62 @@ const Login = () => {
     if (!user) return '/login';
     switch (user.type) {
       case 'admin': return '/admin/dashboard';
-      case 'salon': return user.setupCompleted ? '/salon/dashboard' : '/salon/setup';
-      case 'staff': return user.setupCompleted ? '/staff/dashboard' : '/staff/setup';
+      case 'salon': 
+        if (user.approvalStatus === 'pending') return '/salon/waiting-approval';
+        if (user.approvalStatus === 'rejected') return '/unauthorized';
+        return user.setupCompleted ? '/salon/dashboard' : '/salon/setup';
+      case 'staff':
+        if (user.approvalStatus === 'pending') return '/staff/waiting-approval';
+        if (user.approvalStatus === 'rejected') return '/unauthorized';
+        return user.setupCompleted ? '/staff/dashboard' : '/staff/setup';
       case 'customer': return '/customer/dashboard';
       default: return '/login';
     }
   };
 
-  // Handles form submission
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // Don't send userType since backend will determine it automatically
-      const data = await login(formData);
-      toast.success(`Welcome back, ${data.user.name || 'User'}!`);
-      const redirectPath = getRedirectPath(data.user);
-      navigate(redirectPath, { replace: true });
+      const response = await login(formData.email, formData.password);
+      const redirectPath = getRedirectPath(response.user);
+      navigate(redirectPath);
+      toast.success(`Welcome back, ${response.user.name}!`);
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Login failed. Please check your credentials.');
       console.error('Login error:', error);
+      toast.error(error.message || 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left side - Background image with overlay */}
-      <div className="hidden lg:flex lg:w-1/2 relative">
-        <div 
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ 
-            backgroundImage: "url('https://images.unsplash.com/photo-1527049979850-0559a57765c1?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80')",
-            backgroundBlendMode: 'overlay'
-          }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-900/80 to-pink-700/80" />
-        <div className="relative z-10 flex flex-col justify-center items-center text-white p-12">
-          <div className="mb-8">
-            <div className="bg-white/20 p-4 rounded-full backdrop-blur-sm inline-block">
-              <Sparkles className="h-12 w-12 text-white" />
-            </div>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8">
+        <div className="text-center">
+          <div className="mx-auto h-16 w-16 rounded-full bg-gradient-to-r from-purple-600 to-pink-500 flex items-center justify-center mb-4">
+            <Sparkles className="h-8 w-8 text-white" />
           </div>
-          <h2 className="mt-6 text-3xl font-bold text-gray-900">Sign in to Account</h2>
+          <h2 className="mt-2 text-3xl font-extrabold text-gray-900">
+            Welcome back
+          </h2>
           <p className="mt-2 text-sm text-gray-600">
-            Welcome back! Please enter your details
+            Sign in to your account
           </p>
         </div>
-      </div>
 
-      {/* Right side - Login form */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-white">
-        <div className="max-w-md w-full space-y-8">
-          <div>
-            <div className="flex justify-center mb-6">
-              <div className="bg-gradient-to-r from-purple-600 to-pink-500 p-3 rounded-full">
-                <Sparkles className="h-8 w-8 text-white" />
-              </div>
-            </div>
-            <h2 className="mt-6 text-3xl font-bold text-gray-900 text-center">Sign in to Account</h2>
-            <p className="mt-2 text-sm text-gray-600 text-center">
-              Welcome back! Please enter your details
-            </p>
-          </div>
-
-          {/* Form */}
+        <div className="bg-white py-8 px-4 shadow-xl rounded-lg sm:px-10 transition-all duration-300 hover:shadow-2xl">
           <form className="space-y-6" onSubmit={handleSubmit}>
-            <div className="space-y-5">
-              {/* Email Field with Floating Label */}
+            {/* Email Field */}
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                Email address
+              </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Mail className="h-5 w-5 text-gray-400" />
@@ -110,30 +96,23 @@ const Login = () => {
                   type="email"
                   autoComplete="email"
                   required
-                  className={`block w-full pl-10 pr-3 py-4 border rounded-lg focus:ring-2 focus:outline-none transition-all duration-200 ${
-                    focusedField === 'email' || formData.email 
-                      ? 'border-purple-500 focus:ring-purple-200 pt-6 pb-2' 
-                      : 'border-gray-300 focus:border-purple-500 focus:ring-purple-100'
-                  }`}
-                  placeholder=" "
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  onChange={handleChange}
                   onFocus={() => setFocusedField('email')}
                   onBlur={() => setFocusedField('')}
+                  className={`block w-full pl-10 pr-3 py-3 border ${
+                    focusedField === 'email' ? 'border-purple-500 ring-2 ring-purple-200' : 'border-gray-300'
+                  } rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm transition-all duration-200`}
+                  placeholder="you@example.com"
                 />
-                <label 
-                  htmlFor="email" 
-                  className={`absolute left-10 transition-all duration-200 pointer-events-none ${
-                    focusedField === 'email' || formData.email
-                      ? 'top-2 text-xs text-purple-600'
-                      : 'top-1/2 -translate-y-1/2 text-gray-500'
-                  }`}
-                >
-                  Email address
-                </label>
               </div>
+            </div>
 
-              {/* Password Field with Floating Label */}
+            {/* Password Field */}
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                Password
+              </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Lock className="h-5 w-5 text-gray-400" />
@@ -141,54 +120,39 @@ const Login = () => {
                 <input
                   id="password"
                   name="password"
-                  type={showPassword ? 'text' : 'password'}
+                  type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
                   required
-                  className={`block w-full pl-10 pr-10 py-4 border rounded-lg focus:ring-2 focus:outline-none transition-all duration-200 ${
-                    focusedField === 'password' || formData.password 
-                      ? 'border-purple-500 focus:ring-purple-200 pt-6 pb-2' 
-                      : 'border-gray-300 focus:border-purple-500 focus:ring-purple-100'
-                  }`}
-                  placeholder=" "
                   value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  onChange={handleChange}
                   onFocus={() => setFocusedField('password')}
                   onBlur={() => setFocusedField('')}
+                  className={`block w-full pl-10 pr-10 py-3 border ${
+                    focusedField === 'password' ? 'border-purple-500 ring-2 ring-purple-200' : 'border-gray-300'
+                  } rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm transition-all duration-200`}
+                  placeholder="••••••••"
                 />
-                <label 
-                  htmlFor="password" 
-                  className={`absolute left-10 transition-all duration-200 pointer-events-none ${
-                    focusedField === 'password' || formData.password
-                      ? 'top-2 text-xs text-purple-600'
-                      : 'top-1/2 -translate-y-1/2 text-gray-500'
-                  }`}
-                >
-                  Password
-                </label>
                 <button
                   type="button"
                   className="absolute inset-y-0 right-0 pr-3 flex items-center"
                   onClick={() => setShowPassword(!showPassword)}
                 >
-                  {showPassword ? <EyeOff className="h-5 w-5 text-gray-400" /> : <Eye className="h-5 w-5 text-gray-400" />}
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                  ) : (
+                    <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                  )}
                 </button>
               </div>
             </div>
 
-            {/* Remember & Forgot */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <input 
-                  id="remember-me" 
-                  name="remember-me" 
-                  type="checkbox" 
-                  className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">Remember me</label>
+            {/* Forgot Password Link */}
+            <div className="flex items-center justify-end">
+              <div className="text-sm">
+                <Link to="/forgot-password" className="font-medium text-purple-600 hover:text-purple-500">
+                  Forgot your password?
+                </Link>
               </div>
-              <Link to="/forgot-password" className="text-sm text-purple-600 hover:text-purple-500 font-medium">
-                Forgot password?
-              </Link>
             </div>
 
             {/* Submit Button */}

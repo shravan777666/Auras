@@ -13,9 +13,18 @@ const GoogleOAuthButton = ({ role = 'customer', variant = "outlined", fullWidth 
       role
     });
     
+    // Check if apiUrl is defined
+    if (!apiUrl) {
+      console.error('VITE_API_URL is not defined. Using fallback URL.');
+      // Fallback to production URL
+      const authUrl = `https://auracare-backend.onrender.com/api/auth/google?role=${role}`;
+      console.log('Using fallback Google OAuth URL:', authUrl);
+      window.location.href = authUrl;
+      return;
+    }
+    
     // Construct the OAuth URL
     // The OAuth endpoint is at /api/auth/google relative to the API base URL
-    // Fix: Use apiUrl directly without replacing '/api'
     const authUrl = `${apiUrl}/auth/google?role=${role}`;
     
     console.log('Constructed Google OAuth URL:', authUrl);
