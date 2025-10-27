@@ -364,7 +364,10 @@ export const googleCallback = async (req, res) => {
     
     // Redirect to frontend OAuth callback with token and user info
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3008';
-    const redirectUrl = `${frontendUrl}/auth/callback?token=${token}&user=${encodeURIComponent(JSON.stringify(userData))}`;
+    
+    // Create a simpler redirect URL without complex query parameters
+    // This should help avoid issues with URL encoding and routing
+    const redirectUrl = `${frontendUrl}/auth/callback?token=${token}&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name)}&type=${user.type}`;
     
     console.log('Redirecting to frontend callback URL:', redirectUrl);
     res.redirect(redirectUrl);

@@ -30,9 +30,11 @@ services:
       - key: VITE_API_URL
         value: https://auracare-backend.onrender.com/api
     routes:
+      # Specific routes should come first
       - type: rewrite
         source: /auth/callback
         destination: /index.html
+      # Generic catch-all route should come last
       - type: rewrite
         source: /*
         destination: /index.html

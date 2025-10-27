@@ -234,10 +234,6 @@ const SalonDashboard = () => {
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [revenueData, setRevenueData] = useState([]);
-  const [totalRevenue, setTotalRevenue] = useState(0);
-  const [chartType, setChartType] = useState('pie');
-  const [loadingRevenue, setLoadingRevenue] = useState(true);
   const [expenses, setExpenses] = useState([]);
   const [totalExpenses, setTotalExpenses] = useState(0);
   const [activeTab, setActiveTab] = useState('overview'); // New state for navigation tabs
@@ -305,32 +301,6 @@ const SalonDashboard = () => {
     }
   };
 
-  const fetchRevenueData = async () => {
-    try {
-      setLoadingRevenue(true);
-      const data = await salonService.getRevenueByService();
-      console.log('Revenue data fetched:', data); // Debug log
-      // Normalize expected shape: [{ service, total_revenue, transaction_count, percentage }]
-      const normalized = Array.isArray(data)
-        ? data.map((d) => ({
-            service: d.service || d._id || 'Unknown',
-            total_revenue: Number(d.total_revenue ?? d.total ?? 0),
-            transaction_count: Number(d.transaction_count ?? d.count ?? 0),
-            percentage: Number(d.percentage ?? 0),
-          }))
-        : [];
-      console.log('Normalized revenue data:', normalized); // Debug log
-      setRevenueData(normalized);
-      setTotalRevenue(normalized.reduce((sum, i) => sum + (i.total_revenue || 0), 0));
-    } catch (e) {
-      console.warn('Failed to load revenue data:', e?.message || e);
-      setRevenueData([]);
-      setTotalRevenue(0);
-    } finally {
-      setLoadingRevenue(false);
-    }
-  };
-
   const fetchPendingAppointments = async () => {
     try {
       setLoadingAppointments(true);
@@ -376,13 +346,6 @@ const SalonDashboard = () => {
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
-
-  useEffect(() => {
-    fetchRevenueData();
-    // Optional auto-refresh every 5 minutes to reduce API calls
-    const interval = setInterval(fetchRevenueData, 300000);
-    return () => clearInterval(interval);
   }, []);
 
   // Fetch pending appointments for upcoming section with auto-refresh
@@ -587,163 +550,6 @@ const SalonDashboard = () => {
 
         {/* Payroll Summary Table */}
         <PayrollSummaryTable />
-
-        {/* Revenue Breakdown (Services vs Revenue) */}
-        <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">Revenue Breakdown</h2>
-              <p className="text-sm text-gray-500">By service (Total: ₹{totalRevenue.toLocaleString()})</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setChartType('pie')}
-                className={`px-4 py-2 text-sm rounded-lg flex items-center gap-2 transition ${
-                  chartType === 'pie' 
-                    ? 'bg-blue-600 text-white shadow-md' 
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                <PieChart className="h-4 w-4" /> Pie
-              </button>
-              <button
-                onClick={() => setChartType('bar')}
-                className={`px-4 py-2 text-sm rounded-lg flex items-center gap-2 transition ${
-                  chartType === 'bar' 
-                    ? 'bg-blue-600 text-white shadow-md' 
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                <BarChart3 className="h-4 w-4" /> Bar
-              </button>
-              <button
-                onClick={fetchRevenueData}
-                disabled={loadingRevenue}
-                className="px-4 py-2 text-sm rounded-lg flex items-center gap-2 bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 transition"
-              >
-                <RefreshCw className={`h-4 w-4 ${loadingRevenue ? 'animate-spin' : ''}`} />
-                {loadingRevenue ? 'Refreshing' : 'Refresh'}
-              </button>
-            </div>
-          </div>
-
-          <div className="h-96">
-            {loadingRevenue ? (
-              <div className="h-full flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-              </div>
-            ) : revenueData.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-gray-500">
-                <BarChart2 className="h-16 w-16 mb-4 text-gray-300" />
-                <p className="text-lg font-medium">No revenue data yet</p>
-                <p className="text-sm">Start providing services to see revenue breakdown</p>
-              </div>
-            ) : (
-              chartType === 'pie' ? (
-                <Pie data={{
-                  labels: revenueData.map(i => i.service),
-                  datasets: [{
-                    data: revenueData.map(i => i.total_revenue),
-                    backgroundColor: [
-                      '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', 
-                      '#06B6D4', '#84CC16', '#F97316', '#EC4899', '#6B7280'
-                    ].slice(0, revenueData.length),
-                    borderWidth: 0,
-                    hoverOffset: 12
-                  }]
-                }} options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: {
-                    legend: { 
-                      position: 'bottom',
-                      labels: {
-                        padding: 20,
-                        usePointStyle: true,
-                        pointStyle: 'circle'
-                      }
-                    },
-                    tooltip: {
-                      backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                      padding: 12,
-                      titleFont: {
-                        size: 14
-                      },
-                      bodyFont: {
-                        size: 13
-                      },
-                      callbacks: {
-                        label: (context) => {
-                          const value = context.parsed;
-                          const item = revenueData[context.dataIndex];
-                          return [
-                            `${item.service}`,
-                            `Revenue: ₹${value.toLocaleString()}`,
-                            `Transactions: ${item.transaction_count}`,
-                            `Percentage: ${item.percentage || 0}%`
-                          ];
-                        }
-                      }
-                    }
-                  }
-                }} />
-              ) : (
-                <Bar data={{
-                  labels: revenueData.map(i => i.service),
-                  datasets: [{
-                    label: 'Revenue',
-                    data: revenueData.map(i => i.total_revenue),
-                    backgroundColor: '#3B82F6',
-                    borderRadius: 6,
-                    borderSkipped: false,
-                  }]
-                }} options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                      backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                      padding: 12,
-                      titleFont: {
-                        size: 14
-                      },
-                      bodyFont: {
-                        size: 13
-                      },
-                      callbacks: {
-                        label: (context) => {
-                          const value = context.parsed.y;
-                          const item = revenueData[context.dataIndex];
-                          return [
-                            `Revenue: ₹${value.toLocaleString()}`,
-                            `Transactions: ${item.transaction_count}`
-                          ];
-                        }
-                      }
-                    }
-                  },
-                  scales: {
-                    y: {
-                      beginAtZero: true,
-                      grid: {
-                        color: 'rgba(0, 0, 0, 0.05)'
-                      },
-                      ticks: {
-                        callback: (v) => `₹${v.toLocaleString()}`
-                      }
-                    },
-                    x: {
-                      grid: {
-                        display: false
-                      }
-                    }
-                  }
-                }} />
-              )
-            )}
-          </div>
-        </div>
 
         {/* Staff Feedback Inbox */}
         <StaffFeedbackInbox salonId={salonInfo?._id} />

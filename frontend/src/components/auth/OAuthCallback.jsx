@@ -17,10 +17,13 @@ const OAuthCallback = () => {
     const handleOAuthCallback = async () => {
       try {
         const token = searchParams.get('token');
-        const userParam = searchParams.get('user');
+        const email = searchParams.get('email');
+        const name = searchParams.get('name');
+        const type = searchParams.get('type');
         const error = searchParams.get('error');
+        const message = searchParams.get('message');
 
-        console.log('Parsed params:', { token, userParam, error });
+        console.log('Parsed params:', { token, email, name, type, error, message });
 
         if (error) {
           let errorMessage = 'Authentication failed';
@@ -32,10 +35,10 @@ const OAuthCallback = () => {
               errorMessage = 'Google authentication was cancelled.';
               break;
             case 'oauth_error':
-              errorMessage = 'An error occurred during authentication.';
+              errorMessage = message || 'An error occurred during authentication.';
               break;
-            case 'invalid_role':
-              errorMessage = 'Invalid user role detected.';
+            case 'user_not_found':
+              errorMessage = 'User not found in database. Please register first.';
               break;
             default:
               errorMessage = 'Authentication failed. Please try again.';
@@ -47,15 +50,23 @@ const OAuthCallback = () => {
           return;
         }
 
-        if (!token || !userParam) {
-          console.log('Missing token or user parameter');
+        if (!token || !email || !name || !type) {
+          console.log('Missing required parameters');
           toast.error('Invalid authentication response');
           navigate('/login');
           return;
         }
 
-        const user = JSON.parse(decodeURIComponent(userParam));
-        console.log('Parsed user:', user);
+        // Reconstruct user object from individual parameters
+        const user = {
+          id: '', // Will be set by the auth context
+          name,
+          email,
+          type,
+          setupCompleted: type === 'customer' // Customers don't need setup
+        };
+        
+        console.log('Reconstructed user:', user);
         
         // Store token and user info
         localStorage.setItem('auracare_token', token);
