@@ -86,6 +86,33 @@ app.use((req, res, next) => {
   next();
 });
 
+// ========== CORS CONFIGURATION ==========
+// Apply CORS middleware first, before any other middleware
+app.use((req, res, next) => {
+  // Allow all origins for development - in production, you might want to be more specific
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+  
+  next();
+});
+
+// Handle preflight requests globally
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.status(200).end();
+});
+
 app.use((req, res, next) => {
   console.log(`Request received: ${req.method} ${req.url}`);
   next();
@@ -109,56 +136,6 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
-// ========== SIMPLIFIED CORS CONFIGURATION ==========
-import cors from 'cors';
-
-// Simple CORS configuration that works with all your domains
-const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps, Postman, curl)
-    if (!origin) return callback(null, true);
-    
-    // List of allowed origins
-    const allowedOrigins = [
-      'https://auras-silk.vercel.app',
-      'https://auras-hbxd6s8qb-shravan-ss-projects.vercel.app',
-      'https://*.vercel.app',
-      'https://*.onrender.com',
-      'https://auras.onrender.com',
-      'https://auracare-backend.onrender.com', // Add your specific Render backend URL
-      'http://localhost:3000',
-      'http://localhost:3008',
-      'http://localhost:5173',
-      'http://127.0.0.1:3000',
-      'http://127.0.0.1:3008'
-    ];
-    
-    // Check if the origin is allowed
-    if (allowedOrigins.some(pattern => {
-      if (pattern.includes('*')) {
-        // Handle wildcard patterns
-        const regex = new RegExp(pattern.replace('*', '.*'));
-        return regex.test(origin);
-      }
-      return origin === pattern;
-    })) {
-      callback(null, true);
-    } else {
-      console.log('🚫 CORS blocked origin:', origin);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Cache-Control', 'Pragma'],
-  maxAge: 86400 // 24 hours
-};
-
-// Apply CORS middleware
-app.use(cors(corsOptions));
-
-// Handle preflight requests globally
-app.options('*', cors(corsOptions));
 // ========== END CORS CONFIGURATION ==========
 
 // Rate limiting with debugging
@@ -178,6 +155,8 @@ const limiter = rateLimit({
       p.startsWith('/auth/login') ||
       p.startsWith('/auth/register') ||
       p.startsWith('/auth/refresh-token') ||
+      p.startsWith('/api/auth/login') ||  // Add this line to ensure API login is not rate limited
+      p.startsWith('/api/auth/register') ||  // Add this line to ensure API register is not rate limited
       p.startsWith('/api/salon/') ||
       p.startsWith('/api/client-profiles') ||
       p.startsWith('/api/recommendations') ||

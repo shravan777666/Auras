@@ -15,7 +15,7 @@ export default defineConfig(({ command, mode }) => {
   return {
     plugins: [react()],
     server: {
-      port: 3008,
+      port: 3009,  // Updated to match the port you're using
       proxy: {
         '/api': {
           target: 'http://localhost:5011',  // Updated to match actual backend port

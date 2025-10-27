@@ -147,23 +147,38 @@ export const register = async (req, res) => {
 // Login with email/password and automatic role detection
 export const login = async (req, res) => {
   try {
+    console.log('=== LOGIN REQUEST RECEIVED ===');
+    console.log('Request body:', req.body);
+    console.log('Content-Type header:', req.headers['content-type']);
+    console.log('Request headers:', req.headers);
+    
     const { email, password } = req.body;
-    console.log('Login attempt:', { email });
+    console.log('Login attempt:', { email, password: password ? '[PROVIDED]' : '[MISSING]' });
 
     if (!email || !password) {
+      console.log('❌ Missing email or password');
       return errorResponse(res, 'Email and password are required', 400);
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      console.log('❌ Invalid email format:', email);
+      return errorResponse(res, 'Invalid email format', 400);
     }
 
     // Find user by email first to determine their role
     const user = await User.findOne({ email, isActive: true }).select('+password');
     
     if (!user) {
+      console.log('❌ User not found with email:', email);
       return errorResponse(res, 'No user found with provided credentials.', 401);
     }
 
     // Check password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
+      console.log('❌ Password mismatch for user:', email);
       return errorResponse(res, 'Incorrect password.', 401);
     }
 

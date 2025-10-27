@@ -21,9 +21,21 @@ import {
 
 const router = express.Router();
 
+// Add debugging middleware for auth routes
+router.use((req, res, next) => {
+  console.log(`🔍 Auth route accessed: ${req.method} ${req.url}`);
+  console.log(`🔍 Request headers:`, req.headers);
+  next();
+});
+
 // Registration and Login
 router.post('/register', register); // Temporarily disable validation
-router.post('/login', login); // Temporarily disable validation
+router.post('/login', (req, res, next) => {
+  console.log('=== LOGIN ROUTE CALLED ===');
+  console.log('Request body:', req.body);
+  console.log('Content-Type:', req.headers['content-type']);
+  next();
+}, login); // Temporarily disable validation
 
 // Password Reset
 router.post('/forgot-password', validatePasswordReset, forgotPassword);

@@ -40,9 +40,9 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const login = async (credentials) => {
+  const login = async (email, password) => {
     try {
-      const response = await authService.login(credentials);
+      const response = await authService.login({ email, password });
       const { user, token } = response?.data?.data || {};
 
       if (token) localStorage.setItem('auracare_token', token);

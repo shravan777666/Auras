@@ -14,6 +14,12 @@ export const globalErrorHandler = (err, req, res, next) => {
     return next(err);
   }
   
+  // Always return JSON with proper CORS headers
+  res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
   // Always return JSON
   res.status(status).json({ success: false, message });
 };

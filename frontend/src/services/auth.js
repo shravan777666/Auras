@@ -7,8 +7,13 @@ export const authService = {
     console.log('🔐 API base URL:', api.defaults.baseURL);
     console.log('🔐 Full login URL will be:', `${api.defaults.baseURL}/auth/login`);
     
-    const response = await api.post('/auth/login', credentials)
-    return response
+    // Ensure we're sending the data as JSON
+    const response = await api.post('/auth/login', credentials, {
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+    return response;
   },
 
   async register(userData) {
