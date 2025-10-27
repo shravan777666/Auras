@@ -367,7 +367,7 @@ export const googleCallback = async (req, res) => {
     
     // Create a simpler redirect URL without complex query parameters
     // This should help avoid issues with URL encoding and routing
-    const redirectUrl = `${frontendUrl}/auth/callback?token=${token}&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name)}&type=${user.type}`;
+    const redirectUrl = `${frontendUrl}/auth/callback?token=${token}&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name)}&type=${user.type}&setupCompleted=${user.setupCompleted}`;
     
     console.log('Redirecting to frontend callback URL:', redirectUrl);
     res.redirect(redirectUrl);

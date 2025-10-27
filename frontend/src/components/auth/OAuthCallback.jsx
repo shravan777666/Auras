@@ -20,11 +20,13 @@ const OAuthCallback = () => {
         const email = searchParams.get('email');
         const name = searchParams.get('name');
         const type = searchParams.get('type');
+        const setupCompleted = searchParams.get('setupCompleted') === 'true';
         const error = searchParams.get('error');
         const message = searchParams.get('message');
 
-        console.log('Parsed params:', { token, email, name, type, error, message });
+        console.log('Parsed params:', { token, email, name, type, setupCompleted, error, message });
 
+        // Handle error cases first
         if (error) {
           let errorMessage = 'Authentication failed';
           switch (error) {
@@ -46,24 +48,40 @@ const OAuthCallback = () => {
           
           console.log('OAuth error:', errorMessage);
           toast.error(errorMessage);
-          navigate('/login');
+          setTimeout(() => {
+            navigate('/login');
+          }, 2000);
           return;
         }
 
+        // Check for required parameters
         if (!token || !email || !name || !type) {
           console.log('Missing required parameters');
-          toast.error('Invalid authentication response');
-          navigate('/login');
+          toast.error('Invalid authentication response. Redirecting to login...');
+          setTimeout(() => {
+            navigate('/login');
+          }, 2000);
           return;
+        }
+
+        // Extract user ID from JWT token
+        let userId = null;
+        try {
+          if (token) {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            userId = payload.id || null;
+          }
+        } catch (e) {
+          console.error('Error extracting user ID from token:', e);
         }
 
         // Reconstruct user object from individual parameters
         const user = {
-          id: '', // Will be set by the auth context
+          id: userId || generateTempId(), // Use extracted ID or generate temporary one
           name,
           email,
           type,
-          setupCompleted: type === 'customer' // Customers don't need setup
+          setupCompleted: setupCompleted || type === 'customer' // Customers don't need setup
         };
         
         console.log('Reconstructed user:', user);
@@ -99,13 +117,20 @@ const OAuthCallback = () => {
             default:
               navigate('/login');
           }
-        }, 1000);
+        }, 2000);
 
       } catch (error) {
         console.error('OAuth callback error:', error);
-        toast.error('Failed to process authentication. Please try again.');
-        navigate('/login');
+        toast.error('Failed to process authentication. Redirecting to login...');
+        setTimeout(() => {
+          navigate('/login');
+        }, 2000);
       }
+    };
+
+    // Helper function to generate a temporary ID
+    const generateTempId = () => {
+      return 'temp_' + Math.random().toString(36).substr(2, 9);
     };
 
     handleOAuthCallback();
