@@ -28,18 +28,13 @@ services:
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: public, max-age=0, must-revalidate
     envVars:
       - key: NODE_ENV
         value: production
       - key: VITE_API_URL
         value: https://auracare-backend.onrender.com/api
-    routes:
-      # Specific routes should come first
-      - type: rewrite
-        source: /auth/callback
-        destination: /index.html
-      # Generic catch-all route should come last
-      - type: rewrite
-        source: /*
-        destination: /index.html
     autoDeploy: true
