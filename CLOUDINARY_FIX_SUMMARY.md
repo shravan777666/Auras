@@ -90,6 +90,21 @@ This ensures:
 **Customer uploads** (`auracare/customers` folder in Cloudinary):
 - Profile pictures: JPG, PNG, JPEG
 
+## Dependency Version Fix
+
+### Problem
+The deployment was failing due to a peer dependency conflict:
+- `cloudinary@^2.8.0` was installed
+- `multer-storage-cloudinary@4.0.0` requires `cloudinary@^1.21.0`
+
+### Solution
+Downgraded cloudinary to v1.41.0 in `backend/package.json`:
+```json
+"cloudinary": "^1.41.0"
+```
+
+This version is compatible with `multer-storage-cloudinary@4.0.0` and provides all the features we need.
+
 ## Environment Variables Required
 
 ### Production (Render)
