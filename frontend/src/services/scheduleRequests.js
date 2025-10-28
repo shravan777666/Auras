@@ -52,7 +52,7 @@ export const scheduleRequestService = {
   // Get peer shift swap requests (for target staff to review)
   async getPeerShiftSwapRequests(params = {}) {
     try {
-      const response = await api.get('/schedule-requests/peer-shift-swaps', { params });
+      const response = await api.get('/schedule-requests/peer-requests', { params });
       return response.data;
     } catch (error) {
       console.error('Error fetching peer shift swap requests:', error);
@@ -63,7 +63,7 @@ export const scheduleRequestService = {
   // Peer approve a shift swap request
   async peerApproveShiftSwap(id) {
     try {
-      const response = await api.patch(`/schedule-requests/${id}/peer-approve`);
+      const response = await api.put(`/schedule-requests/${id}/peer-approve`);
       return response.data;
     } catch (error) {
       console.error('Error peer approving shift swap request:', error);
@@ -74,7 +74,7 @@ export const scheduleRequestService = {
   // Peer reject a shift swap request
   async peerRejectShiftSwap(id, rejectionReason) {
     try {
-      const response = await api.patch(`/schedule-requests/${id}/peer-reject`, { rejectionReason });
+      const response = await api.put(`/schedule-requests/${id}/peer-reject`, { rejectionReason });
       return response.data;
     } catch (error) {
       console.error('Error peer rejecting shift swap request:', error);
@@ -97,7 +97,7 @@ export const scheduleRequestService = {
   // Approve a request
   async approveRequest(id) {
     try {
-      const response = await api.patch(`/schedule-requests/${id}/approve`);
+      const response = await api.put(`/schedule-requests/${id}/approve`);
       return response.data;
     } catch (error) {
       console.error('Error approving request:', error);
@@ -108,7 +108,7 @@ export const scheduleRequestService = {
   // Reject a request
   async rejectRequest(id, rejectionReason) {
     try {
-      const response = await api.patch(`/schedule-requests/${id}/reject`, { rejectionReason });
+      const response = await api.put(`/schedule-requests/${id}/reject`, { rejectionReason });
       return response.data;
     } catch (error) {
       console.error('Error rejecting request:', error);

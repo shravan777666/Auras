@@ -9,15 +9,15 @@ import {
   asyncHandler 
 } from '../utils/responses.js';
 
-// Initialize Razorpay instance
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET
-});
-
 // Create payment order
 export const createPaymentOrder = asyncHandler(async (req, res) => {
   try {
+    // Initialize Razorpay instance inside the function to ensure env vars are loaded
+    const razorpay = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET
+    });
+
     const { appointmentId } = req.body;
     const userId = req.user.id;
 
@@ -72,6 +72,12 @@ export const createPaymentOrder = asyncHandler(async (req, res) => {
 // Verify payment and update appointment status
 export const verifyPayment = asyncHandler(async (req, res) => {
   try {
+    // Initialize Razorpay instance inside the function to ensure env vars are loaded
+    const razorpay = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET
+    });
+
     const { 
       razorpay_order_id, 
       razorpay_payment_id, 

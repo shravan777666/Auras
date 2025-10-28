@@ -107,7 +107,7 @@ export const createBlockTimeRequest = asyncHandler(async (req, res) => {
           subject: 'Break/Lunch Time Blocked',
           message: `${staff.name} has blocked ${startTime}-${endTime} for ${reason.toLowerCase()} on ${date}`,
           targetSkill: 'All Staff',
-          category: 'schedule',
+          category: 'event',
           priority: 'medium'
         });
       }
@@ -173,7 +173,7 @@ export const createLeaveRequest = asyncHandler(async (req, res) => {
           subject: 'New Leave Request',
           message: `${staff.name} has requested time off from ${startDate} to ${endDate} for ${reason}`,
           targetSkill: 'All Staff',
-          category: 'schedule',
+          category: 'event',
           priority: 'medium'
         });
       }

@@ -3,6 +3,7 @@ import { Link, useParams, useNavigate, useLocation } from "react-router-dom";
 import BackButton from '../../components/common/BackButton';
 import { customerService } from "../../services/customer";
 import { loyaltyService } from "../../services/loyalty";
+import { cancellationPolicyService } from "../../services/cancellationPolicy";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import SalonAvailabilityDisplay from "../../components/customer/SalonAvailabilityDisplay";
 import LoyaltyRedemptionWidget from "../../components/customer/LoyaltyRedemptionWidget";
@@ -1093,6 +1094,16 @@ const BookAppointment = () => {
                 >
                   Book Appointment
                 </button>
+                
+                {/* Cancellation Policy Agreement - Only show when services are selected */}
+                {(selectedServices.length > 0 || selectedAddons.length > 0) && (
+                  <div className="mt-4">
+                    <CancellationPolicyDisplay 
+                      salonId={salon._id} 
+                      onAgreeChange={setPolicyAgreed} 
+                    />
+                  </div>
+                )}
               </div>
               
               {/* Display salon availability when a date is selected */}

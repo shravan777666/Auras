@@ -349,56 +349,24 @@ export const getAppointmentDetails = asyncHandler(async (req, res) => {
 // Update appointment
 export const updateAppointment = asyncHandler(async (req, res) => {
   const { appointmentId } = req.params;
+  const updates = req.body;
   const userId = req.user.id;
   const userType = req.user.type;
-  const updates = req.body;
 
-  let filter = { _id: appointmentId };
+  console.log('🔧 Update appointment request:', { appointmentId, updates, userId, userType });
 
-  // Add user-specific filters
-  switch (userType) {
-    case 'customer':
-      filter.customerId = userId;
-      break;
-    case 'salon':
-      // For salon users, we need to resolve the salon ID from the user ID
-      const User = (await import('../models/User.js')).default;
-      const user = await User.findById(userId);
-      if (!user || user.type !== 'salon') {
-        return errorResponse(res, 'Access denied: Only salon owners can update appointments', 403);
-      }
-      const salonProfile = await Salon.findOne({ email: user.email });
-      if (!salonProfile) {
-        return notFoundResponse(res, 'Salon profile');
-      }
-      filter.salonId = salonProfile._id;
-      
-      console.log('🔧 Salon appointment update request:', {
-        userId,
-        salonId: salonProfile._id,
-        appointmentId,
-        updates
-      });
-      break;
-    case 'staff':
-      // For staff users, we need to resolve the staff ID from the user ID
-      const StaffForUpdate = (await import('../models/Staff.js')).default;
-      const staffForUpdate = await StaffForUpdate.findOne({ user: userId });
-      if (!staffForUpdate) {
-        return errorResponse(res, 'Staff profile not found', 404);
-      }
-      filter.staffId = staffForUpdate._id;
-      break;
-  }
+  // Find appointment with proper population
+  const appointment = await Appointment.findById(appointmentId)
+    .populate('customerId', 'name email')
+    .populate('salonId', 'salonName contactEmail')
+    .populate('staffId', 'name email position')
+    .populate('services.serviceId', 'name duration price');
 
-  console.log('🔧 Searching for appointment with filter:', filter);
-  
-  const appointment = await Appointment.findOne(filter);
   if (!appointment) {
-    console.log('🔧 Appointment not found with filter:', filter);
+    console.log('❌ Appointment not found:', appointmentId);
     return notFoundResponse(res, 'Appointment');
   }
-  
+
   console.log('🔧 Found appointment:', appointment._id);
 
   // Restrict what each user type can update
@@ -493,6 +461,36 @@ export const updateAppointment = asyncHandler(async (req, res) => {
   Object.assign(appointment, allowedUpdates);
   await appointment.save();
   console.log('✅ Appointment updated successfully:', { id: appointment._id, staffId: appointment.staffId });
+
+  // Check if staff was assigned and send email notification to customer
+  if (updates.staffId !== undefined && appointment.customerId && appointment.customerId.email) {
+    try {
+      // Import the email utility function
+      const { sendAppointmentStaffAssignmentEmail } = await import('../utils/email.js');
+      
+      // Prepare appointment details for email
+      const appointmentDetails = {
+        salonName: appointment.salonId?.salonName || 'Your Salon',
+        staffName: appointment.staffId?.name || 'Staff Member',
+        staffPosition: appointment.staffId?.position || 'Staff',
+        date: new Date(appointment.appointmentDate).toDateString(),
+        time: appointment.appointmentTime,
+        services: appointment.services.map(s => s.serviceId?.name || 'Service'),
+        status: appointment.status
+      };
+      
+      // Send email notification to customer
+      await sendAppointmentStaffAssignmentEmail(
+        appointment.customerId.email,
+        appointment.customerId.name || 'Customer',
+        appointmentDetails
+      );
+      
+      console.log('📧 Appointment staff assignment email sent to customer:', appointment.customerId.email);
+    } catch (emailError) {
+      console.error('❌ Error sending appointment staff assignment email:', emailError);
+    }
+  }
 
   // Populate the updated appointment with staff and customer data
   const populatedAppointment = await Appointment.findById(appointment._id)

@@ -5,11 +5,11 @@ import Salon from './Salon.js';
 const AppointmentSchema = new mongoose.Schema(
   {
     salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon', required: true },
-    customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer', required: true },
+    customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer' },
     staffId: { type: mongoose.Schema.Types.ObjectId, ref: 'Staff' },
     services: [
       {
-        serviceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Service', required: true },
+        serviceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Service' },
         serviceName: { type: String },
         price: { type: Number, required: true },
         duration: { type: Number, required: true }

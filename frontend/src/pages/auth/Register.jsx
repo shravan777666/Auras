@@ -33,7 +33,7 @@ const Register = () => {
     { value: 'customer', label: 'Customer', description: 'Book beauty services', icon: User },
     { value: 'salon', label: 'Salon Owner', description: 'Manage your salon business', icon: Building },
     { value: 'staff', label: 'Beauty Professional', description: 'Offer your services', icon: Users },
-    { value: 'admin', label: 'Admin', description: 'Platform administration', icon: Shield }
+    // { value: 'admin', label: 'Admin', description: 'Platform administration', icon: Shield }
   ]
 
   // Helper to get dashboard path by role
