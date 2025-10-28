@@ -43,6 +43,7 @@ import * as appointmentController from '../controllers/appointmentController.js'
 import { requireSalonOwner, requireSalonSetup } from '../middleware/roleAuth.js';
 import { validateSalonSetup, validatePagination, validateObjectId } from '../middleware/validation.js';
 import { salonSetupUploads, uploadErrorHandler, upload } from '../middleware/upload.js';
+import { salonUpload } from '../config/cloudinary.js'; // Import Cloudinary upload
 
 const router = express.Router();
 
@@ -65,8 +66,12 @@ router.use(requireSalonOwner);
 
 // Details update route
 
-// Setup (no setup completion required)
-router.post('/setup', salonSetupUploads, uploadErrorHandler, validateSalonSetup, setupSalon);
+// Setup (no setup completion required) - Use Cloudinary storage
+router.post('/setup', salonUpload.fields([
+  { name: 'businessLicense', maxCount: 1 },
+  { name: 'salonLogo', maxCount: 1 },
+  { name: 'salonImages', maxCount: 5 }
+]), validateSalonSetup, setupSalon);
 
 // Routes that require completed setup
 router.get('/dashboard', requireSalonSetup, getDashboard);
@@ -84,12 +89,12 @@ router.post('/notifications/:notificationId/reply', requireSalonSetup, validateO
 router.post('/job-offers', requireSalonSetup, sendJobOffer);
 router.put('/notifications/:notificationId/reject', requireSalonSetup, validateObjectId('notificationId'), rejectStaffApplication);
 
-// Profile routes with file upload support
+// Profile routes with file upload support - Use Cloudinary storage
 router.get('/profile', getProfile);
-router.patch('/profile', upload.fields([
+router.patch('/profile', salonUpload.fields([
   { name: 'salonLogo', maxCount: 1 },
   { name: 'salonImage', maxCount: 1 }
-]), uploadErrorHandler, updateProfile);
+]), updateProfile);
 
 // Staff Management
 router.get('/staff', requireSalonSetup, getSalonStaff);

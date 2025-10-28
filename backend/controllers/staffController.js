@@ -226,10 +226,12 @@ export const createStaff = asyncHandler(async (req, res) => {
   const documents = {};
   if (req.files) {
     if (req.files.profilePicture && req.files.profilePicture[0]) {
-      documents.profilePicture = req.files.profilePicture[0].path;
+      // For Cloudinary uploads, use secure_url; fallback to path for local uploads
+      documents.profilePicture = req.files.profilePicture[0].secure_url || req.files.profilePicture[0].path || req.files.profilePicture[0].url;
     }
     if (req.files.governmentId && req.files.governmentId[0]) {
-      documents.governmentId = req.files.governmentId[0].path;
+      // For Cloudinary uploads, use secure_url; fallback to path for local uploads
+      documents.governmentId = req.files.governmentId[0].secure_url || req.files.governmentId[0].path || req.files.governmentId[0].url;
     }
   }
 
@@ -368,11 +370,13 @@ export const setupProfile = asyncHandler(async (req, res) => {
   if (req.files) {
     console.log('Processing uploaded staff files:', Object.keys(req.files));
     if (req.files.profilePicture && req.files.profilePicture[0]) {
-      staff.profilePicture = req.files.profilePicture[0].path;
+      // For Cloudinary uploads, use secure_url; fallback to path for local uploads
+      staff.profilePicture = req.files.profilePicture[0].secure_url || req.files.profilePicture[0].path || req.files.profilePicture[0].url;
       console.log('Profile picture uploaded:', staff.profilePicture);
     }
     if (req.files.governmentId && req.files.governmentId[0]) {
-      documents.governmentId = req.files.governmentId[0].path;
+      // For Cloudinary uploads, use secure_url; fallback to path for local uploads
+      documents.governmentId = req.files.governmentId[0].secure_url || req.files.governmentId[0].path || req.files.governmentId[0].url;
       console.log('Government ID uploaded:', documents.governmentId);
     }
     // Certificates removed per requirements
@@ -1116,7 +1120,8 @@ export const updateStaffById = asyncHandler(async (req, res) => {
 
   // Handle file uploads if any
   if (req.files && req.files.profilePicture && req.files.profilePicture[0]) {
-    updateData.profilePicture = req.files.profilePicture[0].path;
+    // For Cloudinary uploads, use secure_url; fallback to path for local uploads
+    updateData.profilePicture = req.files.profilePicture[0].secure_url || req.files.profilePicture[0].path || req.files.profilePicture[0].url;
   }
 
   // Parse JSON strings if needed (for FormData)

@@ -23,6 +23,7 @@ import {
 import { requireStaff, requireStaffSetup, requireSalonOwner } from '../middleware/roleAuth.js';
 import { validateStaffSetup, validatePagination, validateObjectId } from '../middleware/validation.js';
 import { upload } from '../middleware/upload.js';
+import { staffUpload } from '../config/cloudinary.js'; // Import Cloudinary upload
 import staffNotificationRoutes from './staffNotification.js';
 
 const router = express.Router();
@@ -32,7 +33,7 @@ router.post('/register', register);
 router.post(
   '/create',
   requireSalonOwner,
-  upload.fields([
+  staffUpload.fields([
     { name: 'profilePicture', maxCount: 1 },
     { name: 'governmentId', maxCount: 1 }
   ]),
@@ -50,7 +51,7 @@ router.use(requireStaff);
 router.use('/notifications', staffNotificationRoutes);
 
 // Setup (no setup completion required)
-router.post('/setup', upload.fields([
+router.post('/setup', staffUpload.fields([
   { name: 'profilePicture', maxCount: 1 },
   { name: 'governmentId', maxCount: 1 }
 ]), validateStaffSetup, setupProfile);
@@ -59,7 +60,7 @@ router.post('/setup', upload.fields([
 router.get('/dashboard', requireStaffSetup, getDashboard);
 router.get('/report', requireStaffSetup, getStaffReport);
 router.get('/profile', getProfile);
-router.put('/profile', upload.fields([
+router.put('/profile', staffUpload.fields([
   { name: 'profilePicture', maxCount: 1 }
 ]), updateProfile);
 router.patch('/availability', requireStaffSetup, updateAvailability);
@@ -89,7 +90,7 @@ router.get('/:id/appointments', requireStaffSetup, validateObjectId('id'), getAp
 router.get('/:id', validateObjectId('id'), getStaffById);
 
 // Update a staff member by ID (for admins/salon owners)
-router.put('/:id', validateObjectId('id'), upload.fields([
+router.put('/:id', validateObjectId('id'), staffUpload.fields([
   { name: 'profilePicture', maxCount: 1 },
 ]), updateStaffById);
 

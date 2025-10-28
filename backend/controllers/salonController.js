@@ -262,16 +262,19 @@ export const setupSalon = asyncHandler(async (req, res) => {
   if (req.files) {
     console.log('Processing uploaded files:', Object.keys(req.files));
     if (req.files.businessLicense && req.files.businessLicense[0]) {
-      documents.businessLicense = req.files.businessLicense[0].path;
+      // For Cloudinary uploads, use secure_url; fallback to path for local uploads
+      documents.businessLicense = req.files.businessLicense[0].secure_url || req.files.businessLicense[0].path || req.files.businessLicense[0].url;
       console.log('Business license uploaded:', documents.businessLicense);
     }
     if (req.files.salonLogo && req.files.salonLogo[0]) {
-      documents.salonLogo = req.files.salonLogo[0].path;
+      // For Cloudinary uploads, use secure_url; fallback to path for local uploads
+      documents.salonLogo = req.files.salonLogo[0].secure_url || req.files.salonLogo[0].path || req.files.salonLogo[0].url;
       console.log('Salon logo uploaded:', documents.salonLogo);
     }
     if (req.files.salonImages) {
-      documents.salonImages = req.files.salonImages.map(file => file.path);
-      console.log('Salon images uploaded:', documents.salonImages);
+      // For Cloudinary uploads, use secure_url; fallback to path for local uploads
+      documents.salonImages = req.files.salonImages.map(file => file.secure_url || file.path || file.url);
+      console.log('Salon images uploaded:', documents.salonImages.length);
     }
   } else {
     console.log('No files uploaded');
@@ -956,24 +959,25 @@ export const updateProfile = asyncHandler(async (req, res) => {
 
   // Handle file uploads
   if (req.files) {
-    // Initialize documents object if it doesn't exist
+    // Ensure documents object exists
     if (!salon.documents) {
       salon.documents = {};
     }
 
-    // Handle salon logo
+    // Handle salon logo - Use Cloudinary URL
     if (req.files.salonLogo && req.files.salonLogo[0]) {
-      salon.documents.salonLogo = req.files.salonLogo[0].path;
+      // For Cloudinary uploads, use secure_url; fallback to path for local uploads
+      salon.documents.salonLogo = req.files.salonLogo[0].secure_url || req.files.salonLogo[0].path || req.files.salonLogo[0].url;
     }
 
-    // Handle salon images
+    // Handle salon images - Use Cloudinary URL
     if (req.files.salonImage && req.files.salonImage[0]) {
-      // For simplicity, we're treating salonImage as the first image in salonImages array
-      if (!salon.documents.salonImages) {
+      // Initialize salonImages array if it doesn't exist
+      if (!Array.isArray(salon.documents.salonImages)) {
         salon.documents.salonImages = [];
       }
-      // Replace the first image or add as first image
-      salon.documents.salonImages[0] = req.files.salonImage[0].path;
+      // Replace the first image or add as first image - Use Cloudinary URL
+      salon.documents.salonImages[0] = req.files.salonImage[0].secure_url || req.files.salonImage[0].path || req.files.salonImage[0].url;
     }
   }
 
