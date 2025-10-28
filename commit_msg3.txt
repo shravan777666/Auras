@@ -1,8 +1,0 @@
-Add Cloudinary bulk upload and database migration scripts
-
-- Created bulk-upload-to-cloudinary.js to upload all local files
-- Created update-database-with-cloudinary-urls.js to update DB records
-- Uploaded 54 files to Cloudinary cloud storage
-- Updated 13 database records with Cloudinary URLs
-- Added cloudinary-urls-mapping.json for reference
-- All images now accessible from hosted website
