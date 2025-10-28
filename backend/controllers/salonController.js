@@ -1402,7 +1402,11 @@ export const getStaffAvailability = asyncHandler(async (req, res) => {
             customer: apt.customerId ? apt.customerId.name : 'Unknown Customer',
             customerEmail: apt.customerId ? apt.customerId.email : null,
             customerPhone: apt.customerId ? apt.customerId.phone : null,
-            customerProfilePic: apt.customerId && apt.customerId.profilePic ? getFileUrl(apt.customerId.profilePic) : null,
+            customerProfilePic: apt.customerId && apt.customerId.profilePic ? 
+              (apt.customerId.profilePic.includes('cloudinary.com') ? 
+                apt.customerId.profilePic : 
+                getFileUrl(apt.customerId.profilePic)) : 
+              null,
             services: apt.services.map(s => s.serviceName || (s.serviceId ? s.serviceId.name : 'Service')),
             staffName: staffMember.name,
             staffId: staffMember._id
@@ -1438,7 +1442,11 @@ export const getStaffAvailability = asyncHandler(async (req, res) => {
         customer: apt.customerId ? apt.customerId.name : 'Unknown Customer',
         customerEmail: apt.customerId ? apt.customerId.email : null,
         customerPhone: apt.customerId ? apt.customerId.phone : null,
-        customerProfilePic: apt.customerId && apt.customerId.profilePic ? getFileUrl(apt.customerId.profilePic) : null,
+        customerProfilePic: apt.customerId && apt.customerId.profilePic ? 
+              (apt.customerId.profilePic.includes('cloudinary.com') ? 
+                apt.customerId.profilePic : 
+                getFileUrl(apt.customerId.profilePic)) : 
+              null,
         services: apt.services.map(s => s.serviceName || (s.serviceId ? s.serviceId.name : 'Service')),
         staffName: 'Unassigned',
         staffId: null

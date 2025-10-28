@@ -3,6 +3,40 @@
 ## Overview
 AuraCares is a comprehensive beauty parlor management system that connects customers with salons and stylists. This system includes features for appointment booking, staff management, service listings, and more.
 
+## New Feature: Cloudinary Image Management System
+
+### Overview
+AuraCares now integrates with Cloudinary for efficient image management. This system handles profile pictures for customers, staff, and salons, as well as salon images and other media.
+
+### Features
+1. **Cloud Storage**: Images are stored on Cloudinary's CDN for fast delivery
+2. **Automatic Optimization**: Images are automatically optimized for web delivery
+3. **Responsive Images**: Automatic resizing and format conversion
+4. **Secure Uploads**: Authenticated image uploads with validation
+5. **Easy Management**: Simple API for uploading, retrieving, and deleting images
+
+### Backend Components
+- **Cloudinary Configuration**: Centralized Cloudinary setup with environment variables
+- **Image Upload Routes**: Dedicated endpoints for different image types
+- **Image Controller**: Business logic for image management
+- **Image Utilities**: Helper functions for image operations
+
+### Frontend Components
+- **ImageUpload Component**: Reusable React component for image uploads
+- **Image Service**: API service for image operations
+- **Profile Pages**: Updated profile pages with Cloudinary integration
+
+### API Endpoints
+- `POST /api/image-upload/customer/profile` - Upload customer profile image
+- `POST /api/image-upload/staff/profile` - Upload staff profile image
+- `POST /api/image-upload/salon/image` - Upload salon image
+
+### Usage
+1. Users can upload profile images through the profile edit pages
+2. Images are automatically optimized and stored on Cloudinary
+3. URLs are returned and stored in the database
+4. Images are displayed throughout the application
+
 ## New Feature: Salon Appointment Cancellation Policy System
 
 ### Features
@@ -174,11 +208,18 @@ ADMIN_PASSWORD=Admin@123
 # Razorpay Configuration
 RAZORPAY_KEY_ID=your_razorpay_key_id
 RAZORPAY_KEY_SECRET=your_razorpay_key_secret
+
+# Cloudinary Configuration
+CLOUDINARY_CLOUD_NAME=dzbjcacnn
+CLOUDINARY_API_KEY=876578995275917
+CLOUDINARY_API_SECRET=X5ELAMbkjO6-VOEMcAgc_0CNsfw
 ```
 
 #### Frontend (.env)
 ```
 VITE_API_URL=your_backend_url/api
+VITE_CLOUDINARY_CLOUD_NAME=dzbjcacnn
+VITE_CLOUDINARY_API_KEY=876578995275917
 ```
 
 ## 📁 Project Structure

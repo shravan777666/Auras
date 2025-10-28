@@ -2,20 +2,8 @@ import axios from 'axios'
 import toast from 'react-hot-toast'
 import { authService } from './auth'
 
-// DEBUG: Comprehensive environment detection
-console.log('=== COMPREHENSIVE ENVIRONMENT DETECTION ===');
-console.log('import.meta.env.NODE_ENV:', import.meta.env.NODE_ENV);
-console.log('import.meta.env.PROD:', import.meta.env.PROD);
-console.log('import.meta.env.DEV:', import.meta.env.DEV);
-console.log('import.meta.env.MODE:', import.meta.env.MODE);
-console.log('import.meta.env.VITE_API_URL:', import.meta.env.VITE_API_URL);
-
-// List all environment variables
-console.log('All import.meta.env keys:', Object.keys(import.meta.env));
-
 // Check if we're in production mode
 const isProduction = import.meta.env.PROD || import.meta.env.NODE_ENV === 'production';
-console.log('Is Production:', isProduction);
 
 // Base API configuration - More robust handling for production vs development
 let API_BASE_URL = 'http://localhost:5011/api'; // Default fallback
@@ -35,17 +23,7 @@ else {
   console.log('🔧 Using development fallback URL:', API_BASE_URL);
 }
 
-console.log('🔧 Final API Configuration:', {
-  VITE_API_URL: import.meta.env.VITE_API_URL,
-  isProduction: isProduction,
-  finalAPIBaseURL: API_BASE_URL
-});
-
-// DEBUG: Log the actual environment variables being used
-console.log('🔧 All VITE_ environment variables:', Object.keys(import.meta.env).filter(key => key.startsWith('VITE_')).reduce((obj, key) => {
-  obj[key] = import.meta.env[key];
-  return obj;
-}, {}));
+console.log('🔧 API Base URL:', API_BASE_URL);
 
 // Create axios instance with base configuration
 const api = axios.create({
@@ -55,9 +33,6 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
-
-// DEBUG: Add a check to verify the baseURL is set correctly
-console.log('🔧 Axios instance baseURL:', api.defaults.baseURL);
 
 // Track if we're already refreshing token to prevent multiple refresh calls
 let isRefreshing = false;
@@ -78,27 +53,22 @@ const processQueue = (error, token = null) => {
 // Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
-    console.log('🚀 Making API request:', {
-      method: config.method?.toUpperCase(),
-      url: config.url,
-      baseURL: config.baseURL,
-      fullURL: `${config.baseURL}${config.url}`,
-      data: config.data
-    });
-    
-    // DEBUG: Log the actual request being made
-    console.log('🔍 Full request details:', {
-      baseURL: config.baseURL,
-      url: config.url,
-      fullURL: `${config.baseURL}${config.url}`,
-      headers: config.headers
-    });
+    // Only log non-silent requests
+    if (!config.silent) {
+      console.log('🚀 Making API request:', {
+        method: config.method?.toUpperCase(),
+        url: config.url,
+        fullURL: `${config.baseURL}${config.url}`
+      });
+    }
     
     const token = localStorage.getItem('auracare_token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
-      console.log('🔐 Token added to request:', config.url);
-    } else {
+      if (!config.silent) {
+        console.log('🔐 Token added to request:', config.url);
+      }
+    } else if (!config.silent && !config.url.includes('/auth/login') && !config.url.includes('/auth/register')) {
       console.warn('⚠️ No token found for request:', config.url);
     }
     
@@ -119,23 +89,29 @@ api.interceptors.request.use(
 // Response interceptor for error handling
 api.interceptors.response.use(
   (response) => {  
-    console.log('✅ API Response received:', response.config.url, response.status);
+    // Only log non-silent requests
+    if (!response.config.silent) {
+      console.log('✅ API Response received:', response.config.url, response.status);
+    }
     return response
   },
   async (error) => {
     const originalRequest = error.config;
 
-    console.error('❌ API Error:', {
-      url: error.config?.url,
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      data: error.response?.data,
-      message: error.message
-    });
+    // Only log errors for non-silent requests
+    if (!error.config?.silent) {
+      console.error('❌ API Error:', {
+        url: error.config?.url,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
 
-    // Explicitly log the detailed error response from the backend for debugging
-    if (error.response?.data) {
-      console.error('❌ Detailed API Error Body:', JSON.stringify(error.response.data, null, 2));
+      // Explicitly log the detailed error response from the backend for debugging
+      if (error.response?.data) {
+        console.error('❌ Detailed API Error Body:', JSON.stringify(error.response.data, null, 2));
+      }
     }
 
     const message = error.response?.data?.message || error.response?.data?.error || 'An error occurred'
@@ -212,33 +188,46 @@ api.interceptors.response.use(
       }
     }
 
+    // Check if this is a silent request (like auth check)
+    const isSilentRequest = originalRequest.silent === true;
+    
     if (error.response?.status === 401 && !AUTH_ROUTES.some(route => originalRequest.url.includes(route))) {
       // Non-expiration 401 error
       localStorage.removeItem('auracare_token')
       localStorage.removeItem('auracare_user')
       
-      if (message.includes('Session expired')) {
-        toast.error('Your session has expired. Please login again.');
-      } else if (message.includes('Invalid token')) {
-        toast.error('Your login session is invalid. Please login again.');
-      } else if (message.includes('No token provided')) {
-        toast.error('Authentication required. Please login.');
-      } else {
-        toast.error('Session expired. Please login again.');
-      }
-      
-      // Only redirect if we're not already on the login page
-      if (!window.location.pathname.includes('/login')) {
-        setTimeout(() => {
-          window.location.href = '/login'
-        }, 2000)
+      // Don't show toast for silent requests (auth checks)
+      if (!isSilentRequest) {
+        if (message.includes('Session expired')) {
+          toast.error('Your session has expired. Please login again.');
+        } else if (message.includes('Invalid token')) {
+          toast.error('Your login session is invalid. Please login again.');
+        } else if (message.includes('No token provided')) {
+          toast.error('Authentication required. Please login.');
+        } else {
+          toast.error('Session expired. Please login again.');
+        }
+        
+        // Only redirect if we're not already on the login page
+        if (!window.location.pathname.includes('/login')) {
+          setTimeout(() => {
+            window.location.href = '/login'
+          }, 2000)
+        }
       }
     } else if (error.response?.status === 403) {
-      toast.error('Access denied: ' + message)
+      if (!isSilentRequest) {
+        toast.error('Access denied: ' + message)
+      }
     } else if (error.response?.status >= 500) {
-      toast.error('Server error. Please try again later.')
+      if (!isSilentRequest) {
+        toast.error('Server error. Please try again later.')
+      }
     } else {
-      toast.error(message)
+      // Don't show generic errors for silent requests
+      if (!isSilentRequest) {
+        toast.error(message)
+      }
     }
 
     return Promise.reject(error)

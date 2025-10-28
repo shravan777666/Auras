@@ -380,6 +380,10 @@ app.use('/api/payroll', payrollRoutes);
 // Add customer notification routes
 app.use('/api/customer/notifications', customerNotificationRoutes);
 
+// Add image upload routes
+import imageUploadRoutes from './routes/imageUpload.js';
+app.use('/api/image-upload', imageUploadRoutes);
+
 // Handle undefined routes
 app.all('*', (req, res) => {
   res.status(404).json({
@@ -403,7 +407,8 @@ app.all('*', (req, res) => {
       addon: '/api/addon',
       addonDashboard: '/api/addon-dashboard',
       expenseForecast: '/api/expense-forecast',
-      customerNotifications: '/api/customer/notifications'
+      customerNotifications: '/api/customer/notifications',
+      imageUpload: '/api/image-upload'
     }
   });
 });

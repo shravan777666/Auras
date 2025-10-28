@@ -25,14 +25,24 @@ export const AuthProvider = ({ children }) => {
       const token = localStorage.getItem('auracare_token');
       if (token) {
         // On initial load, fetch user data from the token
-        const response = await authService.getCurrentUser();
+        // Use silent flag to suppress error toasts for auth check
+        const response = await authService.getCurrentUser(true);
         const currentUser = response?.data?.data?.user;
         if (currentUser) {
           setUser(currentUser);
+        } else {
+          // No user data returned, clear token
+          localStorage.removeItem('auracare_token');
+          setUser(null);
         }
+      } else {
+        // No token exists, ensure user is null
+        setUser(null);
       }
     } catch (error) {
       // If token is invalid or fetching fails, clear it
+      // This is expected behavior when token expires or is invalid
+      console.log('Auth check failed (expected when not logged in):', error.response?.status);
       localStorage.removeItem('auracare_token');
       setUser(null);
     } finally {

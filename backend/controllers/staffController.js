@@ -572,11 +572,11 @@ export const getProfile = asyncHandler(async (req, res) => {
       .populate('assignedSalon', 'salonName ownerName');
   }
 
-  // Convert profile picture path to URL if it exists
+  // For Cloudinary URLs, return them directly without conversion
   const responseData = {
     ...staff.toObject(),
-    profilePicture: staff.profilePicture ? getFileUrl(staff.profilePicture, req) : null,
-    documents: convertDocumentsToUrls(staff.documents, req)
+    profilePicture: staff.profilePicture || null,
+    documents: staff.documents || {}
   };
 
   return successResponse(res, responseData, 'Profile retrieved successfully');
@@ -1148,7 +1148,11 @@ export const updateProfile = asyncHandler(async (req, res) => {
 
   // Handle file uploads if any
   if (req.files && req.files.profilePicture && req.files.profilePicture[0]) {
-    updateData.profilePicture = req.files.profilePicture[0].path;
+    // For Cloudinary uploads, use the secure_url from the file object
+    const imageUrl = req.files.profilePicture[0].secure_url || req.files.profilePicture[0].path || req.files.profilePicture[0].url;
+    if (imageUrl) {
+      updateData.profilePicture = imageUrl;
+    }
   }
 
   // Parse JSON strings if needed (for FormData)
@@ -1171,8 +1175,8 @@ export const updateProfile = asyncHandler(async (req, res) => {
 
   const responseData = {
     ...staff.toObject(),
-    documents: convertDocumentsToUrls(staff.documents, req),
-    profilePicture: staff.profilePicture ? getFileUrl(staff.profilePicture, req) : null,
+    documents: staff.documents || {},
+    profilePicture: staff.profilePicture || null,
   };
 
   return successResponse(res, responseData, 'Profile updated successfully');
@@ -1273,22 +1277,98 @@ export const getStaffReport = asyncHandler(async (req, res) => {
     return notFoundResponse(res, 'Staff profile');
   }
 
+  // Get date 30 days ago for revenue over time
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  // Get completed appointments for the last 30 days
   const completedAppointments = await Appointment.find({
     staffId: staff._id,
-    status: 'Completed'
+    status: 'Completed',
+    createdAt: { $gte: thirtyDaysAgo }
+  }).sort({ createdAt: 1 });
+
+  // Calculate total revenue
+  const totalRevenue = completedAppointments.reduce((acc, appointment) => acc + (appointment.totalAmount || 0), 0);
+  
+  // Get total appointments count
+  const totalAppointments = await Appointment.countDocuments({
+    staffId: staff._id
   });
 
-  const totalRevenue = completedAppointments.reduce((acc, appointment) => acc + appointment.totalAmount, 0);
-  const totalAppointments = completedAppointments.length;
-
+  // Get new customers (unique customers in the last 30 days)
   const customerIds = completedAppointments.map(appointment => appointment.customerId);
-  const uniqueCustomerIds = [...new Set(customerIds)];
+  const uniqueCustomerIds = [...new Set(customerIds.filter(id => id !== null && id !== undefined))];
   const newCustomers = uniqueCustomerIds.length;
+
+  // Calculate revenue over time (group by day for the last 30 days)
+  const revenueOverTime = {};
+  const dates = [];
+  
+  // Initialize last 30 days with 0 revenue
+  for (let i = 29; i >= 0; i--) {
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+    const dateStr = date.toISOString().split('T')[0];
+    revenueOverTime[dateStr] = 0;
+    dates.push(dateStr);
+  }
+  
+  // Add actual revenue data
+  completedAppointments.forEach(appointment => {
+    const dateStr = new Date(appointment.createdAt).toISOString().split('T')[0];
+    if (revenueOverTime[dateStr] !== undefined) {
+      revenueOverTime[dateStr] += appointment.totalAmount || 0;
+    }
+  });
+
+  // Get upcoming appointments (next 7 days)
+  const today = new Date();
+  const nextWeek = new Date();
+  nextWeek.setDate(today.getDate() + 7);
+  
+  const upcomingAppointments = await Appointment.find({
+    staffId: staff._id,
+    status: { $in: ['Pending', 'Approved', 'Confirmed'] },
+    appointmentDate: {
+      $gte: today.toISOString().split('T')[0] + 'T00:00',
+      $lte: nextWeek.toISOString().split('T')[0] + 'T23:59'
+    }
+  })
+  .populate('customerId', 'name')
+  .populate('services.serviceId', 'name')
+  .sort({ appointmentDate: 1, appointmentTime: 1 })
+  .limit(10);
+
+  // Format upcoming appointments for frontend
+  const formattedUpcomingAppointments = upcomingAppointments.map(apt => {
+    // Extract time from appointmentDate if it contains time, otherwise use appointmentTime
+    let timeToDisplay = apt.appointmentTime;
+    if (apt.appointmentDate && apt.appointmentDate.includes('T')) {
+      const timePart = apt.appointmentDate.split('T')[1];
+      if (timePart) {
+        timeToDisplay = timePart.substring(0, 5); // Get HH:mm part
+      }
+    }
+    
+    return {
+      _id: apt._id,
+      appointmentDate: apt.appointmentDate,
+      appointmentTime: timeToDisplay,
+      status: apt.status,
+      customerId: apt.customerId,
+      services: apt.services,
+      createdAt: apt.createdAt,
+      updatedAt: apt.updatedAt
+    };
+  });
 
   return successResponse(res, {
     totalRevenue,
     totalAppointments,
-    newCustomers
+    newCustomers,
+    revenueOverTime,
+    upcomingAppointments: formattedUpcomingAppointments
   }, 'Staff report retrieved successfully');
 });
 

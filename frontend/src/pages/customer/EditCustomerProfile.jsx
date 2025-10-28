@@ -4,11 +4,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import { customerService } from '../../services/customer';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import BackButton from '../../components/common/BackButton';
+import ImageUpload from '../../components/common/ImageUpload';
 import { toast } from 'react-hot-toast';
-import { User, Mail, Phone, Calendar, MapPin, UploadCloud, X } from 'lucide-react';
+import { User, Mail, Phone, Calendar, MapPin, X } from 'lucide-react';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5009';
-const IMAGE_BASE = (API_URL || '').replace(/\/+$/, '').replace(/\/api\/?$/, '');
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5011/api';
 
 const EditCustomerProfile = () => {
   const { user, updateUser } = useAuth();
@@ -30,8 +30,7 @@ const EditCustomerProfile = () => {
       country: '',
     },
   });
-  const [profilePicture, setProfilePicture] = useState(null);
-  const [profilePicturePreview, setProfilePicturePreview] = useState(null);
+  const [profilePictureUrl, setProfilePictureUrl] = useState(null);
   const [errors, setErrors] = useState({});
 
   const fetchProfile = useCallback(async () => {
@@ -49,10 +48,10 @@ const EditCustomerProfile = () => {
         });
         const pic = data.profilePic || data.profilePicture;
         if (pic) {
-          const sanitized = String(pic).replace(/^\/+/, '');
-          setProfilePicturePreview(`${IMAGE_BASE}/${sanitized}`);
+          // Backend already provides full URLs, use them directly
+          setProfilePictureUrl(pic);
         } else {
-          setProfilePicturePreview(null);
+          setProfilePictureUrl(null);
         }
       } else {
         toast.error(response.message || 'Could not fetch profile data.');
@@ -84,23 +83,12 @@ const EditCustomerProfile = () => {
     }));
   };
 
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  const handleImageUpload = (imageData) => {
+    setProfilePictureUrl(imageData.url);
+  };
 
-    const allowedTypes = ['image/jpeg', 'image/png'];
-    if (!allowedTypes.includes(file.type)) {
-      toast.error('Invalid file type. Please upload a JPG or PNG image.');
-      return;
-    }
-
-    if (file.size > 2 * 1024 * 1024) { // 2MB
-      toast.error('File is too large. Maximum size is 2MB.');
-      return;
-    }
-
-    setProfilePicture(file);
-    setProfilePicturePreview(URL.createObjectURL(file));
+  const handleImageDelete = () => {
+    setProfilePictureUrl(null);
   };
 
   const handleSubmit = async (e) => {
@@ -119,11 +107,6 @@ const EditCustomerProfile = () => {
     }
     data.append('address', JSON.stringify(formData.address));
 
-    if (profilePicture) {
-      console.log('[EditCustomerProfile] Attaching file', { name: profilePicture.name, size: profilePicture.size, type: profilePicture.type });
-      data.append('profilePicture', profilePicture);
-    }
-
     try {
       console.log('[EditCustomerProfile] Sending updateProfile request');
       const response = await customerService.updateProfile(data);
@@ -132,8 +115,8 @@ const EditCustomerProfile = () => {
         toast.success('Profile updated successfully!');
         const updatedPic = response.data?.profilePic || response.data?.profilePicture;
         if (updatedPic) {
-          const sanitized = String(updatedPic).replace(/^\/+/, '');
-          setProfilePicturePreview(`${IMAGE_BASE}/${sanitized}`);
+          // Backend already provides full URLs, use them directly
+          setProfilePictureUrl(updatedPic);
         }
         updateUser(response.data); // Update user in auth context
         navigate('/customer/dashboard');
@@ -168,30 +151,16 @@ const EditCustomerProfile = () => {
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-lg p-8 space-y-8">
           {/* Profile Picture Section */}
           <div className="flex flex-col sm:flex-row items-center space-y-6 sm:space-y-0 sm:space-x-8">
-            <div className="relative">
-              <img
-                src={profilePicturePreview || `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.name || 'User')}&background=random&size=128`}
-                alt="Profile"
-                className="h-32 w-32 rounded-full object-cover shadow-md border-4 border-white"
-                onError={(e)=>{ e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.name || 'User')}&background=random&size=128`; }}
-              />
-              {profilePicturePreview && (
-                <button
-                  type="button"
-                  onClick={() => { setProfilePicture(null); setProfilePicturePreview(null); }}
-                  className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1.5 shadow-md hover:bg-red-600 transition-transform transform hover:scale-110"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </div>
+            <ImageUpload
+              onImageUpload={handleImageUpload}
+              onImageDelete={handleImageDelete}
+              currentImageUrl={profilePictureUrl}
+              uploadType="customer"
+              maxSize={2 * 1024 * 1024} // 2MB
+              allowedTypes={['image/jpeg', 'image/png']}
+            />
             <div className="flex flex-col items-center sm:items-start">
-              <label htmlFor="profilePictureInput" className="cursor-pointer bg-primary-600 text-white px-6 py-2.5 rounded-lg shadow-md hover:bg-primary-700 transition-all duration-300 ease-in-out flex items-center space-x-2">
-                <UploadCloud className="h-5 w-5" />
-                <span>{profilePicturePreview ? 'Change Photo' : 'Upload Photo'}</span>
-              </label>
-              <input id="profilePictureInput" type="file" accept="image/jpeg, image/png" className="hidden" onChange={handleImageChange} />
-              <p className="mt-3 text-xs text-gray-500">JPG or PNG format, max size 2MB.</p>
+              <p className="text-xs text-gray-500">JPG or PNG format, max size 2MB.</p>
             </div>
           </div>
 
@@ -226,14 +195,13 @@ const EditCustomerProfile = () => {
 
             {/* Gender */}
             <div className="group">
-                <label htmlFor="gender" className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
-                <select id="gender" name="gender" value={formData.gender} onChange={handleInputChange} className="w-full py-2.5 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow appearance-none bg-white">
-                    <option value="" disabled>Select Gender</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                    <option value="Prefer not to say">Prefer not to say</option>
-                </select>
+              <label htmlFor="gender" className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+              <select id="gender" name="gender" value={formData.gender} onChange={handleInputChange} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow">
+                <option value="">Select Gender</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+              </select>
             </div>
 
             {/* Date of Birth */}
@@ -248,38 +216,42 @@ const EditCustomerProfile = () => {
 
           {/* Address Section */}
           <div className="border-t border-gray-200 pt-8">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center"><MapPin className="h-5 w-5 mr-2 text-gray-500"/>Mailing Address</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div className="col-span-2">
+            <h2 className="text-lg font-semibold text-gray-900 mb-6">Address Information</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
                 <label htmlFor="street" className="block text-sm font-medium text-gray-700 mb-1">Street Address</label>
-                <input type="text" id="street" name="street" value={formData.address.street} onChange={handleAddressChange} className="w-full py-2.5 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow" />
+                <input type="text" id="street" name="street" value={formData.address.street || ''} onChange={handleAddressChange} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow" />
               </div>
               <div>
                 <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">City</label>
-                <input type="text" id="city" name="city" value={formData.address.city} onChange={handleAddressChange} className="w-full py-2.5 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow" />
+                <input type="text" id="city" name="city" value={formData.address.city || ''} onChange={handleAddressChange} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow" />
               </div>
               <div>
-                <label htmlFor="state" className="block text-sm font-medium text-gray-700 mb-1">State / Province</label>
-                <input type="text" id="state" name="state" value={formData.address.state} onChange={handleAddressChange} className="w-full py-2.5 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow" />
+                <label htmlFor="state" className="block text-sm font-medium text-gray-700 mb-1">State</label>
+                <input type="text" id="state" name="state" value={formData.address.state || ''} onChange={handleAddressChange} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow" />
               </div>
               <div>
                 <label htmlFor="postalCode" className="block text-sm font-medium text-gray-700 mb-1">Postal Code</label>
-                <input type="text" id="postalCode" name="postalCode" value={formData.address.postalCode} onChange={handleAddressChange} className="w-full py-2.5 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow" />
+                <input type="text" id="postalCode" name="postalCode" value={formData.address.postalCode || ''} onChange={handleAddressChange} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow" />
               </div>
-              <div>
+              <div className="md:col-span-2">
                 <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-1">Country</label>
-                <input type="text" id="country" name="country" value={formData.address.country} onChange={handleAddressChange} className="w-full py-2.5 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow" />
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input type="text" id="country" name="country" value={formData.address.country || ''} onChange={handleAddressChange} className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow" />
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex justify-end space-x-4 pt-8 border-t border-gray-200">
-            <button type="button" onClick={() => navigate('/customer/dashboard')} className="px-8 py-2.5 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors font-semibold">
-              Cancel
-            </button>
-            <button type="submit" disabled={saving} className="px-8 py-2.5 bg-gradient-to-r from-primary-600 to-secondary-600 text-white rounded-lg shadow-md hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-300 ease-in-out font-semibold">
-              {saving ? 'Saving Changes...' : 'Save Changes'}
+          {/* Submit Button */}
+          <div className="flex justify-end pt-6">
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-6 py-3 bg-primary-600 text-white font-medium rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 transition-colors"
+            >
+              {saving ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
         </form>

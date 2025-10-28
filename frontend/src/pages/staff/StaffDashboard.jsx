@@ -533,7 +533,7 @@ const StaffDashboard = () => {
                 className="flex-1 min-w-[200px] flex flex-col items-center p-6 bg-gray-100 rounded-lg shadow-sm hover:bg-gray-200 transition-colors"
               >
                 <Plus size={24} className="text-gray-600 mb-2" />
-                <span className="font-semibold text-gray-800">Book New Appointment</span>
+                <span className="font-semibold text-gray-800"></span>
               </button>
               <button
                 onClick={handleSendReminder}

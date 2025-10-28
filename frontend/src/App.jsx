@@ -65,6 +65,7 @@ const MapView = React.lazy(() => import('./pages/customer/MapView'));
 const Favorites = React.lazy(() => import('./pages/customer/Favorites'));
 const Recommendations = React.lazy(() => import('./pages/customer/Recommendations'));
 const SearchResults = React.lazy(() => import('./pages/common/SearchResults'))
+const TestImageUpload = React.lazy(() => import('./pages/customer/TestImageUpload'))
 
 // Common Pages
 const About = React.lazy(() => import('./pages/common/About'))
@@ -578,6 +579,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['customer']}>
                 <Recommendations />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/customer/test-image-upload"
+            element={
+              <ProtectedRoute allowedRoles={['customer']}>
+                <TestImageUpload />
               </ProtectedRoute>
             }
           />

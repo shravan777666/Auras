@@ -33,8 +33,10 @@ export const authService = {
     }
   },
 
-  async getCurrentUser() {
-    const response = await api.get('/auth/me')
+  async getCurrentUser(silent = false) {
+    const response = await api.get('/auth/me', {
+      silent: silent // Flag to suppress error toasts for auth checks
+    })
     return response
   },
 

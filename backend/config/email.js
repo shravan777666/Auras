@@ -2,26 +2,51 @@ import nodemailer from 'nodemailer';
 
 // Create transporter for sending emails
 const createTransporter = () => {
-  return nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS
-    }
-  });
+  // Check if we should use Resend based on environment variables (at runtime)
+  const useResend = process.env.RESEND_API_KEY && process.env.RESEND_API_KEY.length > 0;
+  
+  if (useResend) {
+    // Use Resend SMTP
+    return nodemailer.createTransport({
+      host: 'smtp.resend.com',
+      secure: true,
+      port: 465,
+      auth: {
+        user: 'resend',
+        pass: process.env.RESEND_API_KEY
+      }
+    });
+  } else {
+    // Use Gmail SMTP (fallback)
+    return nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      }
+    });
+  }
 };
 
 // Generic email sending function
 export const sendEmail = async (options) => {
   try {
     // Validate inputs
-    if (!options.to || !options.subject || !options.html) {
-      throw new Error('Missing required parameters: to, subject, or html');
+    if (!options.to || !options.subject || (!options.html && !options.text)) {
+      throw new Error('Missing required parameters: to, subject, and either html or text');
     }
 
-    // Check email configuration
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      throw new Error('Email configuration missing: EMAIL_USER or EMAIL_PASS not set');
+    // Check email configuration (at runtime)
+    const useResend = process.env.RESEND_API_KEY && process.env.RESEND_API_KEY.length > 0;
+    
+    if (useResend) {
+      if (!process.env.RESEND_API_KEY) {
+        throw new Error('Resend configuration missing: RESEND_API_KEY not set');
+      }
+    } else {
+      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+        throw new Error('Email configuration missing: EMAIL_USER or EMAIL_PASS not set');
+      }
     }
 
     const transporter = createTransporter();
@@ -31,14 +56,15 @@ export const sendEmail = async (options) => {
       await transporter.verify();
     } catch (verifyError) {
       console.error('Email transporter verification failed:', verifyError);
-      throw new Error('Email service configuration error');
+      throw new Error('Email service configuration error: ' + verifyError.message);
     }
     
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: process.env.EMAIL_FROM || '"AuraCare Beauty Parlor" <noreply@auracare.com>',
       to: options.to,
       subject: options.subject,
-      html: options.html
+      html: options.html,
+      text: options.text
     };
 
     const result = await transporter.sendMail(mailOptions);
@@ -48,7 +74,7 @@ export const sendEmail = async (options) => {
     }
     
     console.log('Email sent successfully:', result.messageId);
-    console.log('Email sent from:', process.env.EMAIL_USER);
+    console.log('Email sent from:', mailOptions.from);
     console.log('Email sent to:', options.to);
     return { success: true, messageId: result.messageId };
     
@@ -76,9 +102,17 @@ export const sendOTPEmail = async (email, otp, userType) => {
       throw new Error('Missing required parameters: email, otp, or userType');
     }
 
-    // Check email configuration
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      throw new Error('Email configuration missing: EMAIL_USER or EMAIL_PASS not set');
+    // Check email configuration (at runtime)
+    const useResend = process.env.RESEND_API_KEY && process.env.RESEND_API_KEY.length > 0;
+    
+    if (useResend) {
+      if (!process.env.RESEND_API_KEY) {
+        throw new Error('Resend configuration missing: RESEND_API_KEY not set');
+      }
+    } else {
+      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+        throw new Error('Email configuration missing: EMAIL_USER or EMAIL_PASS not set');
+      }
     }
 
     const transporter = createTransporter();
@@ -92,7 +126,7 @@ export const sendOTPEmail = async (email, otp, userType) => {
     }
     
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: process.env.EMAIL_FROM || '"AuraCare Beauty Parlor" <noreply@auracare.com>',
       to: email,
       subject: 'Password Reset OTP - AuraCare',
       html: `
@@ -147,7 +181,7 @@ export const sendOTPEmail = async (email, otp, userType) => {
     }
     
     console.log('OTP email sent successfully:', result.messageId);
-    console.log('Email sent from:', process.env.EMAIL_USER);
+    console.log('Email sent from:', mailOptions.from);
     console.log('Email sent to:', email);
     return { success: true, messageId: result.messageId };
     
@@ -175,9 +209,17 @@ export const sendSalonApprovalEmail = async (email, salonName, ownerName) => {
       throw new Error('Missing required parameters: email, salonName, or ownerName');
     }
 
-    // Check email configuration
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      throw new Error('Email configuration missing: EMAIL_USER or EMAIL_PASS not set');
+    // Check email configuration (at runtime)
+    const useResend = process.env.RESEND_API_KEY && process.env.RESEND_API_KEY.length > 0;
+    
+    if (useResend) {
+      if (!process.env.RESEND_API_KEY) {
+        throw new Error('Resend configuration missing: RESEND_API_KEY not set');
+      }
+    } else {
+      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+        throw new Error('Email configuration missing: EMAIL_USER or EMAIL_PASS not set');
+      }
     }
 
     const transporter = createTransporter();
@@ -191,7 +233,7 @@ export const sendSalonApprovalEmail = async (email, salonName, ownerName) => {
     }
     
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: process.env.EMAIL_FROM || '"AuraCare Beauty Parlor" <noreply@auracare.com>',
       to: email,
       subject: 'Your Salon Has Been Approved - AuraCare',
       html: `
@@ -262,7 +304,7 @@ export const sendSalonApprovalEmail = async (email, salonName, ownerName) => {
     }
     
     console.log('Salon approval email sent successfully:', result.messageId);
-    console.log('Email sent from:', process.env.EMAIL_USER);
+    console.log('Email sent from:', mailOptions.from);
     console.log('Email sent to:', email);
     return { success: true, messageId: result.messageId };
     
@@ -290,9 +332,17 @@ export const sendSalonRejectionEmail = async (email, salonName, ownerName, rejec
       throw new Error('Missing required parameters: email, salonName, ownerName, or rejectionReason');
     }
 
-    // Check email configuration
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      throw new Error('Email configuration missing: EMAIL_USER or EMAIL_PASS not set');
+    // Check email configuration (at runtime)
+    const useResend = process.env.RESEND_API_KEY && process.env.RESEND_API_KEY.length > 0;
+    
+    if (useResend) {
+      if (!process.env.RESEND_API_KEY) {
+        throw new Error('Resend configuration missing: RESEND_API_KEY not set');
+      }
+    } else {
+      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+        throw new Error('Email configuration missing: EMAIL_USER or EMAIL_PASS not set');
+      }
     }
 
     const transporter = createTransporter();
@@ -306,7 +356,7 @@ export const sendSalonRejectionEmail = async (email, salonName, ownerName, rejec
     }
     
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: process.env.EMAIL_FROM || '"AuraCare Beauty Parlor" <noreply@auracare.com>',
       to: email,
       subject: 'Salon Application Update - AuraCare',
       html: `
@@ -365,7 +415,7 @@ export const sendSalonRejectionEmail = async (email, salonName, ownerName, rejec
     }
     
     console.log('Salon rejection email sent successfully:', result.messageId);
-    console.log('Email sent from:', process.env.EMAIL_USER);
+    console.log('Email sent from:', mailOptions.from);
     console.log('Email sent to:', email);
     return { success: true, messageId: result.messageId };
     
@@ -393,9 +443,17 @@ export const sendStaffApprovalNotificationEmail = async (salonOwnerEmail, salonN
       throw new Error('Missing required parameters: salonOwnerEmail, salonName, staffName, or position');
     }
 
-    // Check email configuration
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      throw new Error('Email configuration missing: EMAIL_USER or EMAIL_PASS not set');
+    // Check email configuration (at runtime)
+    const useResend = process.env.RESEND_API_KEY && process.env.RESEND_API_KEY.length > 0;
+    
+    if (useResend) {
+      if (!process.env.RESEND_API_KEY) {
+        throw new Error('Resend configuration missing: RESEND_API_KEY not set');
+      }
+    } else {
+      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+        throw new Error('Email configuration missing: EMAIL_USER or EMAIL_PASS not set');
+      }
     }
 
     const transporter = createTransporter();
@@ -409,7 +467,7 @@ export const sendStaffApprovalNotificationEmail = async (salonOwnerEmail, salonN
     }
     
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: process.env.EMAIL_FROM || '"AuraCare Beauty Parlor" <noreply@auracare.com>',
       to: salonOwnerEmail,
       subject: `New Staff Member Approved - ${staffName} (${position})`,
       html: `
@@ -470,7 +528,7 @@ export const sendStaffApprovalNotificationEmail = async (salonOwnerEmail, salonN
     }
     
     console.log('Staff approval notification email sent successfully:', result.messageId);
-    console.log('Email sent from:', process.env.EMAIL_USER);
+    console.log('Email sent from:', mailOptions.from);
     console.log('Email sent to:', salonOwnerEmail);
     return { success: true, messageId: result.messageId };
     
@@ -498,12 +556,20 @@ export const sendStaffApprovalEmail = async (staffEmail, staffName, salonName, p
       throw new Error('Missing required parameters: staffEmail, staffName, salonName, or position');
     }
 
-    // Check email configuration
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      throw new Error('Email configuration missing: EMAIL_USER or EMAIL_PASS not set');
+    // Check email configuration (at runtime)
+    const useResend = process.env.RESEND_API_KEY && process.env.RESEND_API_KEY.length > 0;
+    
+    if (useResend) {
+      if (!process.env.RESEND_API_KEY) {
+        throw new Error('Resend configuration missing: RESEND_API_KEY not set');
+      }
+    } else {
+      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+        throw new Error('Email configuration missing: EMAIL_USER or EMAIL_PASS not set');
+      }
     }
 
-    console.log('📧 Preparing to send staff approval email:', {
+    console.log('Preparing to send staff approval email:', {
       to: staffEmail,
       staffName,
       salonName,
@@ -514,16 +580,16 @@ export const sendStaffApprovalEmail = async (staffEmail, staffName, salonName, p
     
     // Verify transporter configuration
     try {
-      console.log('📧 Verifying email transporter...');
+      console.log('Verifying email transporter...');
       await transporter.verify();
-      console.log('✅ Email transporter verified successfully');
+      console.log('Email transporter verified successfully');
     } catch (verifyError) {
-      console.error('❌ Email transporter verification failed:', verifyError);
+      console.error('Email transporter verification failed:', verifyError);
       throw new Error('Email service configuration error: ' + verifyError.message);
     }
     
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: process.env.EMAIL_FROM || '"AuraCare Beauty Parlor" <noreply@auracare.com>',
       to: staffEmail,
       subject: `You've Been Approved! Welcome to ${salonName} on AuraCare`,
       html: `
@@ -587,7 +653,7 @@ export const sendStaffApprovalEmail = async (staffEmail, staffName, salonName, p
       `
     };
 
-    console.log('📧 Sending email with options:', {
+    console.log('Sending email with options:', {
       from: mailOptions.from,
       to: mailOptions.to,
       subject: mailOptions.subject
@@ -599,9 +665,9 @@ export const sendStaffApprovalEmail = async (staffEmail, staffName, salonName, p
       throw new Error('Failed to send email - no message ID returned');
     }
     
-    console.log('✅ Staff approval email sent successfully:', result.messageId);
-    console.log('📧 Email details:', {
-      from: process.env.EMAIL_USER,
+    console.log('Staff approval email sent successfully:', result.messageId);
+    console.log('Email details:', {
+      from: process.env.EMAIL_FROM || '"AuraCare Beauty Parlor" <noreply@auracare.com>',
       to: staffEmail,
       subject: mailOptions.subject,
       messageId: result.messageId
@@ -610,7 +676,7 @@ export const sendStaffApprovalEmail = async (staffEmail, staffName, salonName, p
     return { success: true, messageId: result.messageId };
     
   } catch (error) {
-    console.error('❌ Error sending staff approval email:', error);
+    console.error('Error sending staff approval email:', error);
     
     // Provide more specific error messages
     if (error.code === 'EAUTH') {
@@ -633,9 +699,17 @@ export const sendRegistrationConfirmationEmail = async (email, name, userType) =
       throw new Error('Missing required parameters: email, name, or userType');
     }
 
-    // Check email configuration
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      throw new Error('Email configuration missing: EMAIL_USER or EMAIL_PASS not set');
+    // Check email configuration (at runtime)
+    const useResend = process.env.RESEND_API_KEY && process.env.RESEND_API_KEY.length > 0;
+    
+    if (useResend) {
+      if (!process.env.RESEND_API_KEY) {
+        throw new Error('Resend configuration missing: RESEND_API_KEY not set');
+      }
+    } else {
+      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+        throw new Error('Email configuration missing: EMAIL_USER or EMAIL_PASS not set');
+      }
     }
 
     const transporter = createTransporter();
@@ -659,7 +733,7 @@ export const sendRegistrationConfirmationEmail = async (email, name, userType) =
     const userTypeLabel = userTypeLabels[userType] || userType;
     
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: process.env.EMAIL_FROM || '"AuraCare Beauty Parlor" <noreply@auracare.com>',
       to: email,
       subject: `Welcome to AuraCare - ${userTypeLabel} Account Created Successfully!`,
       html: `
@@ -738,7 +812,7 @@ export const sendRegistrationConfirmationEmail = async (email, name, userType) =
     }
     
     console.log('Registration confirmation email sent successfully:', result.messageId);
-    console.log('Email sent from:', process.env.EMAIL_USER);
+    console.log('Email sent from:', mailOptions.from);
     console.log('Email sent to:', email);
     return { success: true, messageId: result.messageId };
     

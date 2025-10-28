@@ -25,6 +25,7 @@
     "@mui/material": "^7.3.2",
     "axios": "^1.6.2",
     "chart.js": "^4.5.0",
+    "cloudinary": "^2.8.0",
     "clsx": "^2.0.0",
     "date-fns": "^2.30.0",
     "leaflet": "^1.9.4",

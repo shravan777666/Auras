@@ -18,6 +18,12 @@ services:
         value: https://auracare-frontend.onrender.com
       - key: GOOGLE_CALLBACK_URL
         value: https://auracare-backend.onrender.com/api/auth/google/callback
+      - key: CLOUDINARY_CLOUD_NAME
+        value: dzbjcacnn
+      - key: CLOUDINARY_API_KEY
+        value: 876578995275917
+      - key: CLOUDINARY_API_SECRET
+        value: X5ELAMbkjO6-VOEMcAgc_0CNsfw
     healthCheckPath: /health
     autoDeploy: true
 
@@ -44,4 +50,8 @@ services:
         value: production
       - key: VITE_API_URL
         value: https://auracare-backend.onrender.com/api
+      - key: VITE_CLOUDINARY_CLOUD_NAME
+        value: dzbjcacnn
+      - key: VITE_CLOUDINARY_API_KEY
+        value: 876578995275917
     autoDeploy: true

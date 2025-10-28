@@ -1,47 +1,38 @@
-import React, { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../../contexts/AuthContext'
-import LoadingSpinner from '../../components/common/LoadingSpinner'
-import { customerService } from '../../services/customer'
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import { customerService } from '../../services/customer';
+import { customerMessageService } from '../../services/customerMessage';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
+import { toast } from 'react-hot-toast';
 import { 
+  User, 
   Calendar, 
-  MapPin, 
-  Star, 
   Clock, 
-  User,
+  CheckCircle, 
+  XCircle, 
+  Plus, 
+  Search, 
+  Bell, 
+  Lock, 
+  CreditCard, 
+  History, 
   Sparkles,
-  Plus,
-  ArrowRight,
-  Mail,
-  Phone,
-  MessageCircle,
-  Bell,
-  Search,
-  Filter,
+  MapPin,
+  Star,
   Heart,
-  TrendingUp,
-  Award,
-  CheckCircle,
-  XCircle,
+  Filter,
+  ChevronDown,
+  MessageCircle,
   Home,
-  History,
-  UserCircle,
-  Lock,
-  CreditCard,
-  Scissors
-} from 'lucide-react'
-import SalonMap from '../../components/customer/SalonMap'
-import RecommendationsSection from '../../components/customer/RecommendationsSection'
-import { customerMessageService } from '../../services/customerMessage'
-import MessageNotificationBadge from '../../components/customer/MessageNotificationBadge'
-import OneClickBookingWidget from '../../components/customer/OneClickBookingWidget'
-import CustomerLoyaltyCard from '../../components/customer/CustomerLoyaltyCard'
-import FavoriteSalonCard from '../../components/customer/FavoriteSalonCard';
-import BackButton from '../../components/common/BackButton';
+  TrendingUp,
+  Scissors,
+  Award
+} from 'lucide-react';
+import MessageNotificationBadge from '../../components/customer/MessageNotificationBadge';
 import RecentSalonsCarousel from '../../components/customer/RecentSalonsCarousel';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002'
-const IMAGE_BASE = (API_URL || '').replace(/\/+$/, '').replace(/\/api\/?$/, '')
 
 const CustomerDashboard = () => {
   const { user, logout } = useAuth()
@@ -209,7 +200,7 @@ const CustomerDashboard = () => {
     { id: 'overview', label: 'Overview', icon: Home },
     { id: 'appointments', label: 'Appointments', icon: Calendar },
     { id: 'history', label: 'History', icon: History },
-    { id: 'profile', label: 'Profile', icon: UserCircle }
+    { id: 'profile', label: 'Profile', icon: User }
   ]
 
   const renderOverviewSection = () => (
@@ -253,7 +244,7 @@ const CustomerDashboard = () => {
                     <div className="flex items-center">
                       {salon.profileImage || salon.salonImage ? (
                         <img 
-                          src={(salon.profileImage || salon.salonImage).startsWith('http') ? (salon.profileImage || salon.salonImage) : `${import.meta.env.VITE_API_URL || ''}${salon.profileImage || salon.salonImage}`} 
+                          src={salon.profileImage || salon.salonImage} 
                           alt={salon.salonName || salon.name} 
                           className="w-16 h-16 rounded-xl object-cover"
                           onError={(e) => {
@@ -591,7 +582,7 @@ const CustomerDashboard = () => {
             <div className="flex flex-col items-center">
               {dashboardData.customerInfo?.profilePic || dashboardData.customerInfo?.profilePicture ? (
                 <img
-                  src={`${IMAGE_BASE}/${String(dashboardData.customerInfo.profilePic || dashboardData.customerInfo.profilePicture).replace(/^\/+/, '')}`}
+                  src={dashboardData.customerInfo.profilePic || dashboardData.customerInfo.profilePicture}
                   alt={dashboardData.customerInfo?.name || 'Profile'}
                   className="h-20 w-20 rounded-full object-cover border-2 border-primary-100"
                   onError={(e)=>{ e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(dashboardData.customerInfo?.name || user?.name || 'User')}&background=random&size=64` }}
@@ -708,6 +699,7 @@ const CustomerDashboard = () => {
                         : 'text-gray-500 hover:text-gray-700'
                     }`}
                   >
+                    <Icon className="h-4 w-4 mr-2" />
                     {item.label}
                     {activeSection === item.id && (
                       <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600"></div>
@@ -732,7 +724,7 @@ const CustomerDashboard = () => {
                 <div className="flex items-center">
                   {dashboardData.customerInfo?.profilePic || dashboardData.customerInfo?.profilePicture ? (
                     <img
-                      src={`${IMAGE_BASE}/${String(dashboardData.customerInfo.profilePic || dashboardData.customerInfo.profilePicture).replace(/^\/+/, '')}`}
+                      src={dashboardData.customerInfo.profilePic || dashboardData.customerInfo.profilePicture}
                       alt={dashboardData.customerInfo?.name || 'Profile'}
                       className="h-8 w-8 rounded-full object-cover"
                       onError={(e)=>{ e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(dashboardData.customerInfo?.name || user?.name || 'User')}&background=random&size=64` }}
