@@ -264,12 +264,12 @@ app.use('/uploads', (req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma, Expires, If-Modified-Since, If-None-Match');
-  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  // Set permissive headers for static files
   res.header('Cross-Origin-Resource-Policy', 'cross-origin');
   res.header('Cross-Origin-Embedder-Policy', 'require-corp');
-  res.header('Cross-Origin-Opener-Policy', 'same-origin');
   
-  // Handle preflight requests
+  // Handle preflight
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
   }
@@ -280,14 +280,7 @@ app.use('/uploads', (req, res, next) => {
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Cross-Origin-Resource-Policy', 'cross-origin');
     res.set('Cross-Origin-Embedder-Policy', 'require-corp');
-    res.set('Cross-Origin-Opener-Policy', 'same-origin');
-    
-    // Set cache control for images
-    if (/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(filePath)) {
-      res.set('Cache-Control', 'public, max-age=86400');
-    }
-    
-    // Set content type based on file extension
+    res.set('Cache-Control', 'public, max-age=31536000'); // 1 year cache
     if (/\.(jpg|jpeg)$/i.test(filePath)) {
       res.set('Content-Type', 'image/jpeg');
     } else if (/\.png$/i.test(filePath)) {
@@ -303,6 +296,21 @@ app.use('/uploads', (req, res, next) => {
     }
   }
 }));
+
+// Fallback for missing uploads - Return helpful error instead of 404
+app.use('/uploads', (req, res) => {
+  console.log(`⚠️ Missing file requested: ${req.url}`);
+  console.log(`💡 Tip: This is likely an old record with local path. Images are now stored in Cloudinary.`);
+  
+  // Return a JSON response indicating the file should be re-uploaded
+  return res.status(404).json({
+    success: false,
+    message: 'Image not found. This file was uploaded before Cloudinary migration.',
+    note: 'Please re-upload this image to store it in Cloudinary.',
+    requestedPath: req.url,
+    migration: 'Files are now stored in Cloudinary cloud storage for persistence.'
+  });
+});
 
 // Health check endpoint
 app.get('/health', (req, res) => {
