@@ -269,18 +269,28 @@ export const createStaff = asyncHandler(async (req, res) => {
 const getFileUrl = (filePath, req) => {
   if (!filePath) return null;
   
-  // Normalize path separators
-  const normalizedPath = String(filePath).replace(/\\/g, '/');
+  // If the path is already a full URL (Cloudinary, etc.), return it as-is
+  if (String(filePath).startsWith('http://') || String(filePath).startsWith('https://')) {
+    return filePath;
+  }
   
-  // Get base URL from environment or use default
-  const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 5005}`;
-  
+  // Normalize path separators (convert Windows backslashes to forward slashes)
+  let normalizedPath = String(filePath).replace(/\\/g, '/');
+
+  // Remove any "backend/" prefix if it exists to prevent double prefixing
+  if (normalizedPath.startsWith('backend/')) {
+    normalizedPath = normalizedPath.substring(7);
+  }
+
+  // Compute base URL from request or env
+  const baseUrl = getRequestBaseUrl(req);
+
   // Ensure leading slash for path part
   const pathWithSlash = normalizedPath.startsWith('/') ? normalizedPath : `/${normalizedPath}`;
-  
+
   // Construct the full URL
   const fullUrl = `${baseUrl}${pathWithSlash}`;
-  
+
   return fullUrl;
 };
 

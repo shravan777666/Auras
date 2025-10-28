@@ -1,4 +1,4 @@
-﻿import Admin from '../models/Admin.js';
+import Admin from '../models/Admin.js';
 import Salon from '../models/Salon.js';
 import User from '../models/User.js';
 import Staff from '../models/Staff.js';
@@ -28,6 +28,11 @@ const getRequestBaseUrl = (req) => {
 // Helper function to convert file path to full URL
 const getFileUrl = (filePath, req) => {
   if (!filePath) return null;
+
+  // If the path is already a full URL (Cloudinary, etc.), return it as-is
+  if (String(filePath).startsWith('http://') || String(filePath).startsWith('https://')) {
+    return filePath;
+  }
 
   // Normalize path separators (convert Windows backslashes to forward slashes)
   let normalizedPath = String(filePath).replace(/\\/g, '/');
