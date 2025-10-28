@@ -1,0 +1,292 @@
+[
+  {
+    "localPath": "uploads\\customers\\profilePicture-68ccfed080b3ca62db945d8f-1758738265344.png",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681229/auracare/customers/a2yvjy3tlr04mltjunh6.png",
+    "folder": "auracare/customers"
+  },
+  {
+    "localPath": "uploads\\images\\.gitkeep",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/raw/upload/v1761681230/auracare/salons/nzwquiutuf93np23exp8.gitkeep",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\images\\salonImages-1757971529214.png",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681231/auracare/salons/mlehlv1n9t4it2mk8ryn.png",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\images\\salonImages-1757973852237.png",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681232/auracare/salons/lv70woblmupxg9vfaqbk.png",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\images\\salonImages-1758082969206.png",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681233/auracare/salons/pxfpohtiyezy1gahfceb.png",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\images\\salonImages-1758132825700.png",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681234/auracare/salons/vgb1jefn4y499u9t7x12.png",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\images\\salonImages-1758187916115.png",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681235/auracare/salons/vn3st3z7gxgadqhxnfgj.png",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\images\\salonImages-1758260261304.jpg",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681236/auracare/salons/xhv7msmoo0hcct2yc4w4.avif",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\images\\salonImages-1758511667878.jpg",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681238/auracare/salons/wycup7qy84npsn68mkoo.avif",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\images\\salonImages-1758631274830.png",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681239/auracare/salons/dp9lruvv2xoecy0z4yrt.png",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\images\\salonImages-1760162926005.png",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681240/auracare/salons/tp0zt1knwhqkqfjrsfp7.png",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\images\\salonImages-1760951912280.png",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681241/auracare/salons/ir1bd4zsk6n6eiohv8n1.png",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\images\\salonImages-1761633066500.png",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681242/auracare/salons/lwdumbp9sij2zsnymxkx.png",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\images\\salonLogo-1757971529203.png",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681243/auracare/salons/gf83a20kmytim5rxesj0.png",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\images\\salonLogo-1757973852229.png",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681244/auracare/salons/nmeg6gaju25i5ryjv9nd.png",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\images\\salonLogo-1758082969182.png",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681245/auracare/salons/ytaz6d0p2rt04ah60c6x.png",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\images\\salonLogo-1758132825689.png",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681247/auracare/salons/zu1lictqivp2zqtsgeea.png",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\images\\salonLogo-1758187916104.png",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681248/auracare/salons/l11nko15zaygrjmgyshi.png",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\images\\salonLogo-1758260261294.jpg",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681249/auracare/salons/cpbmmzikhrajvytieyfa.jpg",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\images\\salonLogo-1758511667876.jpg",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681250/auracare/salons/y5hcibrddvrhgz5qfiuj.jpg",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\images\\salonLogo-1758631274826.png",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681252/auracare/salons/mljzmkfd2piihu1eq7ci.png",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\images\\salonLogo-1760162925982.png",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681253/auracare/salons/qs0qljeyrtaqrq60x0m6.png",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\images\\salonLogo-1760951912224.png",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681254/auracare/salons/i2p4orwjkov0exir5wgt.png",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\images\\salonLogo-1761633066466.jpg",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681255/auracare/salons/wtvmfiydtpnf7emaf0be.jpg",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\licenses\\.gitkeep",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/raw/upload/v1761681257/auracare/salons/yuj5nayncxiadhh1dayo.gitkeep",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\licenses\\businessLicense-1757971529208.pdf",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681258/auracare/salons/wpnhwzqtelaq4m9cnlgy.pdf",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\licenses\\businessLicense-1757973852233.pdf",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681259/auracare/salons/zy281fasfie5faxsnshv.pdf",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\licenses\\businessLicense-1758082969189.pdf",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681261/auracare/salons/z08iddrjebz69a5m0kdv.pdf",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\licenses\\businessLicense-1758132825693.pdf",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681262/auracare/salons/amhkao9cdt75ju3yvhx6.pdf",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\licenses\\businessLicense-1758187916109.pdf",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681264/auracare/salons/ftwxi9tgxz9bsirykyce.pdf",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\licenses\\businessLicense-1758260261295.pdf",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681264/auracare/salons/syclz4cwpgdoxoyshosj.pdf",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\licenses\\businessLicense-1758511667878.pdf",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681266/auracare/salons/y0o6ldeiqowxrjmem6je.pdf",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\licenses\\businessLicense-1758631274828.pdf",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681267/auracare/salons/ybmzzy6cubdhofkcc8dh.pdf",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\licenses\\businessLicense-1760162925987.pdf",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681268/auracare/salons/kllkawpbgorhqvzpcov5.pdf",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\licenses\\businessLicense-1760951912254.pdf",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681269/auracare/salons/lzrhz4vookujuj6flxfb.pdf",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\licenses\\businessLicense-1761633066490.pdf",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681271/auracare/salons/hmea6maoy0ujqoih83lr.pdf",
+    "folder": "auracare/salons"
+  },
+  {
+    "localPath": "uploads\\staff\\governmentId-1758210411780.png",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681274/auracare/staff/d93hhzpnk7m9tgz9huvw.png",
+    "folder": "auracare/staff"
+  },
+  {
+    "localPath": "uploads\\staff\\governmentId-1758261052163.jpg",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681275/auracare/staff/hft4wg76xutca9f4tlea.jpg",
+    "folder": "auracare/staff"
+  },
+  {
+    "localPath": "uploads\\staff\\governmentId-1758440008059.jpg",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681277/auracare/staff/h7eonayiwaubkvkyqstc.jpg",
+    "folder": "auracare/staff"
+  },
+  {
+    "localPath": "uploads\\staff\\governmentId-1759377356372.jpg",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681279/auracare/staff/k4jv6jfhwshyskjkqm4r.jpg",
+    "folder": "auracare/staff"
+  },
+  {
+    "localPath": "uploads\\staff\\governmentId-1760163631890.png",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681280/auracare/staff/ihrjhqz6dsmk5ghqetr9.png",
+    "folder": "auracare/staff"
+  },
+  {
+    "localPath": "uploads\\staff\\governmentId-1760169127963.pdf",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681281/auracare/staff/jkgkyssmibqvvlfocgaw.pdf",
+    "folder": "auracare/staff"
+  },
+  {
+    "localPath": "uploads\\staff\\governmentId-1760958366787.png",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681282/auracare/staff/oetp3vgsm6ctdoew8vxp.png",
+    "folder": "auracare/staff"
+  },
+  {
+    "localPath": "uploads\\staff\\governmentId-1760967600155.jpg",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681284/auracare/staff/ykbbw436tozaj8rdenrr.jpg",
+    "folder": "auracare/staff"
+  },
+  {
+    "localPath": "uploads\\staff\\governmentId-1760968526438.png",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681286/auracare/staff/frgjy64p7w9qozffigy2.png",
+    "folder": "auracare/staff"
+  },
+  {
+    "localPath": "uploads\\staff\\governmentId-1760969220276.jpg",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681287/auracare/staff/ebunknz2v1p2shr7yzi2.jpg",
+    "folder": "auracare/staff"
+  },
+  {
+    "localPath": "uploads\\staff\\governmentId-1761637834463.pdf",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681288/auracare/staff/mjp7fcn9c8r4p7hyx15i.pdf",
+    "folder": "auracare/staff"
+  },
+  {
+    "localPath": "uploads\\staff\\profilePicture-1758210411775.png",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681289/auracare/staff/qujgdguisdmhnlj4jxru.png",
+    "folder": "auracare/staff"
+  },
+  {
+    "localPath": "uploads\\staff\\profilePicture-1758261052162.jpg",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681290/auracare/staff/zbo8kxlsg0gdoznuavvi.jpg",
+    "folder": "auracare/staff"
+  },
+  {
+    "localPath": "uploads\\staff\\profilePicture-1758440008057.jpg",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681291/auracare/staff/va7h9zrbng7sfm6kwmud.jpg",
+    "folder": "auracare/staff"
+  },
+  {
+    "localPath": "uploads\\staff\\profilePicture-1759377356369.jpg",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681292/auracare/staff/rf12e4hhkiuyqdehcome.jpg",
+    "folder": "auracare/staff"
+  },
+  {
+    "localPath": "uploads\\staff\\profilePicture-1760163631874.png",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681293/auracare/staff/y95n1u1ymeywj8mi7nal.png",
+    "folder": "auracare/staff"
+  },
+  {
+    "localPath": "uploads\\staff\\profilePicture-1760169127950.png",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681294/auracare/staff/hcqiqiveklvy8idvvy1w.png",
+    "folder": "auracare/staff"
+  },
+  {
+    "localPath": "uploads\\staff\\profilePicture-1760958366767.png",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681295/auracare/staff/fs9gdvj06cstoglpozhh.png",
+    "folder": "auracare/staff"
+  },
+  {
+    "localPath": "uploads\\staff\\profilePicture-1760967600134.png",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681296/auracare/staff/dytajhdrqaxtgmvxckhh.png",
+    "folder": "auracare/staff"
+  },
+  {
+    "localPath": "uploads\\staff\\profilePicture-1760968526420.png",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681298/auracare/staff/e014l2z5pkyadxakildg.png",
+    "folder": "auracare/staff"
+  },
+  {
+    "localPath": "uploads\\staff\\profilePicture-1760969220265.jpg",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681299/auracare/staff/t8zwhk0neu7toaplviup.jpg",
+    "folder": "auracare/staff"
+  },
+  {
+    "localPath": "uploads\\staff\\profilePicture-1761637834439.jpg",
+    "cloudinaryUrl": "https://res.cloudinary.com/dzbjcacnn/image/upload/v1761681300/auracare/staff/sbbtuiyb3rm4ncbxtt2r.jpg",
+    "folder": "auracare/staff"
+  }
+]
