@@ -12,6 +12,68 @@ import {
 } from '../utils/responses.js';
 import { sendRegistrationConfirmationEmail } from '../config/email.js';
 
+// Helper to get the server base URL from the current request
+const getRequestBaseUrl = (req) => {
+  try {
+    // Prefer explicit BASE_URL when provided
+    if (process.env.BASE_URL) return process.env.BASE_URL.replace(/\/$/, '');
+    const protocol = (req && req.protocol) ? req.protocol : 'http';
+    const host = (req && req.get) ? req.get('host') : undefined;
+    if (host) return `${protocol}://${host}`;
+  } catch (e) {
+    // fallthrough
+  }
+  // Final fallback to localhost using the actual running port if provided
+  return `http://localhost:${process.env.PORT || 5002}`;
+};
+
+// Helper function to convert file path to full URL
+const getFileUrl = (filePath, req) => {
+  if (!filePath) return null;
+
+  // If the path is already a full URL (Cloudinary, etc.), return it as-is
+  if (String(filePath).startsWith('http://') || String(filePath).startsWith('https://')) {
+    return filePath;
+  }
+
+  // Normalize path separators (convert Windows backslashes to forward slashes)
+  let normalizedPath = String(filePath).replace(/\\/g, '/');
+
+  // Remove any "backend/" prefix if it exists to prevent double prefixing
+  if (normalizedPath.startsWith('backend/')) {
+    normalizedPath = normalizedPath.substring(7); // Remove "backend/" prefix
+  }
+
+  // Compute base URL from request or env
+  const baseUrl = getRequestBaseUrl(req);
+
+  // Ensure leading slash for path part
+  const pathWithSlash = normalizedPath.startsWith('/') ? normalizedPath : `/${normalizedPath}`;
+
+  // Construct the full URL
+  const fullUrl = `${baseUrl}${pathWithSlash}`;
+
+  return fullUrl;
+};
+
+// Helper function to convert documents object with file paths to URLs
+const convertDocumentsToUrls = (documents, req) => {
+  if (!documents) return {};
+  
+  const converted = {};
+  
+  // For staff documents
+  if (documents.governmentId) {
+    converted.governmentId = getFileUrl(documents.governmentId, req);
+  }
+  
+  if (documents.certificates && Array.isArray(documents.certificates)) {
+    converted.certificates = documents.certificates.map(certPath => getFileUrl(certPath, req));
+  }
+  
+  return converted;
+};
+
 // Helper function to calculate real performance data for staff
 const getStaffPerformanceData = async (staffId, completedAppointments) => {
   try {
@@ -266,52 +328,6 @@ export const createStaff = asyncHandler(async (req, res) => {
 
   successResponse(res, responseData, 'Staff created and assigned to your salon successfully');
 });
-
-// Helper function to convert file path to full URL
-const getFileUrl = (filePath, req) => {
-  if (!filePath) return null;
-  
-  // If the path is already a full URL (Cloudinary, etc.), return it as-is
-  if (String(filePath).startsWith('http://') || String(filePath).startsWith('https://')) {
-    return filePath;
-  }
-  
-  // Normalize path separators (convert Windows backslashes to forward slashes)
-  let normalizedPath = String(filePath).replace(/\\/g, '/');
-
-  // Remove any "backend/" prefix if it exists to prevent double prefixing
-  if (normalizedPath.startsWith('backend/')) {
-    normalizedPath = normalizedPath.substring(7);
-  }
-
-  // Compute base URL from request or env
-  const baseUrl = getRequestBaseUrl(req);
-
-  // Ensure leading slash for path part
-  const pathWithSlash = normalizedPath.startsWith('/') ? normalizedPath : `/${normalizedPath}`;
-
-  // Construct the full URL
-  const fullUrl = `${baseUrl}${pathWithSlash}`;
-
-  return fullUrl;
-};
-
-// Helper function to convert documents object with file paths to URLs
-const convertDocumentsToUrls = (documents, req) => {
-  if (!documents) return {};
-  
-  const converted = {};
-  
-  if (documents.governmentId) {
-    converted.governmentId = getFileUrl(documents.governmentId, req);
-  }
-  
-  if (documents.certificates && Array.isArray(documents.certificates)) {
-    converted.certificates = documents.certificates.map(certPath => getFileUrl(certPath, req));
-  }
-  
-  return converted;
-};
 
 // Complete staff profile setup
 export const setupProfile = asyncHandler(async (req, res) => {
