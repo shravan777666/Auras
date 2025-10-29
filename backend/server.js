@@ -176,8 +176,12 @@ const limiter = rateLimit({
     
     return shouldSkip;
   },
-  onLimitReached: (req) => {
+  handler: (req, res) => {
     console.log(`🚨 Rate limit exceeded for: ${req.method} ${req.path} from IP: ${req.ip}`);
+    res.status(429).json({
+      success: false,
+      message: 'Too many requests from this IP, please try again later.'
+    });
   }
 });
 
@@ -481,7 +485,7 @@ const startServer = (port, attemptsLeft = 5) => {
 };
 
 // Start the server - Use environment PORT or 5011 as default
-const PORT = process.env.PORT || 5011;
+const PORT = parseInt(process.env.PORT, 10) || 5011;
 startServer(PORT);
 
 // Start background jobs
