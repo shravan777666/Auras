@@ -298,7 +298,10 @@ app.use('/uploads', (req, res, next) => {
 }));
 
 // Fallback for missing uploads - Return helpful error instead of 404
-app.use('/uploads', (req, res) => {
+// Only handle requests for files that don't exist, using a more specific pattern
+app.use('/uploads/*', (req, res, next) => {
+  // Since express.static already tried to serve the file and failed,
+  // we know the file doesn't exist. Return Cloudinary migration message.
   console.log(`⚠️ Missing file requested: ${req.url}`);
   console.log(`💡 Tip: This is likely an old record with local path. Images are now stored in Cloudinary.`);
   

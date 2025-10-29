@@ -849,13 +849,6 @@ export const getAppointments = asyncHandler(async (req, res) => {
       }
     }
     
-    // Helper function to convert file path to full URL
-    const getFileUrl = (filePath) => {
-      if (!filePath) return null;
-      const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 5002}`;
-      return `${baseUrl}/${filePath.replace(/\\/g, '/')}`;
-    };
-    
     return {
       _id: apt._id,
       appointmentDate: apt.appointmentDate,
@@ -869,7 +862,7 @@ export const getAppointments = asyncHandler(async (req, res) => {
       customerId: apt.customerId,
       customerName: apt.customerId?.name,
       customerEmail: apt.customerId?.email,
-      customerProfilePic: apt.customerId?.profilePic ? getFileUrl(apt.customerId.profilePic) : null,
+      customerProfilePic: apt.customerId?.profilePic ? getFileUrl(apt.customerId.profilePic, req) : null,
       salonId: apt.salonId,
       services: apt.services,
       createdAt: apt.createdAt,

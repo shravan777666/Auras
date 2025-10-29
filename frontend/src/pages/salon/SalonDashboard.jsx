@@ -240,8 +240,8 @@ const SalonDashboard = () => {
 
   const heroImages = [
     'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80',
-    'https://images.unsplash.com/photo-1595475887736-79d6420c4db6?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80',
-    'https://images.unsplash.com/photo-1600857062241-98c0a9ed8f5f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80',
+    'https://as2.ftcdn.net/v2/jpg/10/81/22/61/1000_F_1081226132_MOnJE4ctYT6Ll7nFVWm2nTjPMLHZZlNA.jpg',
+    'https://as2.ftcdn.net/v2/jpg/02/98/51/45/1000_F_298514548_ImO2ETdz8mebG7redKCpB7a57lEPAutI.jpg',
   ];
 
   // Navigation tabs configuration
