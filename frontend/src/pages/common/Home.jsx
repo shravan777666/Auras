@@ -39,7 +39,7 @@ const Home = () => {
       subtitle: 'Expert stylists for the perfect look'
     },
     {
-      url: 'https://images.unsplash.com/photo-1580618672591-2c8d41d9b0b3?ixlib=rb-4.0.3&auto=format&fit=crop&w=2069&q=80',
+      url: 'https://as2.ftcdn.net/v2/jpg/04/33/36/05/1000_F_433360513_EyYtlNaz3fCJU5UHaPhURBodPCwNIMVN.jpg',
       title: 'Luxury Spa Treatments',
       subtitle: 'Relax and rejuvenate with our premium services'
     },
@@ -49,7 +49,7 @@ const Home = () => {
       subtitle: 'Beautiful designs for every occasion'
     },
     {
-      url: 'https://images.unsplash.com/photo-1560066984-138dadb4c5f7?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80',
+      url: 'https://images.unsplash.com/photo-1607774000480-de3f239fdd4c?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&q=80&w=687',
       title: 'Makeover Magic',
       subtitle: 'Transform your look with our experts'
     },
