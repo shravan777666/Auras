@@ -215,11 +215,22 @@ export const bookAppointment = asyncHandler(async (req, res) => {
 
     const conflictingAppointments = await Appointment.find(conflictFilter);
 
-    for (const existing of conflictingAppointments) {
-      const existingStart = existing.appointmentTime;
-      const existingEnd = existing.estimatedEndTime;
+    // Helper function to convert time string to minutes since midnight
+    const timeToMinutes = (timeString) => {
+      if (!timeString) return 0;
+      const [hours, minutes] = timeString.split(':').map(Number);
+      return (hours * 60) + minutes;
+    };
 
-      if (appointmentTime < existingEnd && existingStart < (appointmentTime + totalDuration)) {
+    // Check for conflicts using proper time comparison
+    for (const existing of conflictingAppointments) {
+      const existingStartMinutes = timeToMinutes(existing.appointmentTime);
+      const existingEndMinutes = timeToMinutes(existing.estimatedEndTime);
+      const appointmentStartMinutes = timeToMinutes(appointmentTime);
+      const appointmentEndMinutes = appointmentStartMinutes + totalDuration;
+
+      // Check if there's a time overlap
+      if (appointmentStartMinutes < existingEndMinutes && existingStartMinutes < appointmentEndMinutes) {
         if (existing.status === 'STAFF_BLOCKED') {
           return errorResponse(res, `Conflict: Staff member is unavailable during this time (${existing.reason || 'Blocked Time'})`, 409);
         }
@@ -557,9 +568,20 @@ export const getAvailableSlots = asyncHandler(async (req, res) => {
   });
 
   // Remove occupied slots
+  // Helper function to convert time string to minutes since midnight
+  const timeToMinutes = (timeString) => {
+    if (!timeString) return 0;
+    const [hours, minutes] = timeString.split(':').map(Number);
+    return (hours * 60) + minutes;
+  };
+
   const availableSlots = slots.filter(slot => {
+    const slotMinutes = timeToMinutes(slot);
     return !existingAppointments.some(appointment => {
-      return slot >= appointment.appointmentTime && slot < appointment.estimatedEndTime;
+      const appointmentStartMinutes = timeToMinutes(appointment.appointmentTime);
+      const appointmentEndMinutes = timeToMinutes(appointment.estimatedEndTime);
+      // Check for time overlap: slot starts before appointment ends AND slot ends after appointment starts
+      return slotMinutes < appointmentEndMinutes && (slotMinutes + 30) > appointmentStartMinutes;
     });
   });
 
