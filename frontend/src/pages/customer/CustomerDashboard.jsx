@@ -227,8 +227,9 @@ const CustomerDashboard = () => {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-gray-900">Recent & Nearby Salons</h2>
           <div className="flex space-x-3">
-            <Link to="/customer/map" className="text-sm font-medium text-primary-600 hover:text-primary-700">
-              View Map
+            <Link to="/customer/map" className="inline-flex items-center px-3 py-1.5 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors">
+              <MapPin className="h-4 w-4 mr-1" />
+              Find Salons Near Me
             </Link>
             <Link to="/customer/explore-salons" className="text-sm font-medium text-primary-600 hover:text-primary-700">
               View All

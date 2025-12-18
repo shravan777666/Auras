@@ -1,0 +1,78 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e4]:
+  - generic [ref=e8]:
+    - img [ref=e11]
+    - heading "Join Auracare Community" [level=1] [ref=e13]
+    - paragraph [ref=e14]: Connect with top beauty professionals and salons
+    - generic [ref=e15]:
+      - generic [ref=e16]:
+        - generic [ref=e17]: 500+
+        - generic [ref=e18]: Salons
+      - generic [ref=e19]:
+        - generic [ref=e20]: 10K+
+        - generic [ref=e21]: Happy Clients
+      - generic [ref=e22]:
+        - generic [ref=e23]: "4.9"
+        - generic [ref=e24]: Rating
+  - generic [ref=e26]:
+    - generic [ref=e27]:
+      - img [ref=e30]
+      - heading "Create Account" [level=2] [ref=e32]
+      - paragraph [ref=e33]: Join our community and start your beauty journey
+    - generic [ref=e34]:
+      - generic [ref=e35]:
+        - generic [ref=e36]: I am a...
+        - generic [ref=e37]:
+          - generic [ref=e38] [cursor=pointer]:
+            - radio "Customer" [checked] [ref=e39]
+            - img [ref=e40]
+            - generic [ref=e44]: Customer
+          - generic [ref=e45] [cursor=pointer]:
+            - radio "Salon Owner" [ref=e46]
+            - img [ref=e47]
+            - generic [ref=e51]: Salon Owner
+          - generic [ref=e52] [cursor=pointer]:
+            - radio "Beauty Professional" [ref=e53]
+            - img [ref=e54]
+            - generic [ref=e60]: Beauty Professional
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - generic:
+            - img
+          - textbox "Full Name" [ref=e63]:
+            - /placeholder: " "
+          - generic: Full Name
+        - generic [ref=e64]:
+          - generic:
+            - img
+          - textbox "Email Address" [ref=e65]:
+            - /placeholder: " "
+          - generic: Email Address
+        - generic [ref=e66]:
+          - generic:
+            - img
+          - textbox "Password" [ref=e67]:
+            - /placeholder: " "
+          - generic: Password
+          - button [ref=e68] [cursor=pointer]:
+            - img [ref=e69]
+        - generic [ref=e72]:
+          - generic:
+            - img
+          - textbox "Confirm Password" [ref=e73]:
+            - /placeholder: " "
+          - generic: Confirm Password
+          - button [ref=e74] [cursor=pointer]:
+            - img [ref=e75]
+      - button "Create Account" [disabled] [ref=e78]
+      - generic [ref=e83]: Or continue with
+      - button "Continue with Google" [ref=e84] [cursor=pointer]:
+        - img [ref=e86]
+        - text: Continue with Google
+      - paragraph [ref=e92]:
+        - text: Already have an account?
+        - link "Sign in here" [ref=e93] [cursor=pointer]:
+          - /url: /login
+```

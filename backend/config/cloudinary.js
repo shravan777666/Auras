@@ -10,21 +10,27 @@ cloudinary.config({
 });
 
 // Create storage engine for different types of uploads
-const createStorage = (folder) => {
+const createStorage = (folder, allowedFormats = ['jpg', 'png', 'jpeg', 'gif', 'webp']) => {
   return new CloudinaryStorage({
     cloudinary: cloudinary,
     params: {
       folder: folder,
-      allowed_formats: ['jpg', 'png', 'jpeg', 'gif', 'webp'],
-      transformation: [{ width: 500, height: 500, crop: 'limit' }]
+      allowed_formats: allowedFormats,
+      resource_type: 'auto', // Automatically detect resource type
+      // No transformations to avoid issues with PDF files
     }
   });
 };
 
 // Storage configurations for different use cases
+// Customer storage - images only
 const customerStorage = createStorage('auracare/customers');
-const staffStorage = createStorage('auracare/staff');
-const salonStorage = createStorage('auracare/salons');
+
+// Staff storage - images and PDFs for government ID
+const staffStorage = createStorage('auracare/staff', ['jpg', 'png', 'jpeg', 'gif', 'webp', 'pdf']);
+
+// Salon storage - images and PDFs for business license
+const salonStorage = createStorage('auracare/salons', ['jpg', 'png', 'jpeg', 'gif', 'webp', 'pdf']);
 
 // Multer upload configurations
 const customerUpload = multer({ storage: customerStorage });

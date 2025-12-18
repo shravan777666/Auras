@@ -18,7 +18,8 @@ import {
   Sparkles,
   Info,
   Check,
-  X
+  X,
+  Globe
 } from 'lucide-react';
 
 const SalonSetup = () => {
@@ -46,6 +47,12 @@ const SalonSetup = () => {
     state: '',
     postalCode: '',
     country: 'India'
+  });
+  
+  // New state for coordinates
+  const [coordinates, setCoordinates] = useState({
+    latitude: '',
+    longitude: ''
   });
 
   const [businessHours, setBusinessHours] = useState({
@@ -124,6 +131,23 @@ const SalonSetup = () => {
     return ''; // Valid
   };
 
+  // Coordinate validation functions
+  const validateLatitude = (lat) => {
+    if (!lat) return ''; // Not required
+    const num = parseFloat(lat);
+    if (isNaN(num)) return 'Latitude must be a number';
+    if (num < -90 || num > 90) return 'Latitude must be between -90 and 90';
+    return '';
+  };
+
+  const validateLongitude = (lng) => {
+    if (!lng) return ''; // Not required
+    const num = parseFloat(lng);
+    if (isNaN(num)) return 'Longitude must be a number';
+    if (num < -180 || num > 180) return 'Longitude must be between -180 and 180';
+    return '';
+  };
+
   // Handle contact number change with real-time validation
   const handleContactNumberChange = (e) => {
     let value = e.target.value;
@@ -155,6 +179,12 @@ const SalonSetup = () => {
 
   const handleAddressChange = (e) => {
     setAddress({ ...address, [e.target.name]: e.target.value });
+  };
+  
+  // Handle coordinate changes
+  const handleCoordinateChange = (e) => {
+    const { name, value } = e.target;
+    setCoordinates({ ...coordinates, [name]: value });
   };
 
   const handleBusinessHoursChange = (e) => {
@@ -190,6 +220,10 @@ const SalonSetup = () => {
         const contactValid = !validateContactNumber(basicInfo.contactNumber);
         return basicInfo.salonName && contactValid && basicInfo.description;
       case 2:
+        // Validate coordinates if provided
+        const latError = validateLatitude(coordinates.latitude);
+        const lngError = validateLongitude(coordinates.longitude);
+        if (latError || lngError) return false;
         return address.street && address.city && address.state && address.postalCode;
       case 3:
         return businessHours.openTime && businessHours.closeTime && businessHours.workingDays.length > 0;
@@ -227,7 +261,15 @@ const SalonSetup = () => {
       formData.append('salonName', basicInfo.salonName);
       formData.append('description', basicInfo.description);
       formData.append('contactNumber', basicInfo.contactNumber);
-      formData.append('salonAddress', JSON.stringify(address));
+      
+      // Prepare address object with coordinates
+      const addressWithCoords = {
+        ...address,
+        latitude: coordinates.latitude ? parseFloat(coordinates.latitude) : undefined,
+        longitude: coordinates.longitude ? parseFloat(coordinates.longitude) : undefined
+      };
+      
+      formData.append('salonAddress', JSON.stringify(addressWithCoords));
       formData.append('businessHours', JSON.stringify(businessHours));
 
       // Append files (match backend field names expected by multer)
@@ -490,6 +532,58 @@ const SalonSetup = () => {
                     className="form-input w-full"
                     placeholder="Country"
                   />
+                </div>
+                
+                {/* Coordinates Section */}
+                <div className="md:col-span-2 mt-6">
+                  <div className="border-t border-gray-200 pt-6">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                      <Globe className="h-5 w-5 mr-2 text-pink-600" />
+                      Location Coordinates (Optional)
+                    </h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Providing exact coordinates helps customers find your salon more easily. 
+                      You can find these on Google Maps by right-clicking on your salon's location 
+                      and selecting "What's here?" or by searching for your address and clicking 
+                      the share button.
+                    </p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Latitude
+                        </label>
+                        <input
+                          type="text"
+                          name="latitude"
+                          value={coordinates.latitude}
+                          onChange={handleCoordinateChange}
+                          className="form-input w-full"
+                          placeholder="e.g., 12.9716"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Range: -90 to 90
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Longitude
+                        </label>
+                        <input
+                          type="text"
+                          name="longitude"
+                          value={coordinates.longitude}
+                          onChange={handleCoordinateChange}
+                          className="form-input w-full"
+                          placeholder="e.g., 77.5946"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Range: -180 to 180
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 

@@ -2005,7 +2005,7 @@ export const getSalonLocationsPublic = asyncHandler(async (req, res) => {
       setupCompleted: true,
       approvalStatus: 'approved'
     })
-    .select('salonName salonAddress contactNumber')
+    .select('salonName salonAddress contactNumber latitude longitude')
     .lean();
 
     // Format locations for the map
@@ -2023,11 +2023,56 @@ export const getSalonLocationsPublic = asyncHandler(async (req, res) => {
         ].filter(Boolean).join(', ');
       }
 
+      // Extract coordinates - first check dedicated fields, then salonAddress for backward compatibility
+      let lat = null;
+      let lng = null;
+      
+      // Check dedicated latitude/longitude fields first
+      if (typeof salon.latitude === 'number' && !isNaN(salon.latitude) &&
+          salon.latitude >= -90 && salon.latitude <= 90) {
+        lat = salon.latitude;
+      }
+      
+      if (typeof salon.longitude === 'number' && !isNaN(salon.longitude) &&
+          salon.longitude >= -180 && salon.longitude <= 180) {
+        lng = salon.longitude;
+      }
+      
+      // If not found in dedicated fields, check salonAddress for backward compatibility
+      if ((lat === null || lng === null) && 
+          salon.salonAddress && typeof salon.salonAddress === 'object') {
+        // Check for coordinates in various possible formats within salonAddress
+        const addrLat = salon.salonAddress.latitude || salon.salonAddress.lat || null;
+        const addrLng = salon.salonAddress.longitude || salon.salonAddress.lng || null;
+        
+        // Convert to numbers if they're strings
+        let parsedLat = addrLat;
+        let parsedLng = addrLng;
+        
+        if (typeof parsedLat === 'string') parsedLat = parseFloat(parsedLat);
+        if (typeof parsedLng === 'string') parsedLng = parseFloat(parsedLng);
+        
+        // Validate that they are valid numbers and within ranges
+        if (lat === null && 
+            typeof parsedLat === 'number' && !isNaN(parsedLat) &&
+            parsedLat >= -90 && parsedLat <= 90) {
+          lat = parsedLat;
+        }
+        
+        if (lng === null && 
+            typeof parsedLng === 'number' && !isNaN(parsedLng) &&
+            parsedLng >= -180 && parsedLng <= 180) {
+          lng = parsedLng;
+        }
+      }
+
       return {
         _id: salon._id,
         name: salon.salonName,
         address: address,
-        phone: salon.contactNumber
+        phone: salon.contactNumber,
+        lat: lat,
+        lng: lng
       };
     });
 
@@ -2055,13 +2100,71 @@ export const getSalonLocations = asyncHandler(async (req, res) => {
     return notFoundResponse(res, 'Salon profile');
   }
 
+  // Handle different address formats
+  let address = '';
+  if (typeof salon.salonAddress === 'string') {
+    address = salon.salonAddress;
+  } else if (salon.salonAddress && typeof salon.salonAddress === 'object') {
+    address = [
+      salon.salonAddress.street,
+      salon.salonAddress.city,
+      salon.salonAddress.state,
+      salon.salonAddress.postalCode
+    ].filter(Boolean).join(', ');
+  }
+
+  // Extract coordinates - first check dedicated fields, then salonAddress for backward compatibility
+  let lat = null;
+  let lng = null;
+  
+  // Check dedicated latitude/longitude fields first
+  if (typeof salon.latitude === 'number' && !isNaN(salon.latitude) &&
+      salon.latitude >= -90 && salon.latitude <= 90) {
+    lat = salon.latitude;
+  }
+  
+  if (typeof salon.longitude === 'number' && !isNaN(salon.longitude) &&
+      salon.longitude >= -180 && salon.longitude <= 180) {
+    lng = salon.longitude;
+  }
+  
+  // If not found in dedicated fields, check salonAddress for backward compatibility
+  if ((lat === null || lng === null) && 
+      salon.salonAddress && typeof salon.salonAddress === 'object') {
+    // Check for coordinates in various possible formats within salonAddress
+    const addrLat = salon.salonAddress.latitude || salon.salonAddress.lat || null;
+    const addrLng = salon.salonAddress.longitude || salon.salonAddress.lng || null;
+    
+    // Convert to numbers if they're strings
+    let parsedLat = addrLat;
+    let parsedLng = addrLng;
+    
+    if (typeof parsedLat === 'string') parsedLat = parseFloat(parsedLat);
+    if (typeof parsedLng === 'string') parsedLng = parseFloat(parsedLng);
+    
+    // Validate that they are valid numbers and within ranges
+    if (lat === null && 
+        typeof parsedLat === 'number' && !isNaN(parsedLat) &&
+        parsedLat >= -90 && parsedLat <= 90) {
+      lat = parsedLat;
+    }
+    
+    if (lng === null && 
+        typeof parsedLng === 'number' && !isNaN(parsedLng) &&
+        parsedLng >= -180 && parsedLng <= 180) {
+      lng = parsedLng;
+    }
+  }
+
   // For now, return the main salon location
   // In the future, this could return multiple locations if the salon has branches
   const locations = [{
     _id: salon._id,
     name: salon.salonName,
-    address: salon.salonAddress,
-    phone: salon.contactNumber
+    address: address,
+    phone: salon.contactNumber,
+    lat: lat,
+    lng: lng
   }];
 
   return successResponse(res, locations, 'Salon locations retrieved successfully');

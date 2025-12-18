@@ -3,6 +3,7 @@ import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 import LoadingSpinner from '../common/LoadingSpinner'
 import { customerService } from '../../services/customer'
+import { Link } from 'react-router-dom'
 
 // Fix default marker icons in Leaflet when using bundlers
 delete L.Icon.Default.prototype._getIconUrl
@@ -27,20 +28,64 @@ const haversineKm = (lat1, lon1, lat2, lon2) => {
   return R * c
 }
 
-const SalonMap = ({ onNavigateNearest }) => {
+const SalonMap = ({ onNavigateNearest, onUserLocation }) => {
   const [loading, setLoading] = useState(true)
   const [salons, setSalons] = useState([])
   const [center, setCenter] = useState(defaultCenter)
   const [geoResolved, setGeoResolved] = useState([])
+  const [userMarker, setUserMarker] = useState(null)
+  const [error, setError] = useState(null)
+  
+  // Filter salons with valid coordinates
+  const withCoordsForNearest = (geoResolved.length > 0 ? geoResolved : salons).filter(x => typeof x.lat === 'number' && typeof x.lng === 'number');
 
   // Leaflet refs
   const mapElRef = useRef(null)
   const mapRef = useRef(null)
   const markersLayerRef = useRef(null)
 
+  // Get user's current location
+  const getUserLocation = () => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Geolocation is not supported by this browser.'))
+        return
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords
+          resolve({ lat: latitude, lng: longitude })
+        },
+        (error) => {
+          reject(error)
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 300000 // 5 minutes
+        }
+      )
+    })
+  }
+
   useEffect(() => {
     const load = async () => {
       try {
+        // Get user's current location
+        try {
+          const userLoc = await getUserLocation()
+          setCenter([userLoc.lat, userLoc.lng])
+          
+          // Notify parent component of user's location
+          if (onUserLocation) {
+            onUserLocation(userLoc)
+          }
+        } catch (error) {
+          console.warn('Could not get user location:', error.message)
+        }
+
+        // Fetch salon locations
         const res = await customerService.getSalonLocations()
         const items = res?.data || []
         setSalons(items)
@@ -56,7 +101,7 @@ const SalonMap = ({ onNavigateNearest }) => {
           const s = limited[i]
           try {
             const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(s.address)}`
-            const resp = await fetch(url, { headers: { 'Accept': 'application/json' } })
+            const resp = await fetch(url, { headers: { 'Accept': 'application/json', 'User-Agent': 'AuraCares-Salon-Finder/1.0' } })
             const data = await resp.json()
             if (Array.isArray(data) && data.length > 0) {
               const lat = Number(data[0].lat)
@@ -65,12 +110,16 @@ const SalonMap = ({ onNavigateNearest }) => {
                 resolved.push({ ...s, lat, lng })
               }
             }
-          } catch {}
+          } catch (geoError) {
+            console.warn('Geocoding failed for salon:', s.name, geoError)
+          }
           await new Promise(r => setTimeout(r, 250))
         }
 
         setGeoResolved(resolved)
-        if (resolved.length > 0) setCenter([resolved[0].lat, resolved[0].lng])
+      } catch (err) {
+        console.error('Error loading map data:', err)
+        setError('Failed to load salon locations. Please try again later.')
       } finally {
         setLoading(false)
       }
@@ -78,39 +127,149 @@ const SalonMap = ({ onNavigateNearest }) => {
     load()
   }, [])
 
-  // Initialize Leaflet map once
-  useEffect(() => {
-    if (!mapRef.current && mapElRef.current) {
-      mapRef.current = L.map(mapElRef.current).setView(center, 12)
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
-      }).addTo(mapRef.current)
-      markersLayerRef.current = L.layerGroup().addTo(mapRef.current)
+  // Function to fetch salon services and create popup content
+  const fetchSalonServices = async (salon) => {
+    try {
+      const response = await customerService.getSalonServices(salon._id)
+      const services = response?.data || []
+      
+      // Create popup content with salon name, services, and action buttons
+      let popupContent = `
+        <div class="salon-popup">
+          <h3 class="font-bold text-lg mb-2">${salon.name || 'Salon'}</h3>
+          ${salon.address ? `<p class="text-gray-600 text-sm mb-2">${salon.address}</p>` : ''}
+      `
+      
+      if (services.length > 0) {
+        popupContent += '<div class="mb-3"><h4 class="font-semibold text-md mb-1">Services:</h4><ul class="list-disc pl-5">'
+        services.slice(0, 5).forEach(service => {
+          popupContent += `<li class="text-sm">${service.name} - ₹${service.price}</li>`
+        })
+        if (services.length > 5) {
+          popupContent += `<li class="text-sm">+${services.length - 5} more services</li>`
+        }
+        popupContent += '</ul></div>'
+      } else {
+        popupContent += '<p class="text-gray-500 text-sm mb-3">No services available</p>'
+      }
+      
+      popupContent += `
+        <div class="flex gap-2 mt-2">
+          <a href="/customer/salon/${salon._id}" class="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">View Salon</a>
+          <a href="/customer/book-appointment/${salon._id}" class="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700">Book Now</a>
+        </div>
+        </div>
+      `
+      
+      return popupContent
+    } catch (error) {
+      console.error('Error fetching salon services:', error)
+      return `
+        <div class="salon-popup">
+          <h3 class="font-bold text-lg mb-2">${salon.name || 'Salon'}</h3>
+          ${salon.address ? `<p class="text-gray-600 text-sm mb-2">${salon.address}</p>` : ''}
+          <p class="text-red-500 text-sm">Failed to load services</p>
+          <div class="flex gap-2 mt-2">
+            <a href="/customer/salon/${salon._id}" class="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">View Salon</a>
+            <a href="/customer/book-appointment/${salon._id}" class="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700">Book Now</a>
+          </div>
+        </div>
+      `
     }
-  }, [center])
+  }
+
+  useEffect(() => {
+    if (withCoordsForNearest.length > 0 && !mapRef.current && mapElRef.current) {
+      try {
+        mapRef.current = L.map(mapElRef.current).setView(center, 12)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap contributors',
+          maxZoom: 18
+        }).addTo(mapRef.current)
+        markersLayerRef.current = L.layerGroup().addTo(mapRef.current)
+      } catch (mapError) {
+        console.error('Error initializing map:', mapError)
+        setError('Failed to initialize map. Please try again later.')
+      }
+    }
+    
+    // Update map view when center changes
+    if (mapRef.current) {
+      mapRef.current.setView(center, mapRef.current.getZoom())
+    }
+  }, [center, withCoordsForNearest]);
 
   // Update markers when coordinates list changes
   useEffect(() => {
     const map = mapRef.current
     const layer = markersLayerRef.current
     if (!map || !layer) return
-    layer.clearLayers()
-    const withCoords = (geoResolved.length > 0 ? geoResolved : salons).filter(x => typeof x.lat === 'number' && typeof x.lng === 'number')
-    withCoords.forEach((s) => {
-      const marker = L.marker([s.lat, s.lng])
-      const html = `<div class="text-sm"><div class="font-semibold">${s.name ?? ''}</div>${s.address ? `<div class=\"text-gray-600 mt-1\">${s.address}</div>` : ''}</div>`
-      marker.bindPopup(html)
-      marker.addTo(layer)
-    })
-    if (withCoords.length > 0) {
-      map.setView([withCoords[0].lat, withCoords[0].lng], 12)
+    
+    try {
+      layer.clearLayers()
+      const withCoords = (geoResolved.length > 0 ? geoResolved : salons).filter(x => typeof x.lat === 'number' && typeof x.lng === 'number')
+      withCoords.forEach((s) => {
+        try {
+          const marker = L.marker([s.lat, s.lng])
+          
+          // Bind popup with loading state
+          marker.bindPopup('<div class="text-sm">Loading...</div>', { maxWidth: 300 })
+          
+          // Add click event to fetch services and update popup
+          marker.on('click', async function() {
+            const popupContent = await fetchSalonServices(s)
+            marker.getPopup().setContent(popupContent)
+            marker.openPopup()
+          })
+          
+          marker.addTo(layer)
+        } catch (markerError) {
+          console.warn('Error creating marker for salon:', s.name, markerError)
+        }
+      })
+      
+      // Add user location marker if available
+      if (center && center[0] !== defaultCenter[0] && center[1] !== defaultCenter[1]) {
+        try {
+          // Remove existing user marker if it exists
+          if (userMarker) {
+            userMarker.remove()
+          }
+          
+          const newUserMarker = L.marker(center, {
+            title: 'Your Location'
+          }).addTo(map)
+          newUserMarker.bindPopup('<b>Your Current Location</b>').openPopup()
+          setUserMarker(newUserMarker)
+        } catch (userMarkerError) {
+          console.warn('Error creating user location marker:', userMarkerError)
+        }
+      }
+      
+      // Center map on user location or first salon
+      if (center && center[0] !== defaultCenter[0] && center[1] !== defaultCenter[1]) {
+        map.setView(center, 14)
+      } else if (withCoords.length > 0) {
+        map.setView([withCoords[0].lat, withCoords[0].lng], 12)
+      }
+    } catch (updateError) {
+      console.error('Error updating map markers:', updateError)
+      setError('Failed to update map markers. Please try again later.')
     }
-  }, [geoResolved, salons])
+  }, [geoResolved, salons, center, userMarker])
 
   if (loading) return <LoadingSpinner text="Loading map..." />
 
-  const withCoordsForNearest = (geoResolved.length > 0 ? geoResolved : salons).filter(x => typeof x.lat === 'number' && typeof x.lng === 'number')
+  if (error) {
+    return (
+      <div className="bg-white rounded-xl border p-6 text-center text-red-600">
+        {error}
+      </div>
+    )
+  }
 
+  // Removed duplicate declaration of withCoordsForNearest
+  
   if (!salons || salons.length === 0) {
     return (
       <div className="bg-white rounded-xl border p-6 text-center text-gray-600">
@@ -176,5 +335,3 @@ const SalonMap = ({ onNavigateNearest }) => {
 }
 
 export default SalonMap
-
-

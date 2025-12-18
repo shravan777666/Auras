@@ -152,6 +152,17 @@ export const customerService = {
     return response.data;
   },
 
+  async getSalonServices(salonId, params = {}) {
+    try {
+      const query = new URLSearchParams(params).toString();
+      const response = await api.get(`/service/salon/${salonId}${query ? `?${query}` : ''}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching salon services:', error);
+      throw error;
+    }
+  }
+
 };
 
 export default customerService;

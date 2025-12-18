@@ -826,6 +826,18 @@ const SalonDashboard = () => {
                 </svg>
               </button>
               <button
+                onClick={() => navigate('/salon/services')}
+                className="w-full flex items-center justify-between px-5 py-4 rounded-xl bg-gradient-to-r from-indigo-500 to-blue-600 text-white hover:from-indigo-600 hover:to-blue-700 transition-all duration-300 shadow-sm hover:shadow-md"
+              >
+                <span className="flex items-center gap-3">
+                  <Briefcase className="h-5 w-5" /> 
+                  Manage All Services
+                </span>
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+              <button
                 onClick={() => navigate('/salon/staff')}
                 className="w-full flex items-center justify-between px-5 py-4 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-all duration-300 shadow-sm hover:shadow-md"
               >
@@ -971,13 +983,22 @@ const SalonDashboard = () => {
       <div className="bg-white p-6 rounded-xl shadow-sm">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-gray-900">Service Management</h2>
-          <button
-            onClick={() => setIsAddServiceModalOpen(true)}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center gap-2"
-          >
-            <PlusCircle className="h-4 w-4" />
-            Add New Service
-          </button>
+          <div className="flex space-x-2">
+            <button
+              onClick={() => setIsAddServiceModalOpen(true)}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center gap-2"
+            >
+              <PlusCircle className="h-4 w-4" />
+              Add New Service
+            </button>
+            <button
+              onClick={() => navigate('/salon/services')}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-2"
+            >
+              <Briefcase className="h-4 w-4" />
+              Manage All Services
+            </button>
+          </div>
         </div>
         <div className="text-gray-600">
           <p className="mb-4">Manage the services your salon offers.</p>
@@ -987,6 +1008,10 @@ const SalonDashboard = () => {
             <li>Assign services to staff members</li>
             <li>Organize services by category</li>
           </ul>
+          <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
+            <p className="text-blue-800 font-medium">Full CRUD Operations Available</p>
+            <p className="text-blue-700 text-sm mt-1">Click "Manage All Services" to view, edit, and delete existing services.</p>
+          </div>
         </div>
       </div>
     );

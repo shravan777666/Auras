@@ -14,6 +14,8 @@ const EditSalonProfile = () => {
     email: '',
     contactNumber: '',
     salonAddress: { street: '', city: '', state: '', postalCode: '', country: '' },
+    latitude: '',
+    longitude: '',
     description: '',
     salonImage: null,
     salonLogo: null
@@ -24,6 +26,8 @@ const EditSalonProfile = () => {
   });
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [geocoding, setGeocoding] = useState(false);
+  const [manualEntry, setManualEntry] = useState(false);
   const [imagePreview, setImagePreview] = useState({
     isOpen: false,
     images: [],
@@ -51,6 +55,8 @@ const EditSalonProfile = () => {
               postalCode: profileData.salonAddress?.postalCode || '',
               country: profileData.salonAddress?.country || ''
             },
+            latitude: profileData.latitude || '',
+            longitude: profileData.longitude || '',
             description: profileData.description || '',
             salonImage: profileData.documents?.salonImages?.[0] || null,
             salonLogo: profileData.documents?.salonLogo || null
@@ -84,6 +90,103 @@ const EditSalonProfile = () => {
       ...prev,
       salonAddress: { ...prev.salonAddress, [name]: value },
     }));
+  };
+
+  // Handle coordinate changes with validation
+  const handleCoordinateChange = (e) => {
+    const { name, value } = e.target;
+    // Allow only numbers and decimal points for coordinates
+    if (value === '' || /^-?\d*\.?\d*$/.test(value)) {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
+  };
+
+  // Automatically geocode address when address fields change (only if not in manual mode)
+  useEffect(() => {
+    if (!manualEntry) {
+      const debounceTimer = setTimeout(() => {
+        if (formData.salonAddress.street || formData.salonAddress.city || 
+            formData.salonAddress.state || formData.salonAddress.postalCode) {
+          geocodeAddress();
+        }
+      }, 1000); // Debounce for 1 second
+
+      return () => clearTimeout(debounceTimer);
+    }
+  }, [
+    formData.salonAddress.street,
+    formData.salonAddress.city,
+    formData.salonAddress.state,
+    formData.salonAddress.postalCode,
+    formData.salonAddress.country,
+    manualEntry
+  ]);
+
+  const geocodeAddress = async () => {
+    const addressString = [
+      formData.salonAddress.street,
+      formData.salonAddress.city,
+      formData.salonAddress.state,
+      formData.salonAddress.postalCode,
+      formData.salonAddress.country
+    ].filter(Boolean).join(', ');
+
+    if (!addressString) return;
+
+    setGeocoding(true);
+    try {
+      // Using Nominatim OpenStreetMap API for geocoding
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressString)}`;
+      const response = await fetch(url, {
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'AuraCares-Salon/1.0'
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (Array.isArray(data) && data.length > 0) {
+        const lat = parseFloat(data[0].lat);
+        const lng = parseFloat(data[0].lon);
+        
+        // Validate coordinates are within valid ranges
+        if (!isNaN(lat) && !isNaN(lng) && 
+            lat >= -90 && lat <= 90 && 
+            lng >= -180 && lng <= 180) {
+          setFormData(prev => ({
+            ...prev,
+            latitude: lat,
+            longitude: lng
+          }));
+          toast.success('Location coordinates updated automatically');
+        }
+      } else {
+        // Clear coordinates if address can't be geocoded
+        setFormData(prev => ({
+          ...prev,
+          latitude: '',
+          longitude: ''
+        }));
+      }
+    } catch (error) {
+      console.error('Geocoding error:', error);
+      toast.error('Failed to geocode address');
+    } finally {
+      setGeocoding(false);
+    }
+  };
+
+  const toggleManualEntry = () => {
+    setManualEntry(!manualEntry);
+    // Clear coordinates when switching modes
+    if (!manualEntry) {
+      setFormData(prev => ({
+        ...prev,
+        latitude: '',
+        longitude: ''
+      }));
+    }
   };
 
   const handleImageChange = (e, fieldName) => {
@@ -155,6 +258,24 @@ const EditSalonProfile = () => {
     e.preventDefault();
     setSubmitting(true);
     
+    // Validate coordinates if provided
+    if (formData.latitude || formData.longitude) {
+      const lat = parseFloat(formData.latitude);
+      const lng = parseFloat(formData.longitude);
+      
+      if (isNaN(lat) || lat < -90 || lat > 90) {
+        toast.error('Latitude must be a number between -90 and 90');
+        setSubmitting(false);
+        return;
+      }
+      
+      if (isNaN(lng) || lng < -180 || lng > 180) {
+        toast.error('Longitude must be a number between -180 and 180');
+        setSubmitting(false);
+        return;
+      }
+    }
+    
     try {
       // Create FormData for file uploads
       const formDataToSend = new FormData();
@@ -164,6 +285,8 @@ const EditSalonProfile = () => {
       formDataToSend.append('ownerName', formData.ownerName);
       formDataToSend.append('contactNumber', formData.contactNumber);
       formDataToSend.append('salonAddress', JSON.stringify(formData.salonAddress));
+      formDataToSend.append('latitude', formData.latitude);
+      formDataToSend.append('longitude', formData.longitude);
       formDataToSend.append('description', formData.description);
       
       // Append files if they exist
@@ -272,6 +395,102 @@ const EditSalonProfile = () => {
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               ></textarea>
             </div>
+            
+            {/* Toggle for manual entry */}
+            <div className="md:col-span-2">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="manualEntryToggle"
+                  checked={manualEntry}
+                  onChange={toggleManualEntry}
+                  className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                />
+                <label htmlFor="manualEntryToggle" className="ml-2 block text-sm text-gray-900">
+                  Manually enter coordinates
+                </label>
+              </div>
+              <p className="mt-1 text-sm text-gray-500">
+                {manualEntry 
+                  ? "Enter coordinates manually below" 
+                  : "Coordinates will be automatically calculated from your address"}
+              </p>
+            </div>
+            
+            {/* Latitude and Longitude Fields */}
+            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label htmlFor="latitude" className="block text-sm font-medium text-gray-700">
+                  Latitude
+                </label>
+                <input
+                  type="text"
+                  name="latitude"
+                  id="latitude"
+                  value={formData.latitude}
+                  onChange={handleCoordinateChange}
+                  readOnly={!manualEntry}
+                  className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${
+                    manualEntry ? 'bg-white' : 'bg-gray-100'
+                  }`}
+                  placeholder={manualEntry ? "Enter latitude (-90 to 90)" : "Automatically calculated"}
+                />
+                <p className="mt-1 text-sm text-gray-500">
+                  Valid range: -90 to 90
+                </p>
+              </div>
+              <div>
+                <label htmlFor="longitude" className="block text-sm font-medium text-gray-700">
+                  Longitude
+                </label>
+                <input
+                  type="text"
+                  name="longitude"
+                  id="longitude"
+                  value={formData.longitude}
+                  onChange={handleCoordinateChange}
+                  readOnly={!manualEntry}
+                  className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${
+                    manualEntry ? 'bg-white' : 'bg-gray-100'
+                  }`}
+                  placeholder={manualEntry ? "Enter longitude (-180 to 180)" : "Automatically calculated"}
+                />
+                <p className="mt-1 text-sm text-gray-500">
+                  Valid range: -180 to 180
+                </p>
+              </div>
+            </div>
+            
+            {/* Geocoding status indicator */}
+            {!manualEntry && geocoding && (
+              <div className="md:col-span-2 text-sm text-blue-600">
+                <p>Finding location coordinates...</p>
+              </div>
+            )}
+            
+            {/* Manual entry instructions */}
+            {manualEntry && (
+              <div className="md:col-span-2 bg-blue-50 p-4 rounded-md">
+                <h3 className="text-sm font-medium text-blue-800">How to find coordinates:</h3>
+                <p className="mt-1 text-sm text-blue-700">
+                  1. Go to{' '}
+                  <a 
+                    href="https://www.google.com/maps" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="underline hover:text-blue-900"
+                  >
+                    Google Maps
+                  </a>
+                  <br />
+                  2. Search for your salon location or right-click on the exact location on the map
+                  <br />
+                  3. Select "What's here?" or copy the coordinates from the URL
+                  <br />
+                  4. Paste the coordinates in the respective fields above
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

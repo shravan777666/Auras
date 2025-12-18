@@ -422,10 +422,6 @@ const ManageServices = () => {
                 </div>
 
                 <div className="flex space-x-2 mt-4 pt-4 border-t border-gray-200">
-                  <button className="flex-1 flex items-center justify-center space-x-2 px-3 py-2 text-sm text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors">
-                    <Eye size={16} />
-                    <span>View</span>
-                  </button>
                   <button onClick={() => handleEdit(service)} className="flex-1 flex items-center justify-center space-x-2 px-3 py-2 text-sm text-emerald-600 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition-colors">
                     <Edit size={16} />
                     <span>Edit</span>

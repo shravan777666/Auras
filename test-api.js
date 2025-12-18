@@ -1,13 +1,21 @@
-const axios = require('axios');
+const http = require('http');
 
-async function testApi() {
-  try {
-    const response = await axios.get('http://localhost:5009/api/admin/financial-summary/salon-performance');
-    console.log('Salon Performance Data:');
-    console.log(JSON.stringify(response.data, null, 2));
-  } catch (error) {
-    console.error('Error:', error.message);
-  }
-}
+const options = {
+  hostname: 'localhost',
+  port: 5011,
+  path: '/api/salon/locations',
+  method: 'GET'
+};
 
-testApi();
+const req = http.request(options, res => {
+  console.log(`Status: ${res.statusCode}`);
+  res.on('data', d => {
+    process.stdout.write(d);
+  });
+});
+
+req.on('error', error => {
+  console.error('Error:', error);
+});
+
+req.end();
