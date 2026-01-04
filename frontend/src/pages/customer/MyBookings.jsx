@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { customerService } from '../../services/customer';
+import { queueService } from '../../services/queue';
 import RateExperience from '../../components/customer/RateExperience';
 import CancelAppointmentModal from '../../components/customer/CancelAppointmentModal';
+import QRScanner from '../../components/customer/QRScanner';
 import { 
   Calendar, 
   Clock, 
@@ -16,7 +18,8 @@ import {
   AlertCircle,
   MoreHorizontal,
   X,
-  Filter
+  Filter,
+  QrCode
 } from 'lucide-react';
 
 const MyBookings = () => {
@@ -28,6 +31,9 @@ const MyBookings = () => {
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [error, setError] = useState(null);
+  const [showQRScanner, setShowQRScanner] = useState(false);
+  const [scanningBooking, setScanningBooking] = useState(null);
+  const [checkInStatus, setCheckInStatus] = useState({}); // Track check-in status for each booking
 
   useEffect(() => {
     fetchBookings();
@@ -90,6 +96,156 @@ const MyBookings = () => {
     } catch (error) {
       console.error('Error submitting review:', error);
     }
+  };
+
+  const handleOpenQRScanner = (booking) => {
+    setScanningBooking(booking);
+    setShowQRScanner(true);
+  };
+
+  const handleCloseQRScanner = () => {
+    setShowQRScanner(false);
+    setScanningBooking(null);
+  };
+
+  const handleQRScan = async (qrData) => {
+    try {
+      // If QR data is a URL, handle differently
+      if (qrData.startsWith('http')) {
+        const url = new URL(qrData);
+        const pathParts = url.pathname.split('/');
+        
+        // Handle queue join URLs for appointment check-in
+        if (pathParts.includes('queue') && pathParts.includes('join')) {
+          const joinIndex = pathParts.indexOf('join');
+          if (joinIndex !== -1 && pathParts[joinIndex + 1]) {
+            const salonId = pathParts[joinIndex + 1];
+            
+            // Call the appointment check-in API using the salon ID
+            const result = await queueService.appointmentCheckInViaQR(salonId);
+            
+            if (result.success) {
+              // Update check-in status for this booking
+              setCheckInStatus(prev => ({
+                ...prev,
+                [scanningBooking._id]: { success: true, message: result.message }
+              }));
+              
+              // Refresh bookings to show updated status
+              fetchBookings();
+              
+              // Show success message
+              alert('Successfully checked in for your appointment! Your arrival has been noted by the salon.');
+            } else {
+              setCheckInStatus(prev => ({
+                ...prev,
+                [scanningBooking._id]: { success: false, message: result.message }
+              }));
+              
+              alert(`Check-in failed: ${result.message}`);
+            }
+            return; // Exit early after handling appointment check-in
+          }
+        } else if (pathParts.includes('queue') && pathParts.includes('status')) {
+          // Handle queue status URLs (for queue tokens)
+          const statusIndex = pathParts.indexOf('status');
+          if (statusIndex !== -1 && pathParts[statusIndex + 1]) {
+            const tokenNumber = pathParts[statusIndex + 1];
+            
+            // Validate token format before sending to API
+            if (!tokenNumber || !tokenNumber.match(/^[A-Z]{3}\d{3}$/)) {
+              alert(`Invalid token format. Expected format: QQQ001, got: ${tokenNumber}`);
+              return;
+            }
+            
+            // Call the queue check-in API
+            const result = await queueService.checkInViaQR(tokenNumber);
+            
+            if (result.success) {
+              // Update check-in status for this booking
+              setCheckInStatus(prev => ({
+                ...prev,
+                [scanningBooking._id]: { success: true, message: result.message }
+              }));
+              
+              // Refresh bookings to show updated status
+              fetchBookings();
+              
+              // Show success message
+              alert('Successfully checked in! Your arrival has been noted by the salon.');
+            } else {
+              setCheckInStatus(prev => ({
+                ...prev,
+                [scanningBooking._id]: { success: false, message: result.message }
+              }));
+              
+              alert(`Check-in failed: ${result.message}`);
+            }
+            return; // Exit early after handling queue check-in
+          }
+        } else {
+          alert('Unsupported QR code format. Please use the appropriate check-in QR code provided by the salon.');
+          return;
+        }
+      }
+      
+      // If it's not a URL, try to treat it as a queue token
+      let tokenNumber = qrData;
+      
+      // If we have the original data and it doesn't match token format, try extraction
+      if (!qrData.match(/^[A-Z]{3}\d{3}$/)) {
+        // Look for patterns like QQQ001 in the data
+        const tokenMatch = qrData.match(/([A-Z]{3}\d{3})/);
+        if (tokenMatch) {
+          tokenNumber = tokenMatch[1];
+        }
+      }
+      
+      // Validate token format before sending to API
+      if (!tokenNumber || !tokenNumber.match(/^[A-Z]{3}\d{3}$/)) {
+        alert(`Invalid token format. Expected format: QQQ001, got: ${tokenNumber}`);
+        return;
+      }
+      
+      // Call the queue check-in API
+      const result = await queueService.checkInViaQR(tokenNumber);
+      
+      if (result.success) {
+        // Update check-in status for this booking
+        setCheckInStatus(prev => ({
+          ...prev,
+          [scanningBooking._id]: { success: true, message: result.message }
+        }));
+        
+        // Refresh bookings to show updated status
+        fetchBookings();
+        
+        // Show success message
+        alert('Successfully checked in! Your arrival has been noted by the salon.');
+      } else {
+        setCheckInStatus(prev => ({
+          ...prev,
+          [scanningBooking._id]: { success: false, message: result.message }
+        }));
+        
+        alert(`Check-in failed: ${result.message}`);
+      }
+    } catch (error) {
+      console.error('Error during QR check-in:', error);
+      setCheckInStatus(prev => ({
+        ...prev,
+        [scanningBooking._id]: { success: false, message: error.message || 'Check-in failed' }
+      }));
+      
+      alert(`Check-in failed: ${error.message || 'An error occurred'}`);
+    } finally {
+      handleCloseQRScanner();
+    }
+  };
+
+  const canCheckIn = (booking) => {
+    // Check if booking status allows check-in (only approved appointments)
+    return ['Approved', 'approved'].includes(booking.status);
   };
 
   const getStatusIcon = (status) => {
@@ -218,6 +374,12 @@ const MyBookings = () => {
           onClose={handleCloseCancelModal}
           appointment={selectedBooking}
           onConfirm={handleCancelAppointment}
+        />
+      )}
+      {showQRScanner && (
+        <QRScanner
+          onScan={handleQRScan}
+          onClose={handleCloseQRScanner}
         />
       )}
       {/* Header */}
@@ -413,6 +575,16 @@ const MyBookings = () => {
                           >
                             <X className="h-4 w-4 mr-2" />
                             Cancel Booking
+                          </button>
+                        )}
+                        
+                        {canCheckIn(booking) && (
+                          <button 
+                            onClick={() => handleOpenQRScanner(booking)}
+                            className="w-full px-4 py-2.5 text-sm font-medium text-green-600 bg-white border border-green-200 rounded-lg hover:bg-green-50 transition-colors flex items-center justify-center"
+                          >
+                            <QrCode className="h-4 w-4 mr-2" />
+                            Scan QR to Check-In
                           </button>
                         )}
                         

@@ -77,6 +77,9 @@ import payrollRoutes from './routes/payroll.js';
 import cancellationPolicyRoutes from './routes/cancellationPolicy.js';
 import customerNotificationRoutes from './routes/customerNotification.js';
 
+// Import product routes
+import productRoutes from './routes/product.js';
+
 // Create Express app
 const app = express();
 
@@ -362,6 +365,7 @@ app.use('/api/salon', salonRoutes);
 app.use('/api/staff', staffRoutes);
 app.use('/api/appointment', appointmentRoutes);
 app.use('/api/service', serviceRoutes);
+app.use('/api/product', productRoutes);
 app.use('/api/schedule-requests', scheduleRequestsRoutes);
 app.use('/api/revenue', revenueRoutes);
 app.use('/api/financial-forecast', financialForecastRoutes);
@@ -394,6 +398,10 @@ app.use('/api/payroll', payrollRoutes);
 
 // Add customer notification routes
 app.use('/api/customer/notifications', customerNotificationRoutes);
+
+// Add queue routes
+import queueRoutes from './routes/queueRoutes.js';
+app.use('/api/queue', queueRoutes);
 
 // Add image upload routes
 import imageUploadRoutes from './routes/imageUpload.js';

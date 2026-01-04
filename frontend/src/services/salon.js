@@ -118,6 +118,11 @@ export const salonService = {
     return response.data;
   },
 
+  async getSalonById(salonId) {
+    const response = await api.get(`/salon/public/${salonId}`);
+    return response.data;
+  },
+
   async updateProfile(profileData) {
     // Check if we're sending FormData (for file uploads) or regular object
     if (profileData instanceof FormData) {

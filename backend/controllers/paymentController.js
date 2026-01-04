@@ -145,9 +145,7 @@ export const verifyPayment = asyncHandler(async (req, res) => {
       return errorResponse(res, 'Incomplete appointment data', 500);
     }
 
-    // Update appointment status to approved and payment status to paid
-    // Using 'Approved' instead of 'Confirmed' as it's a valid enum value
-    appointment.status = 'Approved';
+    // Update payment status to paid but keep appointment status as 'Pending' for manual approval
     appointment.paymentStatus = 'Paid';
     appointment.paymentId = razorpay_payment_id;
     await appointment.save();

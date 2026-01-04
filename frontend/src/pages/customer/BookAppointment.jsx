@@ -22,6 +22,7 @@ const BookAppointment = () => {
   const [salonList, setSalonList] = useState([]);
   const [salonsLoading, setSalonsLoading] = useState(false);
   const [selectedServices, setSelectedServices] = useState([]);
+  const [selectedProducts, setSelectedProducts] = useState([]);
   const [appointmentDate, setAppointmentDate] = useState("");
   const [appointmentTime, setAppointmentTime] = useState("");
   const [customerNotes, setCustomerNotes] = useState("");
@@ -30,8 +31,7 @@ const BookAppointment = () => {
     usePoints: false,
     pointsToRedeem: 0,
     discountAmount: 0
-  });
-  // Addon states
+  });  // Addon states
   const [idleSlots, setIdleSlots] = useState([]);
   const [addonSuggestions, setAddonSuggestions] = useState([]);
   const [selectedAddons, setSelectedAddons] = useState([]);
@@ -39,6 +39,8 @@ const BookAppointment = () => {
   const [createdAppointment, setCreatedAppointment] = useState(null);
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [policyAgreed, setPolicyAgreed] = useState(false);
+  const [recommendedProducts, setRecommendedProducts] = useState([]);
+  const [productsLoading, setProductsLoading] = useState(false);
 
   // Check for pre-filled data from one-click booking widget or loyalty redemption
   useEffect(() => {
@@ -221,6 +223,33 @@ const BookAppointment = () => {
       return () => clearTimeout(fallbackTimer);
     }
   }, [selectedServices.length, addonSuggestions.length, salon, user]);
+
+  // Fetch recommended products when services are selected
+  useEffect(() => {
+    const fetchRecommendedProducts = async () => {
+      if (!salonId || selectedServices.length === 0 || !user) return;
+      
+      try {
+        setProductsLoading(true);
+        
+        // Get the first selected service to base recommendations on
+        const firstService = selectedServices[0];
+        if (!firstService) return;
+        
+        const res = await customerService.getRecommendedProducts(firstService.serviceId, salonId);
+        if (res?.success && res.data) {
+          setRecommendedProducts(res.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch recommended products:', error);
+        setRecommendedProducts([]);
+      } finally {
+        setProductsLoading(false);
+      }
+    };
+    
+    fetchRecommendedProducts();
+  }, [selectedServices.length, salonId, user]);
 
   // Suggest add-ons based on customer history (fallback when no idle slots)
   const suggestAddonsBasedOnHistory = async () => {
@@ -544,7 +573,49 @@ const BookAppointment = () => {
     console.log('Updated selected addons:', selectedAddons);
   };
 
-  // Use useCallback to prevent unnecessary re-renders
+  // Add product to booking
+  const handleAddProductToBooking = (product) => {
+    console.log('Adding product to booking:', product);
+    const exists = selectedProducts.find(p => p.productId === product._id);
+    if (exists) {
+      // Increase quantity if product already selected
+      setSelectedProducts(selectedProducts.map(p => 
+        p.productId === product._id 
+          ? { ...p, quantity: p.quantity + 1 } 
+          : p
+      ));
+    } else {
+      // Add new product to selection
+      setSelectedProducts([...selectedProducts, { 
+        productId: product._id,
+        productName: product.name,
+        price: product.discountedPrice || product.price,
+        originalPrice: product.price,
+        quantity: 1
+      }]);
+    }
+    toast.success(`${product.name} added to your booking!`);
+  };
+
+  // Remove product from booking
+  const handleRemoveProductFromBooking = (productId) => {
+    console.log('Removing product from booking:', productId);
+    setSelectedProducts(selectedProducts.filter(p => p.productId !== productId));
+  };
+
+  // Update product quantity
+  const handleUpdateProductQuantity = (productId, quantity) => {
+    if (quantity <= 0) {
+      handleRemoveProductFromBooking(productId);
+      return;
+    }
+    
+    setSelectedProducts(selectedProducts.map(p => 
+      p.productId === productId 
+        ? { ...p, quantity } 
+        : p
+    ));
+  };  // Use useCallback to prevent unnecessary re-renders
   const handleRedemptionChange = useCallback((data) => {
     // Only update if the data actually changed
     setRedemptionData(prev => {
@@ -574,9 +645,12 @@ const BookAppointment = () => {
     return selectedAddons.reduce((total, addon) => total + Number(addon.price || 0), 0);
   };
 
+  const calculateProductTotal = () => {
+    return selectedProducts.reduce((total, product) => total + (Number(product.price || 0) * Number(product.quantity || 1)), 0);
+  };
+
   const handleBooking = async (e) => {
     e.preventDefault();
-    
     // Check if policy agreement is required and agreed to
     if (salon) {
       try {
@@ -647,6 +721,10 @@ const BookAppointment = () => {
         const payload = {
           salonId: salon._id,
           services: allServices,
+          products: selectedProducts.map(product => ({
+            productId: product.productId,
+            quantity: product.quantity
+          })),
           appointmentDate,
           appointmentTime,
           customerNotes,
@@ -654,8 +732,7 @@ const BookAppointment = () => {
             pointsToRedeem: redemptionData.pointsToRedeem,
             discountAmount: redemptionData.discountAmount
           })
-        };
-        
+        };        
         const res = await customerService.bookAppointment(payload);
         if (res?.success) {
           // Store the created appointment for payment
@@ -814,12 +891,11 @@ const BookAppointment = () => {
 
   const serviceTotal = calculateServiceTotal();
   const addonTotal = calculateAddonTotal();
-  const overallTotal = serviceTotal + addonTotal;
+  const productTotal = calculateProductTotal();
+  const overallTotal = serviceTotal + addonTotal + productTotal;
   const finalAmount = redemptionData.usePoints 
     ? Math.max(0, overallTotal - redemptionData.discountAmount) 
-    : overallTotal;
-
-  if (loading) return <LoadingSpinner />;
+    : overallTotal;  if (loading) return <LoadingSpinner />;
 
   return (
     <div className="max-w-4xl mx-auto p-6">
@@ -889,9 +965,55 @@ const BookAppointment = () => {
                 )}
               </div>
               
+              {/* Recommended Products */}
+              {recommendedProducts.length > 0 && (
+                <div className="mt-4 border-2 border-dashed border-purple-300 rounded-lg p-4 bg-gradient-to-r from-purple-50 to-pink-50">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-bold text-purple-800 flex items-center text-lg">
+                      <span className="bg-purple-500 text-white p-1 rounded mr-2">🛍️</span>
+                      Recommended Products
+                    </h3>
+                  </div>
+                  <p className="text-sm text-purple-700 mb-3">Enhance your experience with these quality products!</p>
+                  
+                  <div className="space-y-3 border rounded-lg p-3 bg-white shadow-sm max-h-60 overflow-y-auto">
+                    {recommendedProducts.map((product, index) => (
+                      <div key={index} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0 hover:bg-purple-50 rounded transition-colors">
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-gray-900">{product.name}</span>
+                            {product.discountedPrice && product.discountedPrice < product.price && (
+                              <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full font-bold">
+                                Save ₹{product.price - product.discountedPrice}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center mt-1">
+                            <span className="text-lg font-bold text-purple-600">
+                              ₹{product.discountedPrice || product.price}
+                            </span>
+                            {product.discountedPrice && product.discountedPrice < product.price && (
+                              <span className="ml-2 text-sm text-gray-500 line-through">₹{product.price}</span>
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {product.category}
+                          </div>
+                        </div>
+                        <button 
+                          onClick={() => handleAddProductToBooking(product)}
+                          className="ml-3 bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded text-sm transition-colors"
+                        >
+                          Add
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Addon Suggestions */}
-              <div className="mt-4 border-2 border-dashed border-blue-300 rounded-lg p-4 bg-gradient-to-r from-blue-50 to-indigo-50">
-                <div className="flex items-center justify-between mb-2">
+              <div className="mt-4 border-2 border-dashed border-blue-300 rounded-lg p-4 bg-gradient-to-r from-blue-50 to-indigo-50">                <div className="flex items-center justify-between mb-2">
                   <h3 className="font-bold text-blue-800 flex items-center text-lg">
                     <span className="bg-blue-500 text-white p-1 rounded mr-2">🎁</span>
                     Special Add-on Offers

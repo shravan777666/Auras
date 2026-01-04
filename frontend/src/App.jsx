@@ -31,6 +31,7 @@ const SearchInviteStaff = React.lazy(() => import('./pages/salon/SearchInviteSta
 const ManageStaff = React.lazy(() => import('./pages/salon/ManageStaff'))
 const GlobalStaffDirectory = React.lazy(() => import('./pages/salon/GlobalStaffDirectory'))
 const ManageServices = React.lazy(() => import('./pages/salon/ManageServices'))
+const ManageProducts = React.lazy(() => import('./pages/salon/ManageProducts'))
 const SalonAppointments = React.lazy(() => import('./pages/salon/SalonAppointments'))
 const StaffAvailability = React.lazy(() => import('./pages/salon/StaffAvailability'))
 const SalonRevenueDashboard = React.lazy(() => import('./pages/salon/RevenueDashboard'))
@@ -66,6 +67,9 @@ const Favorites = React.lazy(() => import('./pages/customer/Favorites'));
 const Recommendations = React.lazy(() => import('./pages/customer/Recommendations'));
 const SearchResults = React.lazy(() => import('./pages/common/SearchResults'))
 const TestImageUpload = React.lazy(() => import('./pages/customer/TestImageUpload'))
+const QueueJoinPage = React.lazy(() => import('./pages/queue/QueueJoinPage'))
+const QueueStatusPage = React.lazy(() => import('./pages/queue/QueueStatusPage'))
+const QueuePublicPage = React.lazy(() => import('./pages/queue/QueuePublicPage'))
 
 // Common Pages
 const About = React.lazy(() => import('./pages/common/About'))
@@ -286,6 +290,16 @@ function App() {
               <ProtectedRoute allowedRoles={['salon']}>
                 <SetupRequiredRoute setupPath="/salon/setup">
                   <ManageServices />
+                </SetupRequiredRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/salon/products"
+            element={
+              <ProtectedRoute allowedRoles={['salon']}>
+                <SetupRequiredRoute setupPath="/salon/setup">
+                  <ManageProducts />
                 </SetupRequiredRoute>
               </ProtectedRoute>
             }
@@ -590,6 +604,11 @@ function App() {
               </ProtectedRoute>
             }
           />
+
+          {/* Queue Routes - Public Access */}
+          <Route path="/queue/join/:salonId" element={<QueueJoinPage />} />
+          <Route path="/queue/status/:tokenNumber" element={<QueueStatusPage />} />
+          <Route path="/queue/:salonId" element={<QueuePublicPage />} />
 
           {/* Catch-all Route */}
           <Route path="*" element={<NotFound />} />

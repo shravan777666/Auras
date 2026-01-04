@@ -6,7 +6,8 @@ import {
   getAvailableSlots,
   getAppointmentsSummary,
   submitReview,
-  blockTimeSlot
+  blockTimeSlot,
+  checkInAppointment
 } from '../controllers/appointmentController.js';
 import { requireAuth, requireCustomer, requireStaff, requireStaffSetup } from '../middleware/roleAuth.js';
 import { validateAppointment, validateObjectId } from '../middleware/validation.js';
@@ -30,5 +31,6 @@ router.get('/summary', getAppointmentsSummary);
 router.get('/:appointmentId', validateObjectId('appointmentId'), getAppointmentDetails);
 router.patch('/:appointmentId', validateObjectId('appointmentId'), updateAppointment);
 router.post('/:appointmentId/review', requireCustomer, validateObjectId('appointmentId'), submitReview);
+router.post('/checkin', requireCustomer, checkInAppointment);
 
 export default router;

@@ -400,11 +400,11 @@ export const updateAppointment = asyncHandler(async (req, res) => {
         allowedUpdates.staffId = updates.staffId;
         console.log('👥 Updating staff assignment:', { appointmentId, oldStaffId: appointment.staffId, newStaffId: updates.staffId });
         
-        // Automatically update status when staff is assigned
-        if (updates.staffId && appointment.status === 'Pending') {
-          allowedUpdates.status = 'Approved';
-          console.log('📋 Auto-updating appointment status from Pending to Approved due to staff assignment');
-        }
+        // Staff assignment should not automatically update status - salon owner must approve manually
+        // if (updates.staffId && appointment.status === 'Pending') {
+        //   allowedUpdates.status = 'Approved';
+        //   console.log('📋 Auto-updating appointment status from Pending to Approved due to staff assignment');
+        // }
       }
       break;
 
@@ -849,6 +849,57 @@ export const blockTimeSlot = asyncHandler(async (req, res) => {
   return successResponse(res, appointment, 'Time slot blocked successfully', 201);
 });
 
+export const checkInAppointment = asyncHandler(async (req, res) => {
+  try {
+    const { salonId } = req.body;
+    const customerId = req.user.id;
+    
+    if (!salonId) {
+      return errorResponse(res, 'Salon ID is required', 400);
+    }
+    
+    // Find appointments for this customer at this salon that are approved and upcoming
+    const now = new Date();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const appointment = await Appointment.findOne({
+      customerId,
+      salonId,
+      status: 'Approved', // Only allow check-in for approved appointments
+      appointmentDate: { $gte: today.toISOString().split('T')[0] }, // Only today or future appointments
+    }).sort({ appointmentDate: 1, appointmentTime: 1 });
+    
+    if (!appointment) {
+      return errorResponse(res, 'No upcoming appointments found at this salon', 404);
+    }
+    
+    // Check if appointment is today
+    const appointmentDate = new Date(appointment.appointmentDate);
+    const isToday = appointmentDate.toDateString() === new Date().toDateString();
+    
+    if (!isToday) {
+      return errorResponse(res, 'Appointment is not scheduled for today', 400);
+    }
+    
+    // Update appointment status to 'In-Progress' or add an 'arrived' status if we want to track arrival separately
+    // For now, we'll add a checkInTime field to track when customer arrived
+    appointment.checkInTime = new Date();
+    appointment.status = 'In-Progress'; // Or we could add a new 'arrived' status
+    
+    await appointment.save();
+    
+    return successResponse(res, {
+      appointment: appointment,
+      message: 'Successfully checked in for appointment'
+    }, 'Successfully checked in for appointment');
+    
+  } catch (error) {
+    console.error('Error checking in appointment:', error);
+    return errorResponse(res, 'Server error while checking in appointment', 500);
+  }
+});
+
 export default {
   bookAppointment,
   getAppointmentDetails,
@@ -857,5 +908,6 @@ export default {
   getAppointmentsSummary,
   submitReview,
   blockTimeSlot,
-  rescheduleAppointment
+  rescheduleAppointment,
+  checkInAppointment
 };

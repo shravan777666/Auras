@@ -41,6 +41,7 @@ import {
 } from '../controllers/salonController.js';
 import * as appointmentController from '../controllers/appointmentController.js';
 import { requireSalonOwner, requireSalonSetup } from '../middleware/roleAuth.js';
+import { getSalonDetails } from '../controllers/customerController.js';
 import { validateSalonSetup, validatePagination, validateObjectId } from '../middleware/validation.js';
 import { salonSetupUploads, uploadErrorHandler, upload } from '../middleware/upload.js';
 import { salonUpload } from '../config/cloudinary.js'; // Import Cloudinary upload
@@ -50,6 +51,7 @@ const router = express.Router();
 // Public routes
 router.post('/register', register);
 router.get('/locations', getSalonLocationsPublic);
+router.get('/public/:salonId', validateObjectId('salonId'), getSalonDetails);
 // Revenue by service (requires auth + setup)
 router.get('/dashboard/revenue-by-service', requireSalonOwner, requireSalonSetup, getRevenueByService);
 router.get('/dashboard/service-categories', requireSalonOwner, requireSalonSetup, getServiceCategories);

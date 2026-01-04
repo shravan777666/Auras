@@ -81,7 +81,8 @@ const AppointmentSchema = new mongoose.Schema(
     },
     refundAmount: { type: Number, default: 0 },
     refundProcessedAt: { type: Date },
-    paymentMethod: { type: String, default: 'Online' }
+    paymentMethod: { type: String, default: 'Online' },
+    checkInTime: { type: Date }
   },
   { 
     timestamps: true,

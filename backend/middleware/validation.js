@@ -156,6 +156,14 @@ export const validateService = [
   handleValidation
 ];
 
+// Product
+export const validateProduct = [
+  body('name').isString().notEmpty(),
+  body('category').isString().notEmpty(),
+  body('price').isNumeric(),
+  handleValidation
+];
+
 // Appointment
 export const validateAppointment = [
   body('salonId').isString().notEmpty(),

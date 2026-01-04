@@ -33,7 +33,9 @@ import {
   User,
   Settings,
   Bell,
-  FileText
+  FileText,
+  ShoppingCart,
+  QrCode
 } from 'lucide-react';
 import {
   Chart as ChartJS,
@@ -48,6 +50,7 @@ import {
 import { Pie, Bar } from 'react-chartjs-2';
 import LogoutButton from '../../components/auth/LogoutButton';
 import AddServiceModal from '../../components/salon/AddServiceModal';
+import AddProductModal from '../../components/salon/AddProductModal';
 import AssignStaffModal from '../../components/salon/AssignStaffModal';
 import ClientRecommendations from '../../components/salon/ClientRecommendations';
 import NeedsAttentionAlerts from '../../components/salon/NeedsAttentionAlerts';
@@ -56,6 +59,7 @@ import StaffFeedbackInbox from '../../components/salon/StaffFeedbackInbox';
 import BackButton from '../../components/common/BackButton';
 import PayrollProcessingCard from '../../components/salon/PayrollProcessingCard';
 import PayrollSummaryTable from '../../components/salon/PayrollSummaryTable';
+import QueueManagement from '../../components/salon/QueueManagement';
 
 // Register Chart.js components
 ChartJS.register(
@@ -230,6 +234,7 @@ const SalonDashboard = () => {
   const [loadingAppointments, setLoadingAppointments] = useState(false);
   const [reviews, setReviews] = useState([]);
   const [isAddServiceModalOpen, setIsAddServiceModalOpen] = useState(false);
+  const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false);
   const [isAssignStaffModalOpen, setIsAssignStaffModalOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -250,6 +255,8 @@ const SalonDashboard = () => {
     { id: 'appointments', label: 'Appointments', icon: Calendar },
     { id: 'staff', label: 'Staff', icon: User },
     { id: 'services', label: 'Services', icon: Briefcase },
+    { id: 'products', label: 'Products', icon: ShoppingCart },
+    { id: 'queue', label: 'Queue', icon: QrCode },
     { id: 'finance', label: 'Finance', icon: DollarSign },
     { id: 'reports', label: 'Reports', icon: FileText },
     { id: 'settings', label: 'Settings', icon: Settings },
@@ -434,10 +441,14 @@ const SalonDashboard = () => {
         return renderStaffContent();
       case 'services':
         return renderServicesContent();
+      case 'products':
+        return renderProductsContent();
       case 'finance':
         return renderFinanceContent();
       case 'reports':
         return renderReportsContent();
+      case 'queue':
+        return renderQueueContent();
       case 'settings':
         return renderSettingsContent();
       default:
@@ -515,6 +526,13 @@ const SalonDashboard = () => {
             value={statistics.totalServices} 
             color="border-green-500"
             onClick={() => navigate('/salon/services')}
+          />
+          <StatCard 
+            icon={<ShoppingCart size={24} className="text-blue-600" />} 
+            title="Total Products" 
+            value={0} 
+            color="border-blue-500"
+            onClick={() => navigate('/salon/products')}
           />
           <StatCard 
             icon={<Users size={24} className="text-purple-600" />} 
@@ -826,12 +844,36 @@ const SalonDashboard = () => {
                 </svg>
               </button>
               <button
+                onClick={() => setIsAddProductModalOpen(true)}
+                className="w-full flex items-center justify-between px-5 py-4 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-600 text-white hover:from-blue-600 hover:to-cyan-700 transition-all duration-300 shadow-sm hover:shadow-md"
+              >
+                <span className="flex items-center gap-3">
+                  <ShoppingCart className="h-5 w-5" /> 
+                  Add New Product
+                </span>
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+              <button
                 onClick={() => navigate('/salon/services')}
                 className="w-full flex items-center justify-between px-5 py-4 rounded-xl bg-gradient-to-r from-indigo-500 to-blue-600 text-white hover:from-indigo-600 hover:to-blue-700 transition-all duration-300 shadow-sm hover:shadow-md"
               >
                 <span className="flex items-center gap-3">
                   <Briefcase className="h-5 w-5" /> 
                   Manage All Services
+                </span>
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+              <button
+                onClick={() => navigate('/salon/products')}
+                className="w-full flex items-center justify-between px-5 py-4 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-600 text-white hover:from-blue-600 hover:to-cyan-700 transition-all duration-300 shadow-sm hover:shadow-md"
+              >
+                <span className="flex items-center gap-3">
+                  <ShoppingCart className="h-5 w-5" /> 
+                  Manage Products
                 </span>
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -892,6 +934,19 @@ const SalonDashboard = () => {
                 <span className="flex items-center gap-3">
                   <Mail className="h-5 w-5" /> 
                   Staff Replies
+                </span>
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+              {/* Add Queue Management button */}
+              <button
+                onClick={() => setActiveTab('queue')}
+                className="w-full flex items-center justify-between px-5 py-4 rounded-xl bg-indigo-700 text-white hover:bg-indigo-800 transition-all duration-300 shadow-sm hover:shadow-md"
+              >
+                <span className="flex items-center gap-3">
+                  <QrCode className="h-5 w-5" /> 
+                  Queue Management
                 </span>
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -1017,6 +1072,37 @@ const SalonDashboard = () => {
     );
   };
 
+  // Products content
+  const renderProductsContent = () => {
+    return (
+      <div className="bg-white p-6 rounded-xl shadow-sm">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">Product Management</h2>
+          <button
+            onClick={() => navigate('/salon/products')}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2"
+          >
+            <ShoppingCart className="h-4 w-4" />
+            Manage All Products
+          </button>
+        </div>
+        <div className="text-gray-600">
+          <p className="mb-4">Manage the retail products your salon offers.</p>
+          <ul className="list-disc pl-5 space-y-2">
+            <li>Add, edit, and remove products</li>
+            <li>Set pricing and inventory levels</li>
+            <li>Organize products by category</li>
+            <li>Track product sales and performance</li>
+          </ul>
+          <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
+            <p className="text-blue-800 font-medium">Full CRUD Operations Available</p>
+            <p className="text-blue-700 text-sm mt-1">Click "Manage All Products" to view, edit, and delete existing products.</p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Finance content
   const renderFinanceContent = () => {
     return (
@@ -1065,6 +1151,31 @@ const SalonDashboard = () => {
             <li>Review customer feedback trends</li>
           </ul>
         </div>
+      </div>
+    );
+  };
+
+  // Queue content
+  const renderQueueContent = () => {
+    if (!salonInfo) {
+      return (
+        <div className="bg-white p-6 rounded-xl shadow-sm">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-gray-900">Queue Management</h2>
+          </div>
+          <div className="text-center py-8 text-gray-500">
+            <p>Loading salon information...</p>
+          </div>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="bg-white p-6 rounded-xl shadow-sm">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">Queue Management</h2>
+        </div>
+        <QueueManagement salonId={salonInfo._id} />
       </div>
     );
   };
@@ -1183,6 +1294,15 @@ const SalonDashboard = () => {
         isOpen={isAddServiceModalOpen}
         onClose={() => setIsAddServiceModalOpen(false)}
         onServiceAdded={handleServiceAdded}
+      />
+
+      <AddProductModal 
+        isOpen={isAddProductModalOpen}
+        onClose={() => setIsAddProductModalOpen(false)}
+        onProductAdded={() => {
+          setIsAddProductModalOpen(false);
+          // Refresh products if needed
+        }}
       />
 
       <AssignStaffModal

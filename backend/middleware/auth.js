@@ -41,3 +41,6 @@ export const requireRole = (roles) => {
     next();
   };
 };
+
+// Alias for authorizeRoles to maintain compatibility with existing code
+export const authorizeRoles = requireRole;
