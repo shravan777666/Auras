@@ -28,6 +28,27 @@ export const createProduct = asyncHandler(async (req, res) => {
     salonId
   };
 
+  // Handle ingredients array if it comes as a stringified JSON
+  if (productData.ingredients && typeof productData.ingredients === 'string') {
+    try {
+      productData.ingredients = JSON.parse(productData.ingredients);
+      // Ensure ingredients is an array of strings
+      if (!Array.isArray(productData.ingredients)) {
+        productData.ingredients = [];
+      }
+      // Trim and filter out empty strings
+      productData.ingredients = productData.ingredients.map(ingredient => {
+        if (typeof ingredient === 'string') {
+          return ingredient.trim();
+        }
+        return '';
+      }).filter(ingredient => ingredient !== '');
+    } catch (error) {
+      console.warn('[productController.createProduct] Invalid ingredients format, setting to empty array');
+      productData.ingredients = [];
+    }
+  }
+
   // Handle image upload if present
   if (req.file) {
     productData.image = req.file.path; // Cloudinary URL
@@ -141,6 +162,27 @@ export const updateProduct = asyncHandler(async (req, res) => {
   delete updates.totalSales;
   delete updates.rating;
 
+  // Handle ingredients array if it comes as a stringified JSON
+  if (updates.ingredients && typeof updates.ingredients === 'string') {
+    try {
+      updates.ingredients = JSON.parse(updates.ingredients);
+      // Ensure ingredients is an array of strings
+      if (!Array.isArray(updates.ingredients)) {
+        updates.ingredients = [];
+      }
+      // Trim and filter out empty strings
+      updates.ingredients = updates.ingredients.map(ingredient => {
+        if (typeof ingredient === 'string') {
+          return ingredient.trim();
+        }
+        return '';
+      }).filter(ingredient => ingredient !== '');
+    } catch (error) {
+      console.warn('[productController.updateProduct] Invalid ingredients format, setting to empty array');
+      updates.ingredients = [];
+    }
+  }
+
   // Handle image upload if present
   if (req.file) {
     updates.image = req.file.path; // Cloudinary URL
@@ -182,4 +224,63 @@ export const deleteProduct = asyncHandler(async (req, res) => {
 export const getCategories = asyncHandler(async (req, res) => {
   const categories = await Product.distinct('category');
   return successResponse(res, categories, 'Categories retrieved successfully');
+});
+
+// Get recommended products based on service and salon
+export const getRecommendedProducts = asyncHandler(async (req, res) => {
+  const { serviceId, salonId } = req.params;
+  
+  // Validate input parameters
+  if (!serviceId || !salonId) {
+    return errorResponse(res, 'Service ID and Salon ID are required', 400);
+  }
+  
+  try {
+    // First, get the service to understand its category/type
+    const Service = (await import('../models/Service.js')).default;
+    const service = await Service.findById(serviceId);
+    
+    if (!service) {
+      return notFoundResponse(res, 'Service');
+    }
+    
+    // Find products from the same salon that are related to the service
+    // This could be based on category, keywords, or other logic
+    const filter = { salonId, isActive: { $ne: false } }; // Only active products
+    
+    // Define category mappings for better recommendations
+    const serviceCategoryMap = {
+      'hair': ['hair', 'shampoo', 'conditioner', 'hair care', 'scalp'],
+      'facial': ['facial', 'skin care', 'face', 'cleanser', 'moisturizer', 'serum'],
+      'massage': ['massage', 'oil', 'aromatherapy', 'body'],
+      'manicure': ['nail', 'hand', 'polish', 'cuticle'],
+      'pedicure': ['nail', 'foot', 'polish', 'cuticle'],
+      'makeup': ['makeup', 'cosmetics', 'foundation', 'lipstick', 'eyeshadow'],
+      'waxing': ['wax', 'hair removal', 'depilatory', 'sensitive skin'],
+      'spa': ['spa', 'wellness', 'aromatherapy', 'body', 'oil', 'salt']
+    };
+    
+    // If service has a category, try to match products with related categories
+    if (service.category) {
+      const serviceCategory = service.category.toLowerCase();
+      const relatedCategories = serviceCategoryMap[serviceCategory] || [serviceCategory];
+      
+      // Create a regex to match related categories
+      const categoryRegex = new RegExp(relatedCategories.join('|'), 'i');
+      filter.category = categoryRegex;
+    } else {
+      // If no specific category match, just get products from the salon
+      // without category filtering
+    }
+    
+    // Get products from the salon
+    const products = await Product.find(filter)
+      .limit(5) // Limit to 5 recommended products
+      .sort({ totalSales: -1, rating: -1 }); // Sort by popularity and rating
+    
+    return successResponse(res, products, 'Recommended products retrieved successfully');
+  } catch (error) {
+    console.error('Error fetching recommended products:', error);
+    return errorResponse(res, 'Error fetching recommended products', 500);
+  }
 });

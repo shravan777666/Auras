@@ -654,9 +654,32 @@ const CustomerDashboard = () => {
                 <p className="mt-1 text-sm text-gray-900">{dashboardData.customerInfo?.phone || 'Not provided'}</p>
               </div>
               <div>
+                <label className="block text-xs font-medium text-gray-500">Allergies</label>
+                <p className="mt-1 text-sm text-gray-900">
+                  {dashboardData.customerInfo?.allergies && dashboardData.customerInfo.allergies.length > 0
+                    ? dashboardData.customerInfo.allergies.join(', ')
+                    : 'None listed'}
+                </p>
+              </div>
+              <div>
                 <label className="block text-xs font-medium text-gray-500">Member Since</label>
                 <p className="mt-1 text-sm text-gray-900">
                   {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Allergies Section */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 mt-6">
+            <h3 className="text-base font-bold text-gray-900 mb-4">Allergies & Sensitivities</h3>
+            <div className="grid grid-cols-1 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-500">Allergies</label>
+                <p className="mt-1 text-sm text-gray-900">
+                  {dashboardData.customerInfo?.allergies && dashboardData.customerInfo.allergies.length > 0
+                    ? dashboardData.customerInfo.allergies.join(', ')
+                    : 'No allergies listed'}
                 </p>
               </div>
             </div>

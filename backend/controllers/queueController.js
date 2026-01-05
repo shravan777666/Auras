@@ -116,7 +116,27 @@ export const joinQueue = async (req, res) => {
 // Get current queue status for a salon
 export const getQueueStatus = async (req, res) => {
   try {
-    const salonId = req.user.id;
+    // Find salon by user email (for salon owners)
+    const User = (await import('../models/User.js')).default;
+    const Salon = (await import('../models/Salon.js')).default;
+    
+    const user = await User.findById(req.user.id);
+    if (!user || user.type !== 'salon') {
+      return res.status(404).json({
+        success: false,
+        message: 'Salon owner account required'
+      });
+    }
+    
+    const salon = await Salon.findOne({ email: user.email });
+    if (!salon) {
+      return res.status(404).json({
+        success: false,
+        message: 'Salon profile not found'
+      });
+    }
+    
+    const salonId = salon._id;
 
     // Get current in-service token
     const currentService = await Queue.findOne({

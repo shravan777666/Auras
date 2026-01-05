@@ -5,7 +5,8 @@ import {
   getProductDetails,
   updateProduct,
   deleteProduct,
-  getCategories
+  getCategories,
+  getRecommendedProducts
 } from '../controllers/productController.js';
 import { requireSalonOwner, requireAuth } from '../middleware/roleAuth.js';
 import { validateProduct, validatePagination, validateObjectId } from '../middleware/validation.js';
@@ -15,6 +16,9 @@ const router = express.Router();
 
 // Public routes (no authentication required)
 router.get('/categories', getCategories);
+
+// Routes for recommended products
+router.get('/recommended/:serviceId/:salonId', requireAuth, validateObjectId('serviceId'), validateObjectId('salonId'), getRecommendedProducts);
 
 // Routes requiring authentication
 router.get('/salon/:salonId', requireAuth, validateObjectId('salonId'), getSalonProducts);

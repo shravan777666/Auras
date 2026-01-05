@@ -889,10 +889,94 @@ export const checkInAppointment = asyncHandler(async (req, res) => {
     
     await appointment.save();
     
+    // Also add the customer to the queue system to ensure they appear in the salon owner's queue
+    // First, check if there's already a queue entry for this appointment
+    const Queue = (await import('../models/Queue.js')).default;
+    
+    // Check if customer already has an active queue entry for this salon
+    let queueEntry = await Queue.findOne({
+      salonId,
+      customerId,
+      status: { $in: ['waiting', 'arrived', 'in-service'] } // Active statuses
+    });
+    
+    if (!queueEntry) {
+      // If no active queue entry exists, create one based on the appointment
+      const Service = (await import('../models/Service.js')).default;
+      const serviceId = appointment.services && appointment.services.length > 0 
+        ? appointment.services[0].serviceId 
+        : null; // Use the first service from the appointment
+      
+      // Get service info if available
+      let service = null;
+      if (serviceId) {
+        service = await Service.findById(serviceId);
+      }
+      
+      // Calculate queue position (number of people waiting ahead)
+      const waitingCount = await Queue.countDocuments({
+        salonId,
+        status: 'waiting'
+      });
+      
+      // Generate unique token number
+      const Salon = (await import('../models/Salon.js')).default;
+      const salon = await Salon.findById(salonId);
+      const prefix = salon?.salonName?.substring(0, 3).toUpperCase() || 'Q';
+      
+      // Find the highest token number for this salon today
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const lastToken = await Queue.findOne({
+        salonId,
+        createdAt: { $gte: today, $lte: new Date(today.setHours(23, 59, 59, 999)) }
+      }).sort({ tokenNumber: -1 });
+      
+      let tokenNumber;
+      if (lastToken) {
+        const lastNumber = parseInt(lastToken.tokenNumber.replace(prefix, ''));
+        tokenNumber = `${prefix}${(lastNumber + 1).toString().padStart(3, '0')}`;
+      } else {
+        tokenNumber = `${prefix}001`;
+      }
+      
+      // Create queue entry
+      queueEntry = new Queue({
+        salonId,
+        tokenNumber,
+        customerId,
+        serviceId: serviceId || undefined,
+        queuePosition: waitingCount + 1,
+        status: 'arrived' // Set status to arrived since they just checked in
+      });
+      
+      await queueEntry.save();
+      
+      // Update queue positions for all waiting customers
+      await Queue.updateMany(
+        { 
+          salonId, 
+          status: 'waiting',
+          _id: { $ne: queueEntry._id }
+        },
+        { 
+          $inc: { queuePosition: 1 } 
+        }
+      );
+    } else {
+      // If queue entry exists, just update the status to arrived if it's waiting
+      if (queueEntry.status === 'waiting') {
+        queueEntry.status = 'arrived';
+        queueEntry.arrivedAt = new Date();
+        await queueEntry.save();
+      }
+    }
+    
     return successResponse(res, {
       appointment: appointment,
-      message: 'Successfully checked in for appointment'
-    }, 'Successfully checked in for appointment');
+      queueEntry: queueEntry, // Include queue entry in response
+      message: 'Successfully checked in for appointment and added to queue'
+    }, 'Successfully checked in for appointment and added to queue');
     
   } catch (error) {
     console.error('Error checking in appointment:', error);

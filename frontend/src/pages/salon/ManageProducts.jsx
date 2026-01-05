@@ -354,6 +354,12 @@ const ManageProducts = () => {
                   <div className="flex-1">
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">{product?.name ?? 'Unnamed Product'}</h3>
                     <p className="text-gray-600 text-sm line-clamp-2">{product?.description ?? ''}</p>
+                    {product?.ingredients && product.ingredients.length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-xs text-gray-500 font-medium">Ingredients:</p>
+                        <p className="text-xs text-gray-600">{product.ingredients.slice(0, 3).join(', ')}{product.ingredients.length > 3 ? '...' : ''}</p>
+                      </div>
+                    )}
                   </div>
                   <div className="relative">
                     <button className="p-1 text-gray-400 hover:text-gray-600">

@@ -29,6 +29,7 @@ const EditCustomerProfile = () => {
       postalCode: '',
       country: '',
     },
+    allergies: [],
   });
   const [profilePictureUrl, setProfilePictureUrl] = useState(null);
   const [errors, setErrors] = useState({});
@@ -45,6 +46,7 @@ const EditCustomerProfile = () => {
           gender: data.gender || '',
           dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth).toISOString().split('T')[0] : '',
           address: data.address || { street: '', city: '', state: '', postalCode: '', country: '' },
+          allergies: data.allergies || [],
         });
         const pic = data.profilePic || data.profilePicture;
         if (pic) {
@@ -106,6 +108,7 @@ const EditCustomerProfile = () => {
         data.append('dateOfBirth', formData.dateOfBirth);
     }
     data.append('address', JSON.stringify(formData.address));
+    data.append('allergies', JSON.stringify(formData.allergies));
 
     try {
       console.log('[EditCustomerProfile] Sending updateProfile request');
@@ -241,6 +244,29 @@ const EditCustomerProfile = () => {
                   <input type="text" id="country" name="country" value={formData.address.country || ''} onChange={handleAddressChange} className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow" />
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Allergies Section */}
+          <div className="border-t border-gray-200 pt-8">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Allergies & Sensitivities</h2>
+            <div className="mb-4">
+              <label htmlFor="allergies" className="block text-sm font-medium text-gray-700 mb-2">
+                List any ingredients you are allergic to
+              </label>
+              <textarea
+                id="allergies"
+                name="allergies"
+                value={formData.allergies.join(', ')}
+                onChange={(e) => {
+                  const allergies = e.target.value.split(',').map(item => item.trim()).filter(item => item);
+                  setFormData(prev => ({ ...prev, allergies }));
+                }}
+                placeholder="e.g., nuts, gluten, parabens, sulfates"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow"
+                rows="3"
+              />
+              <p className="mt-1 text-xs text-gray-500">Separate multiple allergies with commas</p>
             </div>
           </div>
 

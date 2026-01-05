@@ -196,6 +196,27 @@ export const updateProfile = asyncHandler(async (req, res) => {
     }
   }
 
+  // Handle allergies array if it comes as a stringified JSON
+  if (updates.allergies && typeof updates.allergies === 'string') {
+    try {
+      updates.allergies = JSON.parse(updates.allergies);
+      // Ensure allergies is an array of strings
+      if (!Array.isArray(updates.allergies)) {
+        updates.allergies = [];
+      }
+      // Trim and filter out empty strings
+      updates.allergies = updates.allergies.map(allergy => {
+        if (typeof allergy === 'string') {
+          return allergy.trim();
+        }
+        return '';
+      }).filter(allergy => allergy !== '');
+    } catch (error) {
+      console.warn('[customerController.updateProfile] Invalid allergies format, setting to empty array');
+      updates.allergies = [];
+    }
+  }
+
   // Never accept profile picture fields from the body; they must come from multer
   if (Object.prototype.hasOwnProperty.call(updates, 'profilePicture')) delete updates.profilePicture;
   if (Object.prototype.hasOwnProperty.call(updates, 'profilePic')) delete updates.profilePic;

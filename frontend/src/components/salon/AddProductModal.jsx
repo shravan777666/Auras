@@ -13,7 +13,8 @@ const AddProductModal = ({ isOpen, onClose, onProductAdded, onProductUpdated, pr
     discountedPrice: '',
     quantity: '',
     sku: '',
-    image: null
+    image: null,
+    ingredients: []
   });
   const [previewImage, setPreviewImage] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -34,7 +35,8 @@ const AddProductModal = ({ isOpen, onClose, onProductAdded, onProductUpdated, pr
         discountedPrice: productToEdit.discountedPrice || '',
         quantity: productToEdit.quantity || '',
         sku: productToEdit.sku || '',
-        image: null
+        image: null,
+        ingredients: productToEdit.ingredients || []
       });
       // Set preview image if product has an image URL
       if (productToEdit.image) {
@@ -108,6 +110,7 @@ const AddProductModal = ({ isOpen, onClose, onProductAdded, onProductUpdated, pr
       }
       formDataToSend.append('quantity', parseInt(formData.quantity) || 0);
       formDataToSend.append('sku', formData.sku);
+      formDataToSend.append('ingredients', JSON.stringify(formData.ingredients));
       formDataToSend.append('isActive', true);
       
       // Append image if it exists
@@ -226,6 +229,26 @@ const AddProductModal = ({ isOpen, onClose, onProductAdded, onProductUpdated, pr
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
               placeholder="Brief description of the product..."
             ></textarea>
+          </div>
+
+          {/* Ingredients */}
+          <div>
+            <label htmlFor="ingredients" className="block text-sm font-medium text-gray-700 mb-2">
+              Ingredients
+            </label>
+            <textarea
+              name="ingredients"
+              id="ingredients"
+              rows="3"
+              value={formData.ingredients?.join(', ') || ''}
+              onChange={(e) => {
+                const ingredients = e.target.value.split(',').map(item => item.trim()).filter(item => item);
+                setFormData(prev => ({ ...prev, ingredients }));
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+              placeholder="e.g., water, glycerin, sodium lauryl sulfate, cocamidopropyl betaine"
+            ></textarea>
+            <p className="mt-1 text-xs text-gray-500">Separate multiple ingredients with commas</p>
           </div>
 
           {/* Price and Discounted Price Row */}

@@ -161,6 +161,11 @@ export const customerService = {
       console.error('Error fetching salon services:', error);
       throw error;
     }
+  },
+
+  async getRecommendedProducts(serviceId, salonId) {
+    const response = await api.get(`/product/recommended/${serviceId}/${salonId}`);
+    return response.data;
   }
 
 };

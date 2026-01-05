@@ -18,6 +18,7 @@ const ProductSchema = new mongoose.Schema(
     sku: { type: String },
     image: { type: String },
     tags: [{ type: String }],
+    ingredients: [{ type: String, trim: true }], // Array of ingredients used in the product
     totalSales: { type: Number, default: 0 },
     rating: { type: RatingSchema, default: () => ({}) },
     isActive: { type: Boolean, default: true }
