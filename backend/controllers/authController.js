@@ -47,7 +47,7 @@ export const register = async (req, res) => {
     }
 
     // Validate userType
-    const validUserTypes = ['customer', 'salon', 'staff', 'admin'];
+    const validUserTypes = ['customer', 'salon', 'staff', 'admin', 'freelancer'];
     if (!validUserTypes.includes(userType)) {
       return errorResponse(res, 'Invalid user type', 400);
     }
@@ -66,7 +66,7 @@ export const register = async (req, res) => {
       }
     }
 
-    const setupCompleted = userType === 'customer' || userType === 'admin';
+    const setupCompleted = userType === 'customer' || userType === 'admin' || userType === 'freelancer';
 
     const user = await User.create({
       name,
@@ -112,6 +112,31 @@ export const register = async (req, res) => {
       });
     }
 
+    // If freelancer user, also create freelancer profile
+    if (userType === 'freelancer') {
+      const Freelancer = (await import('../models/Freelancer.js')).default;
+      try {
+        await Freelancer.create({
+          user: user._id,
+          name,
+          email,
+          phone: req.body.phone || 'Not provided',
+          serviceLocation: req.body.serviceLocation || 'Not provided',
+          yearsOfExperience: parseInt(req.body.yearsOfExperience) || 0,
+          skills: Array.isArray(req.body.skills) ? req.body.skills : [],
+          setupCompleted: false, // Freelancers need approval before setup is considered complete
+          approvalStatus: 'pending', // Set approval status to pending
+          isActive: true
+        });
+        console.log('✅ Freelancer profile created successfully for user:', user._id);
+      } catch (freelancerError) {
+        console.error('❌ Error creating freelancer profile:', freelancerError);
+        // If freelancer profile creation fails, delete the user to maintain data consistency
+        await User.findByIdAndDelete(user._id);
+        throw new Error(`Freelancer profile creation failed: ${freelancerError.message}`);
+      }
+    }
+
     const token = signToken(user);
 
     const safeUser = {
@@ -122,6 +147,7 @@ export const register = async (req, res) => {
       setupCompleted: user.setupCompleted,
       ...(user.type === 'salon' && { approvalStatus: 'pending' }), // Salons are pending on registration
       ...(user.type === 'staff' && { approvalStatus: 'pending' }), // Staff are pending on registration
+      ...(user.type === 'freelancer' && { approvalStatus: 'pending' }), // Freelancers are pending on registration
     };
 
     // Send registration confirmation email
@@ -272,6 +298,36 @@ export const login = async (req, res) => {
         return errorResponse(res, 'An unexpected error occurred during login.', 500);
       }
     }
+    
+    // Handle freelancer login with special checks
+    if (user.type === 'freelancer') {
+      try {
+        const Freelancer = (await import('../models/Freelancer.js')).default;
+        const freelancer = await Freelancer.findOne({ user: user._id });
+        if (!freelancer) {
+          return errorResponse(res, 'Freelancer profile not found.', 404);
+        }
+        
+        // Check approval status from the freelancer profile
+        if (freelancer.approvalStatus !== 'approved') {
+          let message = 'Your freelancer application is not yet approved for login.';
+          if (freelancer.approvalStatus === 'pending') {
+            message = 'Your application is still pending approval. Please wait for confirmation from the admin.';
+          } else if (freelancer.approvalStatus === 'rejected') {
+            message = `Your application was rejected. Reason: ${freelancer.rejectionReason || 'No reason provided'}`;
+          }
+          console.log(`Freelancer login failed for ${email}: Approval status is '${freelancer.approvalStatus}'.`);
+          return errorResponse(res, message, 403);
+        }
+        
+        // Update user with freelancer-specific data
+        user.approvalStatus = freelancer.approvalStatus;
+        user.setupCompleted = freelancer.setupCompleted;
+      } catch (freelancerError) {
+        console.error('An error occurred during freelancer login path:', freelancerError);
+        return errorResponse(res, 'An unexpected error occurred during login.', 500);
+      }
+    }
 
     const token = signToken(user);
     const safeUser = {
@@ -282,7 +338,7 @@ export const login = async (req, res) => {
       setupCompleted: user.setupCompleted,
     };
     
-    if ((user.type === 'salon' || user.type === 'staff') && user.approvalStatus) {
+    if ((user.type === 'salon' || user.type === 'staff' || user.type === 'freelancer') && user.approvalStatus) {
       safeUser.approvalStatus = user.approvalStatus;
     }
 

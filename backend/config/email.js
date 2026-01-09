@@ -832,6 +832,276 @@ export const sendRegistrationConfirmationEmail = async (email, name, userType) =
   }
 };
 
+// Send freelancer approval email
+export const sendFreelancerApprovalEmail = async (freelancerEmail, freelancerName) => {
+  try {
+    // Validate inputs
+    if (!freelancerEmail || !freelancerName) {
+      throw new Error('Missing required parameters: freelancerEmail or freelancerName');
+    }
+
+    // Check email configuration (at runtime)
+    const useResend = process.env.RESEND_API_KEY && process.env.RESEND_API_KEY.length > 0;
+    
+    if (useResend) {
+      if (!process.env.RESEND_API_KEY) {
+        throw new Error('Resend configuration missing: RESEND_API_KEY not set');
+      }
+    } else {
+      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+        throw new Error('Email configuration missing: EMAIL_USER or EMAIL_PASS not set');
+      }
+    }
+
+    console.log('Preparing to send freelancer approval email:', {
+      to: freelancerEmail,
+      freelancerName
+    });
+
+    const transporter = createTransporter();
+    
+    // Verify transporter configuration
+    try {
+      console.log('Verifying email transporter...');
+      await transporter.verify();
+      console.log('Email transporter verified successfully');
+    } catch (verifyError) {
+      console.error('Email transporter verification failed:', verifyError);
+      throw new Error('Email service configuration error: ' + verifyError.message);
+    }
+    
+    const mailOptions = {
+      from: process.env.EMAIL_FROM || '"AuraCare Beauty Parlor" <noreply@auracare.com>',
+      to: freelancerEmail,
+      subject: `You've Been Approved! Welcome to AuraCare as a Freelancer`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center;">
+            <h1 style="color: white; margin: 0;">AuraCare</h1>
+            <p style="color: white; margin: 5px 0;">Beauty Service Platform</p>
+          </div>
+          
+          <div style="padding: 30px; background-color: #f9f9f9;">
+            <h2 style="color: #333; margin-bottom: 20px;">Welcome to AuraCare!</h2>
+            
+            <p style="color: #666; line-height: 1.6;">
+              Hi ${freelancerName},
+            </p>
+            
+            <p style="color: #666; line-height: 1.6;">
+              Congratulations! Your freelancer application has been <strong>approved</strong> on the AuraCare platform.
+            </p>
+            
+            <div style="background: #e8f5e9; border-left: 4px solid #4caf50; padding: 15px; margin: 20px 0;">
+              <p style="color: #2e7d32; margin: 0; font-weight: bold;">
+                🎉 You can now access your freelancer dashboard!
+              </p>
+            </div>
+            
+            <p style="color: #666; line-height: 1.6;">
+              Log in to your account to manage your services, view bookings, and grow your independent beauty business.
+            </p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/login" 
+                 style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                        color: white; 
+                        padding: 12px 30px; 
+                        text-decoration: none; 
+                        border-radius: 5px; 
+                        display: inline-block;
+                        font-weight: bold;">
+                Log In to Your Freelancer Dashboard
+              </a>
+            </div>
+            
+            <p style="color: #666; line-height: 1.6;">
+              If you have any questions, please contact our support team.
+            </p>
+            
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+              <p style="color: #999; font-size: 12px; margin: 0;">
+                This is an automated email. Please do not reply to this message.
+              </p>
+            </div>
+          </div>
+          
+          <div style="background: #333; padding: 15px; text-align: center;">
+            <p style="color: #999; margin: 0; font-size: 12px;">
+              © 2024 AuraCare. All rights reserved.
+            </p>
+          </div>
+        </div>
+      `
+    };
+
+    console.log('Sending email with options:', {
+      from: mailOptions.from,
+      to: mailOptions.to,
+      subject: mailOptions.subject
+    });
+
+    const result = await transporter.sendMail(mailOptions);
+    
+    if (!result || !result.messageId) {
+      throw new Error('Failed to send email - no message ID returned');
+    }
+    
+    console.log('Freelancer approval email sent successfully:', result.messageId);
+    console.log('Email details:', {
+      from: process.env.EMAIL_FROM || '"AuraCare Beauty Parlor" <noreply@auracare.com>',
+      to: freelancerEmail,
+      subject: mailOptions.subject,
+      messageId: result.messageId
+    });
+    
+    return { success: true, messageId: result.messageId };
+    
+  } catch (error) {
+    console.error('Error sending freelancer approval email:', error);
+    
+    // Provide more specific error messages
+    if (error.code === 'EAUTH') {
+      return { success: false, error: 'Email authentication failed. Please check email credentials.' };
+    } else if (error.code === 'ECONNECTION') {
+      return { success: false, error: 'Failed to connect to email service. Please try again later.' };
+    } else if (error.code === 'EMESSAGE') {
+      return { success: false, error: 'Invalid email message format.' };
+    } else {
+      return { success: false, error: error.message || 'Unknown email sending error' };
+    }
+  }
+};
+
+// Send freelancer rejection email
+export const sendFreelancerRejectionEmail = async (freelancerEmail, freelancerName, rejectionReason) => {
+  try {
+    // Validate inputs
+    if (!freelancerEmail || !freelancerName) {
+      throw new Error('Missing required parameters: freelancerEmail or freelancerName');
+    }
+
+    // Check email configuration (at runtime)
+    const useResend = process.env.RESEND_API_KEY && process.env.RESEND_API_KEY.length > 0;
+    
+    if (useResend) {
+      if (!process.env.RESEND_API_KEY) {
+        throw new Error('Resend configuration missing: RESEND_API_KEY not set');
+      }
+    } else {
+      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+        throw new Error('Email configuration missing: EMAIL_USER or EMAIL_PASS not set');
+      }
+    }
+
+    console.log('Preparing to send freelancer rejection email:', {
+      to: freelancerEmail,
+      freelancerName,
+      rejectionReason
+    });
+
+    const transporter = createTransporter();
+    
+    // Verify transporter configuration
+    try {
+      console.log('Verifying email transporter...');
+      await transporter.verify();
+      console.log('Email transporter verified successfully');
+    } catch (verifyError) {
+      console.error('Email transporter verification failed:', verifyError);
+      throw new Error('Email service configuration error: ' + verifyError.message);
+    }
+    
+    const mailOptions = {
+      from: process.env.EMAIL_FROM || '"AuraCare Beauty Parlor" <noreply@auracare.com>',
+      to: freelancerEmail,
+      subject: `Your Freelancer Application on AuraCare - Status Update`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); padding: 20px; text-align: center;">
+            <h1 style="color: white; margin: 0;">AuraCare</h1>
+            <p style="color: white; margin: 5px 0;">Beauty Service Platform</p>
+          </div>
+          
+          <div style="padding: 30px; background-color: #f9f9f9;">
+            <h2 style="color: #333; margin-bottom: 20px;">Application Status Update</h2>
+            
+            <p style="color: #666; line-height: 1.6;">
+              Hi ${freelancerName},
+            </p>
+            
+            <p style="color: #666; line-height: 1.6;">
+              We have reviewed your freelancer application on the AuraCare platform.
+            </p>
+            
+            <div style="background: #ffebee; border-left: 4px solid #f44336; padding: 15px; margin: 20px 0;">
+              <p style="color: #c62828; margin: 0; font-weight: bold;">
+                ❌ Your application has been <strong>rejected</strong>.
+              </p>
+            </div>
+            
+            <p style="color: #666; line-height: 1.6;">
+              <strong>Reason:</strong> ${rejectionReason || 'Application did not meet requirements'}
+            </p>
+            
+            <p style="color: #666; line-height: 1.6;">
+              If you believe this was done in error or would like to reapply after addressing the issues, please contact our support team.
+            </p>
+            
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+              <p style="color: #999; font-size: 12px; margin: 0;">
+                This is an automated email. Please do not reply to this message.
+              </p>
+            </div>
+          </div>
+          
+          <div style="background: #333; padding: 15px; text-align: center;">
+            <p style="color: #999; margin: 0; font-size: 12px;">
+              © 2024 AuraCare. All rights reserved.
+            </p>
+          </div>
+        </div>
+      `
+    };
+
+    console.log('Sending email with options:', {
+      from: mailOptions.from,
+      to: mailOptions.to,
+      subject: mailOptions.subject
+    });
+
+    const result = await transporter.sendMail(mailOptions);
+    
+    if (!result || !result.messageId) {
+      throw new Error('Failed to send email - no message ID returned');
+    }
+    
+    console.log('Freelancer rejection email sent successfully:', result.messageId);
+    console.log('Email details:', {
+      from: process.env.EMAIL_FROM || '"AuraCare Beauty Parlor" <noreply@auracare.com>',
+      to: freelancerEmail,
+      subject: mailOptions.subject,
+      messageId: result.messageId
+    });
+    
+    return { success: true, messageId: result.messageId };
+    
+  } catch (error) {
+    console.error('Error sending freelancer rejection email:', error);
+    
+    // Provide more specific error messages
+    if (error.code === 'EAUTH') {
+      return { success: false, error: 'Email authentication failed. Please check email credentials.' };
+    } else if (error.code === 'ECONNECTION') {
+      return { success: false, error: 'Failed to connect to email service. Please try again later.' };
+    } else if (error.code === 'EMESSAGE') {
+      return { success: false, error: 'Invalid email message format.' };
+    } else {
+      return { success: false, error: error.message || 'Unknown email sending error' };
+    }
+  }
+};
+
 // Generate 6-digit OTP
 export const generateOTP = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();

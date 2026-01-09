@@ -2,6 +2,7 @@ import Admin from '../models/Admin.js';
 import Salon from '../models/Salon.js';
 import User from '../models/User.js';
 import Staff from '../models/Staff.js';
+import Freelancer from '../models/Freelancer.js';
 import Appointment from '../models/Appointment.js';
 import Customer from '../models/Customer.js';
 import Revenue from '../models/Revenue.js';
@@ -1222,4 +1223,164 @@ export const getSalonExpenseBreakdown = asyncHandler(async (req, res) => {
     console.error('Error fetching salon expense breakdown:', error);
     return errorResponse(res, 'Failed to retrieve salon expense breakdown data', 500);
   }
+});
+
+// Get pending freelancer registrations
+export const getPendingFreelancers = asyncHandler(async (req, res) => {
+  console.log('=== GETTING PENDING FREELANCERS ===');
+  
+  try {
+    // Find freelancers with pending approval status
+    const pendingFreelancers = await Freelancer.find({
+      $and: [
+        {
+          $or: [
+            { approvalStatus: 'pending' },
+            { approvalStatus: { $exists: false } },
+            { approvalStatus: null }
+          ]
+        },
+        {
+          $or: [
+            { isActive: true },
+            { isActive: { $exists: false } },
+            { isActive: null }
+          ]
+        }
+      ]
+    })
+    .populate('user', 'name email')
+    .select('name email phone serviceLocation yearsOfExperience skills approvalStatus setupCompleted createdAt documents profilePicture')
+    .sort({ createdAt: -1 });
+    
+    console.log('Pending freelancers found:', pendingFreelancers.length);
+    
+    return successResponse(res, pendingFreelancers, 'Pending freelancers retrieved successfully');
+  } catch (error) {
+    console.error('Error fetching pending freelancers:', error);
+    return errorResponse(res, 'Failed to retrieve pending freelancers', 500);
+  }
+});
+
+// Approve freelancer
+export const approveFreelancer = asyncHandler(async (req, res) => {
+  const { freelancerId } = req.params;
+
+  console.log('=== APPROVING FREELANCER ===');
+  console.log('Freelancer ID:', freelancerId);
+
+  const freelancer = await Freelancer.findById(freelancerId);
+  if (!freelancer) {
+    console.log('Freelancer not found with ID:', freelancerId);
+    return errorResponse(res, 'Freelancer not found', 404);
+  }
+
+  console.log('Freelancer before approval:', {
+    id: freelancer._id,
+    name: freelancer.name,
+    email: freelancer.email,
+    approvalStatus: freelancer.approvalStatus,
+    isVerified: freelancer.isVerified
+  });
+
+  freelancer.approvalStatus = 'approved';
+  freelancer.isVerified = true;
+  freelancer.approvedBy = req.user.id;
+  freelancer.approvalDate = new Date();
+  freelancer.setupCompleted = true; // Freelancer can now access the platform
+  await freelancer.save();
+
+  console.log('Freelancer after approval:', {
+    id: freelancer._id,
+    name: freelancer.name,
+    email: freelancer.email,
+    approvalStatus: freelancer.approvalStatus,
+    isVerified: freelancer.isVerified
+  });
+
+  // Send approval notification email to freelancer
+  try {
+    console.log('📧 Initiating email notification for freelancer approval...');
+    
+    if (freelancer.email) {
+      try {
+        console.log('📧 Sending approval email to freelancer...');
+        const freelancerName = freelancer.name || 'Freelancer';
+        
+        // Import email functions
+        const { sendFreelancerApprovalEmail } = await import('../config/email.js');
+        
+        const freelancerEmailResult = await sendFreelancerApprovalEmail(
+          freelancer.email,
+          freelancerName
+        );
+        if (freelancerEmailResult.success) {
+          console.log('✅ Freelancer approval email sent successfully to:', freelancer.email);
+        } else {
+          console.error('❌ Failed to send freelancer approval email:', freelancerEmailResult.error);
+        }
+      } catch (emailError) {
+        console.error('❌ Exception while sending freelancer approval email:', emailError);
+      }
+    } else {
+      console.log('⚠️ Freelancer email not available, cannot send approval email.');
+    }
+  } catch (emailError) {
+    console.error('❌ Error sending freelancer approval email:', emailError);
+  }
+
+  return successResponse(res, freelancer, 'Freelancer approved successfully');
+});
+
+// Reject freelancer
+export const rejectFreelancer = asyncHandler(async (req, res) => {
+  console.log('=== REJECTING FREELANCER ===');
+  console.log('Freelancer ID:', req.params.freelancerId);
+  console.log('Request body:', req.body);
+
+  const { rejectionReason } = req.body;
+
+  const freelancer = await Freelancer.findById(req.params.freelancerId);
+  if (!freelancer) {
+    return errorResponse(res, 'Freelancer not found', 404);
+  }
+
+  if (freelancer.approvalStatus === 'approved') {
+    return errorResponse(res, 'Cannot reject an already approved freelancer', 400);
+  }
+
+  if (freelancer.approvalStatus === 'rejected') {
+    return errorResponse(res, 'Freelancer is already rejected', 400);
+  }
+
+  freelancer.approvalStatus = 'rejected';
+  freelancer.rejectionReason = rejectionReason;
+  freelancer.approvedBy = req.user.id;
+  freelancer.approvalDate = new Date();
+  await freelancer.save();
+
+  // Send rejection notification email to freelancer
+  try {
+    if (freelancer.email) {
+      console.log('📧 Sending rejection email to freelancer...');
+      
+      // Import email functions
+      const { sendFreelancerRejectionEmail } = await import('../config/email.js');
+      
+      const freelancerEmailResult = await sendFreelancerRejectionEmail(
+        freelancer.email,
+        freelancer.name || 'Freelancer',
+        rejectionReason || 'Application did not meet requirements'
+      );
+      if (freelancerEmailResult.success) {
+        console.log('✅ Freelancer rejection email sent successfully to:', freelancer.email);
+      } else {
+        console.error('❌ Failed to send freelancer rejection email:', freelancerEmailResult.error);
+      }
+    }
+  } catch (emailError) {
+    console.error('❌ Exception while sending freelancer rejection email:', emailError);
+  }
+
+  return successResponse(res, freelancer, 'Freelancer rejected successfully');
 });

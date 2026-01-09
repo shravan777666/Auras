@@ -7,7 +7,7 @@ const UserSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     password: { type: String, required: function() { return !this.googleId; } }, // Password not required for Google OAuth users
     // Role of the user: admin, salon (owner), staff (beauty professional), customer
-    type: { type: String, enum: ['admin', 'salon', 'staff', 'customer'], required: true },
+    type: { type: String, enum: ['admin', 'salon', 'staff', 'customer', 'freelancer'], required: true },
     // For salon/staff onboarding flows
     setupCompleted: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },

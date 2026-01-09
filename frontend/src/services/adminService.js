@@ -161,4 +161,28 @@ export const adminService = {
     });
     return response.data;
   },
+
+  // Freelancer Management
+  async getPendingFreelancers() {
+    const response = await api.get('/admin/freelancers/pending', {
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      },
+      params: {
+        _t: Date.now() // Cache buster
+      }
+    });
+    return response.data?.data || [];
+  },
+
+  async approveFreelancer(freelancerId) {
+    const response = await api.post(`/admin/freelancers/${freelancerId}/approve`);
+    return response.data;
+  },
+
+  async rejectFreelancer(freelancerId, reason) {
+    const response = await api.post(`/admin/freelancers/${freelancerId}/reject`, { reason });
+    return response.data;
+  },
 };

@@ -12,6 +12,9 @@ import {
   getPendingStaff,
   approveStaff,
   rejectStaff,
+  getPendingFreelancers,
+  approveFreelancer,
+  rejectFreelancer,
   getAllCustomers,
   getAllAppointments,
   getPendingSalons,
@@ -55,6 +58,11 @@ router.get('/staff', validatePagination, getAllStaff);
 router.get('/staff/pending', getPendingStaff);
 router.post('/staff/:staffId/approve', validateObjectId('staffId'), approveStaff);
 router.post('/staff/:staffId/reject', validateObjectId('staffId'), rejectStaff);
+
+// Freelancer Management
+router.get('/freelancers/pending', getPendingFreelancers);
+router.post('/freelancers/:freelancerId/approve', validateObjectId('freelancerId'), approveFreelancer);
+router.post('/freelancers/:freelancerId/reject', validateObjectId('freelancerId'), rejectFreelancer);
 
 // Debug route to check all staff
 router.get('/staff/debug', async (req, res) => {
