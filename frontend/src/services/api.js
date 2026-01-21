@@ -5,22 +5,18 @@ import { authService } from './auth'
 // Check if we're in production mode
 const isProduction = import.meta.env.PROD || import.meta.env.NODE_ENV === 'production';
 
-// Base API configuration - More robust handling for production vs development
-let API_BASE_URL = 'http://localhost:5011/api'; // Default fallback
+// Base API configuration
+let API_BASE_URL;
 
-// Check for VITE_API_URL first
-if (import.meta.env.VITE_API_URL) {
-  API_BASE_URL = import.meta.env.VITE_API_URL.replace(/\/$/, '');
-  console.log('🔧 Using VITE_API_URL:', API_BASE_URL);
-} 
-// Check if we're in production and use the Render backend URL
-else if (isProduction) {
-  API_BASE_URL = 'https://auracare-backend.onrender.com/api';
-  console.log('🔧 Using production default URL:', API_BASE_URL);
-} 
-// Otherwise use development fallback
-else {
-  console.log('🔧 Using development fallback URL:', API_BASE_URL);
+if (isProduction) {
+  // In production, use the environment variable or the Render URL
+  API_BASE_URL = import.meta.env.VITE_API_URL || 'https://auracare-backend.onrender.com/api';
+  console.log('🔧 Using production API URL:', API_BASE_URL);
+} else {
+  // In development, always use a relative path to leverage the Vite proxy.
+  // This is more robust against misconfigured .env files.
+  API_BASE_URL = '/api';
+  console.log('🔧 Using development proxy. API calls will be relative to the domain.');
 }
 
 console.log('🔧 API Base URL:', API_BASE_URL);

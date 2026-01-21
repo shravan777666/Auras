@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { customerService } from '../../services/customer';
+import { panicModeService } from '../../services/panicMode';
 import { customerMessageService } from '../../services/customerMessage';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { toast } from 'react-hot-toast';
@@ -57,6 +58,9 @@ const CustomerDashboard = () => {
   const [unreadMessageCount, setUnreadMessageCount] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
   const [activeSection, setActiveSection] = useState('overview')
+  const [panicResults, setPanicResults] = useState(null)
+  const [panicLoading, setPanicLoading] = useState(false)
+  const [panicError, setPanicError] = useState(null)
 
   useEffect(() => {
     fetchDashboardData()
@@ -163,6 +167,59 @@ const CustomerDashboard = () => {
     }
   }
 
+  const handleBookNow = () => {
+    if (panicResults && panicResults.salon) {
+      navigate(`/customer/book-appointment/${panicResults.salon._id}`, {
+        state: {
+          preselectedDate: panicResults.availableDate,
+          preselectedTime: panicResults.availableTime
+        }
+      });
+    }
+  };
+
+  const clearPanicResults = () => {
+    setPanicResults(null);
+    setPanicError(null);
+  };
+
+  const handlePanicMode = async () => {
+    try {
+      // Show loading state
+      setPanicLoading(true);
+      setPanicError(null);
+      
+      // Get current location
+      const location = await panicModeService.getCurrentLocation();
+      
+      // Find nearest available salon
+      const result = await panicModeService.findNearestAvailableSalon(
+        location.latitude,
+        location.longitude
+      );
+      
+      if (result.success && result.data && result.data.salon) {
+        // Set the results to display on the page
+        setPanicResults({
+          salon: result.data.salon,
+          distance: result.data.distance,
+          availableDate: result.data.availableDate,
+          availableTime: result.data.availableTime
+        });
+      } else {
+        // No salon found
+        setPanicError(result.message || 'No nearby salons available');
+        setPanicResults(null);
+      }
+    } catch (error) {
+      console.error('Panic mode error:', error);
+      setPanicError('Unable to locate you or find nearby salons. Please try again.');
+      setPanicResults(null);
+    } finally {
+      setPanicLoading(false);
+    }
+  };
+
   const fetchUnreadMessageCount = async () => {
     try {
       const response = await customerMessageService.getUnreadCount()
@@ -211,7 +268,20 @@ const CustomerDashboard = () => {
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Welcome back, {dashboardData.customerInfo?.name || 'Valued Customer'}!</h1>
           <p className="text-gray-600 mt-1">Manage your appointments and discover new beauty experiences</p>
         </div>
-        <div className="mt-4 md:mt-0">
+        <div className="mt-4 md:mt-0 flex flex-col sm:flex-row gap-3">
+          <Link
+            to="/customer/home-service"
+            className="inline-flex items-center justify-center px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-all shadow-sm hover:shadow-md"
+          >
+            <Home className="h-4 w-4 mr-2" />
+            Home Service
+          </Link>
+          <button
+            onClick={handlePanicMode}
+            className="inline-flex items-center justify-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-all shadow-sm hover:shadow-md"
+          >
+            Panic Mode – Find Salon Now
+          </button>
           <Link
             to="/customer/book"
             className="inline-flex items-center px-4 py-2 bg-primary-600 text-white font-medium rounded-lg hover:bg-primary-700 transition-all shadow-sm hover:shadow-md"
@@ -221,6 +291,127 @@ const CustomerDashboard = () => {
           </Link>
         </div>
       </div>
+
+      {/* Panic Mode Results */}
+      {panicLoading && (
+        <div className="mb-6 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg">
+          <div className="flex items-center">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-yellow-600 mr-3"></div>
+            <p className="text-yellow-700 font-medium">Finding the nearest available salon for you...</p>
+          </div>
+        </div>
+      )}
+      
+      {panicError && (
+        <div className="mb-6 bg-red-50 border-l-4 border-red-400 p-4 rounded-lg">
+          <div className="flex justify-between items-start">
+            <div className="flex items-center">
+              <svg className="h-5 w-5 text-red-400 mr-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <p className="text-red-700 font-medium">{panicError}</p>
+            </div>
+            <button 
+              onClick={clearPanicResults}
+              className="text-red-500 hover:text-red-700"
+            >
+              <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+          <div className="mt-3 flex space-x-3">
+            <button
+              onClick={() => navigate('/customer/map')}
+              className="px-3 py-1 bg-red-100 text-red-700 rounded-md text-sm font-medium hover:bg-red-200"
+            >
+              View Map
+            </button>
+            <button
+              onClick={handlePanicMode}
+              className="px-3 py-1 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {panicResults && panicResults.salon && (
+        <div className="mb-6 bg-green-50 border-l-4 border-green-400 p-4 rounded-lg">
+          <div className="flex justify-between items-start">
+            <div className="flex-1">
+              <div className="flex items-center mb-2">
+                <svg className="h-5 w-5 text-green-400 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <h3 className="text-lg font-bold text-green-800">Nearest Available Salon Found!</h3>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div className="bg-white rounded-lg p-3 shadow-sm">
+                  <h4 className="font-semibold text-gray-900">{panicResults.salon.salonName}</h4>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {typeof panicResults.salon.salonAddress === 'string' 
+                      ? panicResults.salon.salonAddress 
+                      : [panicResults.salon.salonAddress?.city, panicResults.salon.salonAddress?.state].filter(Boolean).join(', ')}
+                  </p>
+                  <div className="flex items-center mt-2 text-sm text-gray-500">
+                    <svg className="h-4 w-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <span>{panicResults.distance?.toFixed(2)} km away</span>
+                  </div>
+                </div>
+                
+                <div className="bg-white rounded-lg p-3 shadow-sm">
+                  <h4 className="font-semibold text-gray-900">Available Time</h4>
+                  <p className="text-lg font-bold text-green-600 mt-1">
+                    {panicResults.availableDate} at {panicResults.availableTime}
+                  </p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Next available slot within 30 minutes
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={handleBookNow}
+                  className="px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center"
+                >
+                  <svg className="h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  Book Now
+                </button>
+                <button
+                  onClick={() => navigate(`/customer/salon/${panicResults.salon._id}`)}
+                  className="px-4 py-2 bg-white text-gray-700 font-medium rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                >
+                  View Salon Details
+                </button>
+                <button
+                  onClick={clearPanicResults}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+            
+            <button 
+              onClick={clearPanicResults}
+              className="text-green-500 hover:text-green-700 ml-4"
+            >
+              <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Recent/Nearby Salons - Moved to top */}
       <div>
@@ -281,8 +472,8 @@ const CustomerDashboard = () => {
                         <p className="text-xs text-gray-500">Last visited: Oct 20, 2025</p>
                       </div>
                     </div>
-                    <Link to="/customer/book-appointment/salon1" className="mt-3 w-full py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 inline-block text-center">
-                      Book Again
+                    <Link to="/customer/explore-salons" className="mt-3 w-full py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 inline-block text-center">
+                      Explore Salons
                     </Link>
                   </div>
                   <div className="flex-shrink-0 w-64 bg-gray-50 rounded-lg p-4">
@@ -293,8 +484,8 @@ const CustomerDashboard = () => {
                         <p className="text-xs text-gray-500">Last visited: Sep 15, 2025</p>
                       </div>
                     </div>
-                    <Link to="/customer/book-appointment/salon2" className="mt-3 w-full py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 inline-block text-center">
-                      Book Again
+                    <Link to="/customer/explore-salons" className="mt-3 w-full py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 inline-block text-center">
+                      Explore Salons
                     </Link>
                   </div>
                 </>

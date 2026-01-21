@@ -4,7 +4,8 @@ import Salon from './Salon.js';
 
 const AppointmentSchema = new mongoose.Schema(
   {
-    salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon', required: true },
+    salonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Salon' },
+    freelancerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Freelancer' },
     customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer' },
     staffId: { type: mongoose.Schema.Types.ObjectId, ref: 'Staff' },
     services: [
@@ -168,22 +169,28 @@ AppointmentSchema.methods.updateStatus = async function (newStatus) {
   // Create revenue records and handle loyalty points when appointment is completed
   if (newStatus === 'Completed' && oldStatus !== 'Completed') {
     try {
-      // Get salon to find owner
-      const salon = await Salon.findById(this.salonId);
+      if (this.salonId) {
+        // Get salon to find owner
+        const salon = await Salon.findById(this.salonId);
 
-      if (salon) {
-        // Create revenue record for each service
-        for (const service of this.services) {
-          await Revenue.create({
-            service: service.serviceName,
-            amount: service.price,
-            appointmentId: this._id,
-            salonId: this.salonId,
-            ownerId: salon.ownerId,
-            customerId: this.customerId,
-            date: formatToISOString(new Date())
-          });
+        if (salon) {
+          // Create revenue record for each service
+          for (const service of this.services) {
+            await Revenue.create({
+              service: service.serviceName,
+              amount: service.price,
+              appointmentId: this._id,
+              salonId: this.salonId,
+              ownerId: salon.ownerId,
+              customerId: this.customerId,
+              date: formatToISOString(new Date())
+            });
+          }
         }
+      } else if (this.freelancerId) {
+        // For freelancer appointments, we might want to create revenue records differently
+        // For now, we'll skip revenue creation for freelancers
+        console.log('Revenue creation skipped for freelancer appointment');
       }
 
       // Calculate and award loyalty points
@@ -238,8 +245,12 @@ AppointmentSchema.methods.canBeCancelledUnderPolicy = async function () {
   // Import CancellationPolicy model
   const CancellationPolicy = (await import('./CancellationPolicy.js')).default;
   
-  // Get salon's cancellation policy
-  const policy = await CancellationPolicy.findOne({ salonId: this.salonId });
+  let policy = null;
+  
+  if (this.salonId) {
+    // Get salon's cancellation policy
+    policy = await CancellationPolicy.findOne({ salonId: this.salonId });
+  }
   
   // If no policy, use default behavior
   if (!policy || !policy.isActive) {
@@ -265,8 +276,12 @@ AppointmentSchema.methods.calculateCancellationFee = async function () {
   // Import CancellationPolicy model
   const CancellationPolicy = (await import('./CancellationPolicy.js')).default;
   
-  // Get salon's cancellation policy
-  const policy = await CancellationPolicy.findOne({ salonId: this.salonId });
+  let policy = null;
+  
+  if (this.salonId) {
+    // Get salon's cancellation policy
+    policy = await CancellationPolicy.findOne({ salonId: this.salonId });
+  }
   
   // If no policy, no fee
   if (!policy || !policy.isActive) {
@@ -300,6 +315,11 @@ AppointmentSchema.methods.calculateCancellationFee = async function () {
 };
 
 AppointmentSchema.pre('save', function(next) {
+  // Validate that either salonId or freelancerId is provided
+  if (!this.salonId && !this.freelancerId) {
+    return next(new Error('Either salonId or freelancerId must be provided'));  
+  }
+  
   // Format appointmentDate to YYYY-MM-DDTHH:mm if it's a Date object or in wrong format
   this.appointmentDate = ensureCorrectDateFormat(this.appointmentDate);
   

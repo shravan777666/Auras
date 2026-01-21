@@ -23,6 +23,7 @@ import { startCancellationReminders } from './utils/cancellationReminder.js';
 
 // Import routes
 import authRoutes from './routes/auth.js';
+import freelancerRoutes from './routes/freelancer.js';
 import oauthRoutes from './routes/oauth.js';
 import adminRoutes from './routes/admin.js';
 import salonRoutes from './routes/salon.js';
@@ -79,6 +80,13 @@ import customerNotificationRoutes from './routes/customerNotification.js';
 
 // Import product routes
 import productRoutes from './routes/product.js';
+
+// Import package routes
+import packageRoutes from './routes/packages.js';
+
+// Import gift card routes
+import giftCardRoutes from './routes/giftCard.js';
+import giftCardRecipientsRoutes from './routes/giftCardRecipients.js';
 
 // Create Express app
 const app = express();
@@ -386,6 +394,8 @@ app.use('/api/addon', addonRoutes);
 app.use('/api/addon-dashboard', addonDashboardRoutes);
 app.use('/api/forgot-password', forgotPasswordRoutes);
 app.use('/api/cancellation-policy', cancellationPolicyRoutes);
+app.use('/api/gift-card-recipients', giftCardRecipientsRoutes);
+app.use('/api/gift-card', giftCardRoutes);
 
 // Add internal feedback routes
 app.use('/api/internal-feedback', internalFeedbackRoutes);
@@ -396,8 +406,17 @@ app.use('/api/payment', paymentRoutes);
 // Add payroll routes
 app.use('/api/payroll', payrollRoutes);
 
+// Add package routes for salon owners
+app.use('/api/salon', packageRoutes);
+
+// Add package routes for customers
+app.use('/api/packages', packageRoutes);
+
 // Add customer notification routes
 app.use('/api/customer/notifications', customerNotificationRoutes);
+
+// Add freelancer routes
+app.use('/api/freelancer', freelancerRoutes);
 
 // Add queue routes
 import queueRoutes from './routes/queueRoutes.js';
@@ -406,6 +425,10 @@ app.use('/api/queue', queueRoutes);
 // Add image upload routes
 import imageUploadRoutes from './routes/imageUpload.js';
 app.use('/api/image-upload', imageUploadRoutes);
+
+// Add files route
+import filesRoutes from './routes/files.js';
+app.use('/api/files', filesRoutes);
 
 // Handle undefined routes
 app.all('*', (req, res) => {
@@ -431,7 +454,9 @@ app.all('*', (req, res) => {
       addonDashboard: '/api/addon-dashboard',
       expenseForecast: '/api/expense-forecast',
       customerNotifications: '/api/customer/notifications',
-      imageUpload: '/api/image-upload'
+      imageUpload: '/api/image-upload',
+      giftCard: '/api/gift-card',
+      giftCardRecipients: '/api/gift-card-recipients'
     }
   });
 });

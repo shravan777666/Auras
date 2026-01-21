@@ -854,6 +854,174 @@ export const getRecentSalons = asyncHandler(async (req, res) => {
   return successResponse(res, uniqueSalons, 'Recent salons retrieved successfully');
 });
 
+// Find nearest salon with real-time availability
+export const findNearestAvailableSalon = asyncHandler(async (req, res) => {
+  try {
+    const { location, radius = 5 } = req.body;
+    
+    if (!location || typeof location.latitude !== 'number' || typeof location.longitude !== 'number') {
+      return errorResponse(res, 'Valid latitude and longitude are required', 400);
+    }
+    
+    const { latitude, longitude } = location;
+    
+    // Find salons within the specified radius that are active and approved
+    const salons = await Salon.find({
+      isActive: true,
+      setupCompleted: true,
+      approvalStatus: 'approved',
+      latitude: { $ne: null },  // Has latitude set
+      longitude: { $ne: null }  // Has longitude set
+    });
+    
+    // Calculate distance for each salon and filter by radius
+    const salonsWithinRadius = salons.filter(salon => {
+      const distance = calculateDistance(
+        latitude,
+        longitude,
+        salon.latitude,
+        salon.longitude
+      );
+      return distance <= radius;
+    });
+    
+    if (salonsWithinRadius.length === 0) {
+      return successResponse(res, {
+        salon: null,
+        distance: null,
+        availableDate: null,
+        availableTime: null
+      }, 'No salons found within the specified radius');
+    }
+    
+    // Sort salons by distance (closest first)
+    salonsWithinRadius.sort((a, b) => {
+      const distA = calculateDistance(latitude, longitude, a.latitude, a.longitude);
+      const distB = calculateDistance(latitude, longitude, b.latitude, b.longitude);
+      return distA - distB;
+    });
+    
+    // For each salon, check real-time availability
+    for (const salon of salonsWithinRadius) {
+      const distance = calculateDistance(
+        latitude,
+        longitude,
+        salon.latitude,
+        salon.longitude
+      );
+      
+      // Look for appointments in the next 30 minutes
+      const now = new Date();
+      const next30Minutes = new Date(now.getTime() + 30 * 60000); // 30 minutes from now
+      
+      // Check for available slots in the next few days
+      for (let i = 0; i < 3; i++) { // Check next 3 days
+        const date = new Date();
+        date.setDate(now.getDate() + i);
+        const dateString = date.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+        
+        // Find appointments for this salon on this date
+        const appointments = await Appointment.find({
+          salonId: salon._id,
+          appointmentDate: {
+            $regex: `^${dateString}` // Match the date part of the datetime string
+          },
+          status: { $in: ['Pending', 'Confirmed'] } // Only booked appointments
+        }).sort({ appointmentTime: 1 });
+        
+        // Get salon business hours
+        const openTime = salon.businessHours?.openTime || '09:00';
+        const closeTime = salon.businessHours?.closeTime || '21:00';
+        
+        // Define slot duration (we'll use 30-minute slots as default)
+        const slotDuration = 30; // in minutes
+        
+        // Parse open and close times
+        const [openHour, openMinute] = openTime.split(':').map(Number);
+        const [closeHour, closeMinute] = closeTime.split(':').map(Number);
+        
+        // Calculate total minutes from open to close
+        const openMinutes = openHour * 60 + openMinute;
+        const closeMinutes = closeHour * 60 + closeMinute;
+        
+        // Create time slots and check availability
+        let currentTime = openMinutes;
+        
+        while (currentTime < closeMinutes) {
+          // Format time as HH:MM
+          const hour = Math.floor(currentTime / 60);
+          const minute = currentTime % 60;
+          const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+          
+          // Check if this time slot is available
+          const isSlotBooked = appointments.some(appt => appt.appointmentTime === timeString);
+          
+          // Check if the slot is in the next 30 minutes from now
+          if (i === 0) { // Only check today
+            const [slotHour, slotMinute] = timeString.split(':').map(Number);
+            const slotDateTime = new Date();
+            slotDateTime.setHours(slotHour, slotMinute, 0, 0);
+            
+            if (slotDateTime >= now && slotDateTime <= next30Minutes) {
+              // Slot is within next 30 minutes
+              if (!isSlotBooked) {
+                // Found an available slot within 30 minutes!
+                return successResponse(res, {
+                  salon: salon.toObject(),
+                  distance: distance,
+                  availableDate: dateString,
+                  availableTime: timeString
+                }, 'Nearest available salon found');
+              }
+            }
+          } else {
+            // For future days, just check if slot is available
+            if (!isSlotBooked) {
+              return successResponse(res, {
+                salon: salon.toObject(),
+                distance: distance,
+                availableDate: dateString,
+                availableTime: timeString
+              }, 'Nearest available salon found');
+            }
+          }
+          
+          currentTime += slotDuration;
+        }
+      }
+    }
+    
+    // If no available slots found
+    return successResponse(res, {
+      salon: null,
+      distance: null,
+      availableDate: null,
+      availableTime: null
+    }, 'No available slots found in nearby salons');
+  } catch (error) {
+    console.error('Error in findNearestAvailableSalon:', error);
+    return errorResponse(res, 'Internal server error', 500);
+  }
+});
+
+// Calculate distance between two coordinates using Haversine formula
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Earth's radius in kilometers
+  const dLat = deg2rad(lat2 - lat1);
+  const dLon = deg2rad(lon2 - lon1);
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const d = R * c; // Distance in kilometers
+  return d;
+}
+
+function deg2rad(deg) {
+  return deg * (Math.PI/180);
+}
+
 // Add salon to favorites (multiple favorites support)
 export const addFavoriteSalon = asyncHandler(async (req, res) => {
   try {

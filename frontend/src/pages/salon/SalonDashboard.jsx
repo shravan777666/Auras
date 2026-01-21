@@ -35,7 +35,8 @@ import {
   Bell,
   FileText,
   ShoppingCart,
-  QrCode
+  QrCode,
+  Package
 } from 'lucide-react';
 import {
   Chart as ChartJS,
@@ -50,6 +51,7 @@ import {
 import { Pie, Bar } from 'react-chartjs-2';
 import LogoutButton from '../../components/auth/LogoutButton';
 import AddServiceModal from '../../components/salon/AddServiceModal';
+import AddPackageModal from '../../components/salon/AddPackageModal';
 import AddProductModal from '../../components/salon/AddProductModal';
 import AssignStaffModal from '../../components/salon/AssignStaffModal';
 import ClientRecommendations from '../../components/salon/ClientRecommendations';
@@ -60,6 +62,7 @@ import BackButton from '../../components/common/BackButton';
 import PayrollProcessingCard from '../../components/salon/PayrollProcessingCard';
 import PayrollSummaryTable from '../../components/salon/PayrollSummaryTable';
 import QueueManagement from '../../components/salon/QueueManagement';
+import GiftCardRecipientsComponent from '../../components/salon/GiftCardRecipients';
 
 // Register Chart.js components
 ChartJS.register(
@@ -234,6 +237,7 @@ const SalonDashboard = () => {
   const [loadingAppointments, setLoadingAppointments] = useState(false);
   const [reviews, setReviews] = useState([]);
   const [isAddServiceModalOpen, setIsAddServiceModalOpen] = useState(false);
+  const [isAddPackageModalOpen, setIsAddPackageModalOpen] = useState(false);
   const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false);
   const [isAssignStaffModalOpen, setIsAssignStaffModalOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
@@ -255,7 +259,9 @@ const SalonDashboard = () => {
     { id: 'appointments', label: 'Appointments', icon: Calendar },
     { id: 'staff', label: 'Staff', icon: User },
     { id: 'services', label: 'Services', icon: Briefcase },
+    { id: 'packages', label: 'Packages', icon: Package },
     { id: 'products', label: 'Products', icon: ShoppingCart },
+    { id: 'giftcards', label: 'Gift Cards', icon: CreditCard },
     { id: 'queue', label: 'Queue', icon: QrCode },
     { id: 'finance', label: 'Finance', icon: DollarSign },
     { id: 'reports', label: 'Reports', icon: FileText },
@@ -273,6 +279,10 @@ const SalonDashboard = () => {
   }, [heroImages.length]);
 
   const handleServiceAdded = () => {
+    fetchDashboardData();
+  };
+
+  const handlePackageAdded = () => {
     fetchDashboardData();
   };
 
@@ -441,8 +451,12 @@ const SalonDashboard = () => {
         return renderStaffContent();
       case 'services':
         return renderServicesContent();
+      case 'packages':
+        return renderPackagesContent();
       case 'products':
         return renderProductsContent();
+      case 'giftcards':
+        return renderGiftCardsContent();
       case 'finance':
         return renderFinanceContent();
       case 'reports':
@@ -939,6 +953,19 @@ const SalonDashboard = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </button>
+              {/* Add Gift Cards button */}
+              <button
+                onClick={() => setActiveTab('giftcards')}
+                className="w-full flex items-center justify-between px-5 py-4 rounded-xl bg-yellow-600 text-white hover:bg-yellow-700 transition-all duration-300 shadow-sm hover:shadow-md"
+              >
+                <span className="flex items-center gap-3">
+                  <CreditCard className="h-5 w-5" /> 
+                  Gift Cards
+                </span>
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
               {/* Add Queue Management button */}
               <button
                 onClick={() => setActiveTab('queue')}
@@ -1047,6 +1074,13 @@ const SalonDashboard = () => {
               Add New Service
             </button>
             <button
+              onClick={() => setIsAddPackageModalOpen(true)}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center gap-2"
+            >
+              <Package className="h-4 w-4" />
+              Add Package
+            </button>
+            <button
               onClick={() => navigate('/salon/services')}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-2"
             >
@@ -1066,6 +1100,46 @@ const SalonDashboard = () => {
           <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
             <p className="text-blue-800 font-medium">Full CRUD Operations Available</p>
             <p className="text-blue-700 text-sm mt-1">Click "Manage All Services" to view, edit, and delete existing services.</p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Packages content
+  const renderPackagesContent = () => {
+    return (
+      <div className="bg-white p-6 rounded-xl shadow-sm">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">Package Management</h2>
+          <div className="flex space-x-2">
+            <button
+              onClick={() => setIsAddPackageModalOpen(true)}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center gap-2"
+            >
+              <Package className="h-4 w-4" />
+              Add New Package
+            </button>
+            <button
+              onClick={() => navigate('/salon/packages')}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center gap-2"
+            >
+              <Package className="h-4 w-4" />
+              Manage All Packages
+            </button>
+          </div>
+        </div>
+        <div className="text-gray-600">
+          <p className="mb-4">Manage the occasion-based packages your salon offers.</p>
+          <ul className="list-disc pl-5 space-y-2">
+            <li>Create packages for special occasions like weddings, birthdays, corporate events</li>
+            <li>Bundle multiple services together at discounted prices</li>
+            <li>Set pricing and duration for each package</li>
+            <li>Organize packages by occasion type and target audience</li>
+          </ul>
+          <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
+            <p className="text-blue-800 font-medium">Full CRUD Operations Available</p>
+            <p className="text-blue-700 text-sm mt-1">Click "Manage All Packages" to view, edit, and delete existing packages.</p>
           </div>
         </div>
       </div>
@@ -1207,6 +1281,53 @@ const SalonDashboard = () => {
     );
   };
 
+  // Gift Cards content
+  const renderGiftCardsContent = () => {
+    return (
+      <div className="space-y-6">
+        <div className="bg-white p-6 rounded-xl shadow-sm">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-gray-900">Gift Cards</h2>
+            <div className="flex gap-2">
+              <button
+                onClick={() => navigate('/salon/gift-card-redemption')}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-2"
+              >
+                <CreditCard className="h-4 w-4" />
+                Redeem Gift Card
+              </button>
+              <button
+                onClick={() => navigate('/salon/gift-cards')}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center gap-2"
+              >
+                <CreditCard className="h-4 w-4" />
+                Manage Gift Cards
+              </button>
+            </div>
+          </div>
+          <div className="text-gray-600">
+            <p className="mb-4">Create and manage digital gift cards for your salon.</p>
+            <ul className="list-disc pl-5 space-y-2">
+              <li>Create gift cards with custom names, amounts, and expiry dates</li>
+              <li>Set usage types (services only, products only, or both)</li>
+              <li>Define terms and conditions for each gift card</li>
+              <li>Track gift card redemptions and manage active/inactive cards</li>
+              <li>Verify and redeem gift cards when customers use them</li>
+            </ul>
+          </div>
+        </div>
+        
+        {/* Gift Card Recipients Section */}
+        <div className="bg-white p-6 rounded-xl shadow-sm">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-gray-900">Gift Card Recipients</h2>
+          </div>
+          <GiftCardRecipientsComponent salonId={dashboardData?.salonInfo?._id} />
+        </div>
+      </div>
+    );
+  };
+
   if (loading && activeTab === 'overview') {
     return <LoadingSpinner />;
   }
@@ -1294,6 +1415,13 @@ const SalonDashboard = () => {
         isOpen={isAddServiceModalOpen}
         onClose={() => setIsAddServiceModalOpen(false)}
         onServiceAdded={handleServiceAdded}
+      />
+
+      <AddPackageModal 
+        isOpen={isAddPackageModalOpen}
+        onClose={() => setIsAddPackageModalOpen(false)}
+        onPackageAdded={handlePackageAdded}
+        salonId={dashboardData?.salonInfo?._id}
       />
 
       <AddProductModal 

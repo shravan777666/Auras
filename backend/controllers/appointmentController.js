@@ -47,6 +47,7 @@ export const bookAppointment = asyncHandler(async (req, res) => {
     const customerId = customerProfile._id;
     const {
       salonId,
+      freelancerId,
       services,
       appointmentDate,
       appointmentTime,
@@ -54,12 +55,14 @@ export const bookAppointment = asyncHandler(async (req, res) => {
       customerNotes,
       specialRequests,
       pointsToRedeem,
-      discountAmount
+      discountAmount,
+      homeServiceAddress,
+      isHomeService
     } = req.body;
 
     // Validate required fields
-    if (!salonId || !services || !appointmentDate || !appointmentTime) {
-      return errorResponse(res, 'Missing required fields: salonId, services, appointmentDate, appointmentTime', 400);
+    if (!((salonId || freelancerId) && services && appointmentDate && appointmentTime)) {
+      return errorResponse(res, 'Missing required fields: salonId or freelancerId, services, appointmentDate, appointmentTime', 400);
     }
 
     if (!Array.isArray(services) || services.length === 0) {
@@ -95,19 +98,47 @@ export const bookAppointment = asyncHandler(async (req, res) => {
       isValid: appointmentDateOnly >= today
     });
 
-    // Verify salon exists and is active
-    const salon = await Salon.findOne({ _id: salonId, isActive: true });
-    if (!salon) {
-      return notFoundResponse(res, 'Salon');
+    // Verify entity exists (either salon or freelancer)
+    let entity, entityName, entityId;
+    if (salonId) {
+      // Verify salon exists and is active
+      const salon = await Salon.findOne({ _id: salonId, isActive: true });
+      if (!salon) {
+        return notFoundResponse(res, 'Salon');
+      }
+      entity = salon;
+      entityName = 'Salon';
+      entityId = salonId;
+    } else if (freelancerId) {
+      // Verify freelancer exists and is approved
+      const Freelancer = (await import('../models/Freelancer.js')).default;
+      const freelancer = await Freelancer.findById(freelancerId);
+      if (!freelancer || freelancer.approvalStatus !== 'APPROVED') {
+        return notFoundResponse(res, 'Freelancer');
+      }
+      entity = freelancer;
+      entityName = 'Freelancer';
+      entityId = freelancerId;
+    } else {
+      return errorResponse(res, 'Either salonId or freelancerId must be provided', 400);
     }
 
-    // Verify services exist and belong to the salon
+    // Verify services exist and belong to the entity
     const serviceIds = services.map(s => s.serviceId);
-    const serviceRecords = await Service.find({
-      _id: { $in: serviceIds },
-      salonId,
-      isActive: true
-    });
+    let serviceRecords;
+    if (salonId) {
+      serviceRecords = await Service.find({
+        _id: { $in: serviceIds },
+        salonId,
+        isActive: true
+      });
+    } else {
+      // For freelancers, look for services that may be linked to freelancer
+      serviceRecords = await Service.find({
+        _id: { $in: serviceIds },
+        isActive: true
+      });
+    }
 
     if (serviceRecords.length !== services.length) {
       return errorResponse(res, 'Some services not found or not available', 400);
@@ -180,11 +211,22 @@ export const bookAppointment = asyncHandler(async (req, res) => {
 
     // Verify staff availability if specified
     if (staffId) {
-      const staff = await Staff.findOne({
-        _id: staffId,
-        assignedSalon: salonId,
-        isActive: true
-      });
+      let staff;
+      if (salonId) {
+        staff = await Staff.findOne({
+          _id: staffId,
+          assignedSalon: salonId,
+          isActive: true
+        });
+      } else if (freelancerId) {
+        // For freelancers, staffId might refer to the freelancer themselves
+        // or we might need to check if this staffId is valid for the freelancer
+        const StaffModel = (await import('../models/Staff.js')).default;
+        staff = await StaffModel.findOne({
+          _id: staffId,
+          isActive: true
+        });
+      }
 
       if (!staff) {
         return errorResponse(res, 'Selected staff member not found or not available', 400);
@@ -206,7 +248,8 @@ export const bookAppointment = asyncHandler(async (req, res) => {
 
     const conflictFilter = {
       $or: [
-        { salonId },
+        salonId ? { salonId } : {},
+        freelancerId ? { freelancerId } : {},
         staffId ? { staffId } : {}
       ].filter(f => Object.keys(f).length > 0),
       appointmentDate: formattedAppointmentDate,
@@ -241,7 +284,8 @@ export const bookAppointment = asyncHandler(async (req, res) => {
     // Create appointment
     const appointment = new Appointment({
       customerId,
-      salonId,
+      ...(salonId ? { salonId } : {}),
+      ...(freelancerId ? { freelancerId } : {}),
       staffId,
       services: serviceDetails,
       appointmentDate: formattedAppointmentDate,
@@ -251,6 +295,10 @@ export const bookAppointment = asyncHandler(async (req, res) => {
       finalAmount: finalAmount,
       customerNotes,
       specialRequests,
+      ...(isHomeService && homeServiceAddress && {
+        homeServiceAddress,
+        isHomeService: true
+      }),
       status: 'Pending', // Will be updated to 'Confirmed' after payment
       source: 'Website',
       pointsRedeemed: pointsRedeemed,
@@ -267,12 +315,19 @@ export const bookAppointment = asyncHandler(async (req, res) => {
       await customerToUpdate.save();
     }
 
-    // Check if it's first visit to this salon
-    const previousBookings = await Appointment.countDocuments({
+    // Check if it's first visit to this entity (salon or freelancer)
+    const previousBookingsFilter = {
       customerId,
-      salonId,
       _id: { $ne: appointment._id }
-    });
+    };
+    
+    if (salonId) {
+      previousBookingsFilter.salonId = salonId;
+    } else if (freelancerId) {
+      previousBookingsFilter.freelancerId = freelancerId;
+    }
+    
+    const previousBookings = await Appointment.countDocuments(previousBookingsFilter);
 
     if (previousBookings === 0) {
       appointment.isFirstVisit = true;
@@ -282,11 +337,15 @@ export const bookAppointment = asyncHandler(async (req, res) => {
     // Send confirmation email (optional - don't fail if email fails)
     try {
       const appointmentDetails = {
-        salonName: salon.salonName,
+        ...(entityName === 'Salon' ? { salonName: entity.salonName } : { freelancerName: entity.name }),
         date: appointmentDate,
         time: appointmentTime,
         services: serviceDetails.map(s => s.serviceName),
         totalAmount: finalAmount,
+        ...(isHomeService && {
+          homeServiceAddress,
+          isHomeService: true
+        }),
         ...(pointsRedeemed > 0 && {
           pointsRedeemed: pointsRedeemed,
           discountFromPoints: discountFromPoints
@@ -306,6 +365,7 @@ export const bookAppointment = asyncHandler(async (req, res) => {
     // Populate appointment for response
     const populatedAppointment = await Appointment.findById(appointment._id)
       .populate('salonId', 'salonName salonAddress contactNumber')
+      .populate('freelancerId', 'name email phone serviceLocation address')
       .populate('staffId', 'name skills')
       .populate('services.serviceId', 'name category');
 
@@ -332,6 +392,9 @@ export const getAppointmentDetails = asyncHandler(async (req, res) => {
     case 'salon':
       filter.salonId = userId;
       break;
+    case 'freelancer':
+      filter.freelancerId = userId;
+      break;
     case 'staff':
       // For staff users, we need to resolve the staff ID from the user ID
       const Staff = (await import('../models/Staff.js')).default;
@@ -347,6 +410,7 @@ export const getAppointmentDetails = asyncHandler(async (req, res) => {
   const appointment = await Appointment.findOne(filter)
     .populate('customerId', 'name email')
     .populate('salonId', 'salonName salonAddress contactNumber')
+    .populate('freelancerId', 'name email phone serviceLocation')
     .populate('staffId', 'name skills')
     .populate('services.serviceId', 'name description category price duration');
 
@@ -370,6 +434,7 @@ export const updateAppointment = asyncHandler(async (req, res) => {
   const appointment = await Appointment.findById(appointmentId)
     .populate('customerId', 'name email')
     .populate('salonId', 'salonName contactEmail')
+    .populate('freelancerId', 'name email phone serviceLocation')
     .populate('staffId', 'name email position')
     .populate('services.serviceId', 'name duration price');
 
@@ -392,6 +457,7 @@ export const updateAppointment = asyncHandler(async (req, res) => {
       break;
 
     case 'salon':
+    case 'freelancer':
     case 'staff':
       if (updates.status) allowedUpdates.status = updates.status;
       if (updates.salonNotes) allowedUpdates.salonNotes = updates.salonNotes;
@@ -481,7 +547,8 @@ export const updateAppointment = asyncHandler(async (req, res) => {
       
       // Prepare appointment details for email
       const appointmentDetails = {
-        salonName: appointment.salonId?.salonName || 'Your Salon',
+        ...(appointment.salonId ? { salonName: appointment.salonId?.salonName || 'Your Salon' } : {}),
+        ...(appointment.freelancerId ? { freelancerName: appointment.freelancerId?.name || 'Your Freelancer' } : {}),
         staffName: appointment.staffId?.name || 'Staff Member',
         staffPosition: appointment.staffId?.position || 'Staff',
         date: new Date(appointment.appointmentDate).toDateString(),
@@ -508,6 +575,7 @@ export const updateAppointment = asyncHandler(async (req, res) => {
     .populate('staffId', 'name email position')
     .populate('customerId', 'name email phone')
     .populate('salonId', 'salonName')
+    .populate('freelancerId', 'name serviceLocation')
     .populate('services.serviceId', 'name duration price');
 
   return successResponse(res, populatedAppointment, 'Appointment updated successfully');

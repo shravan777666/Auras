@@ -39,6 +39,10 @@ const Login = () => {
         if (user.approvalStatus === 'rejected') return '/unauthorized';
         return user.setupCompleted ? '/staff/dashboard' : '/staff/setup';
       case 'customer': return '/customer/dashboard';
+      case 'freelancer':
+        if (user.approvalStatus === 'pending') return '/freelancer/waiting-approval';
+        if (user.approvalStatus === 'rejected') return '/unauthorized';
+        return user.setupCompleted ? '/freelancer/dashboard' : '/freelancer/setup';
       default: return '/login';
     }
   };

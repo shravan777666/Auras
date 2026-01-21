@@ -1,35 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { customerService } from '../../services/customer';
+import { freelancerService } from '../../services/freelancerService';
 import LoadingSpinner from '../common/LoadingSpinner';
 import { Clock, User, Calendar, Timer } from 'lucide-react';
 
-const SalonAvailabilityDisplay = ({ salonId, selectedDate }) => {
+const SalonAvailabilityDisplay = ({ salonId, selectedDate, isHomeService }) => {
   const [availabilityData, setAvailabilityData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     if (salonId && selectedDate) {
-      fetchSalonAvailability();
+      fetchAvailability();
     } else {
       setAvailabilityData(null);
     }
-  }, [salonId, selectedDate]);
+  }, [salonId, selectedDate, isHomeService]);
 
-  const fetchSalonAvailability = async () => {
+  const fetchAvailability = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      const response = await customerService.getSalonAvailability(salonId, selectedDate);
+      const response = isHomeService 
+        ? await freelancerService.getFreelancerAvailability(salonId, selectedDate)
+        : await customerService.getSalonAvailability(salonId, selectedDate);
       
       if (response?.success) {
         setAvailabilityData(response.data);
-      } else {
-        setError('Failed to load availability information');
       }
     } catch (err) {
-      console.error('Error fetching salon availability:', err);
+      console.error('Error fetching availability:', err);
       setError('Failed to load availability information');
     } finally {
       setLoading(false);

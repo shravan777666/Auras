@@ -200,3 +200,99 @@ export async function sendAppointmentStaffAssignmentEmail(email, customerName, a
     return { success: false, error: error.message };
   }
 }
+
+// Send gift card notification email
+export async function sendGiftCardNotificationEmail(recipientEmail, recipientName, giftCardDetails) {
+  try {
+    const subject = `You've Received a Gift Card from ${giftCardDetails.senderName || 'someone'}`;
+    
+    // Create HTML email template
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); padding: 30px; text-align: center;">
+          <h1 style="color: white; margin: 0;">🎉 Gift Card Received!</h1>
+          <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">From ${giftCardDetails.senderName || 'a friend'}</p>
+        </div>
+        
+        <div style="padding: 30px; background-color: #f9f9f9;">
+          <h2 style="color: #333; margin-bottom: 20px;">Special Gift Just For You</h2>
+          
+          <p style="color: #666; line-height: 1.6;">
+            Hello ${recipientName || 'there'},
+          </p>
+          
+          <p style="color: #666; line-height: 1.6;">
+            You've received a beautiful gift card! Here are the details:
+          </p>
+          
+          <div style="background: white; border: 2px dashed #ff6b6b; padding: 25px; margin: 20px 0; border-radius: 10px; text-align: center;">
+            <h3 style="color: #ff6b6b; margin-top: 0; font-size: 24px;">${giftCardDetails.name}</h3>
+            <div style="font-size: 32px; font-weight: bold; color: #333; margin: 15px 0;">₹${giftCardDetails.amount}</div>
+            <div style="font-size: 14px; color: #666; margin-bottom: 15px;">Code: <strong>${giftCardDetails.code}</strong></div>
+            <div style="font-size: 14px; color: #666;">
+              Expires: ${new Date(giftCardDetails.expiryDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+            </div>
+          </div>
+          
+          ${giftCardDetails.personalMessage ? `
+          <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 20px 0; border-radius: 5px;">
+            <p style="color: #856404; margin: 0; font-style: italic;">
+              <strong>Personal Message:</strong><br>
+              "${giftCardDetails.personalMessage}"
+            </p>
+          </div>
+          ` : ''}
+          
+          <p style="color: #666; line-height: 1.6;">
+            This gift card is valid at <strong>${giftCardDetails.salonName}</strong> and can be used for ${giftCardDetails.usageType === 'BOTH' ? 'services and products' : giftCardDetails.usageType === 'SERVICE_ONLY' ? 'services only' : giftCardDetails.usageType === 'PRODUCT_ONLY' ? 'products only' : 'specified services'}. 
+          </p>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/customer/gift-cards/${giftCardDetails.salonId}" 
+               style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); 
+                      color: white; 
+                      padding: 15px 30px; 
+                      text-decoration: none; 
+                      border-radius: 5px; 
+                      display: inline-block;
+                      font-weight: bold;">
+              View My Gift Cards
+            </a>
+          </div>
+          
+          <p style="color: #666; line-height: 1.6;">
+            Thank you for being valued! Enjoy your gift.
+          </p>
+          
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+            <p style="color: #999; font-size: 12px; margin: 0;">
+              This is an automated email. Please do not reply to this message.
+            </p>
+          </div>
+        </div>
+        
+        <div style="background: #333; padding: 15px; text-align: center;">
+          <p style="color: #999; margin: 0; font-size: 12px;">
+            © 2024 AuraCare. All rights reserved.
+          </p>
+        </div>
+      </div>
+    `;
+
+    const result = await sendEmail({
+      to: recipientEmail,
+      subject: subject,
+      html: html
+    });
+    
+    if (result.success) {
+      console.log(`✅ Gift card notification email sent to ${recipientEmail}`);
+      return { success: true, message: 'Email sent successfully' };
+    } else {
+      throw new Error(result.error || 'Failed to send email');
+    }
+  } catch (error) {
+    console.error('❌ Error sending gift card notification email:', error);
+    return { success: false, error: error.message };
+  }
+}

@@ -81,13 +81,18 @@ const convertDocumentsToUrls = (documents, req) => {
     converted.salonImages = documents.salonImages.map(imagePath => getFileUrl(imagePath, req));
   }
   
-  // For staff documents
+  // For staff and freelancer documents
   if (documents.governmentId) {
     converted.governmentId = getFileUrl(documents.governmentId, req);
   }
   
   if (documents.certificates && Array.isArray(documents.certificates)) {
     converted.certificates = documents.certificates.map(certPath => getFileUrl(certPath, req));
+  }
+  
+  // For freelancer profile picture
+  if (documents.profilePicture) {
+    converted.profilePicture = getFileUrl(documents.profilePicture, req);
   }
   
   return converted;
@@ -1232,30 +1237,43 @@ export const getPendingFreelancers = asyncHandler(async (req, res) => {
   try {
     // Find freelancers with pending approval status
     const pendingFreelancers = await Freelancer.find({
-      $and: [
-        {
-          $or: [
-            { approvalStatus: 'pending' },
-            { approvalStatus: { $exists: false } },
-            { approvalStatus: null }
-          ]
-        },
-        {
-          $or: [
-            { isActive: true },
-            { isActive: { $exists: false } },
-            { isActive: null }
-          ]
-        }
-      ]
+      approvalStatus: 'pending',
+      isActive: { $ne: false } // isActive is not false (true, undefined, or null)
     })
     .populate('user', 'name email')
-    .select('name email phone serviceLocation yearsOfExperience skills approvalStatus setupCompleted createdAt documents profilePicture')
-    .sort({ createdAt: -1 });
+    .select('name email phone serviceLocation yearsOfExperience skills approvalStatus setupCompleted createdAt documents profilePicture address location')
+    .sort({ createdAt: -1 })
+    .lean(); // Use lean() for better performance and to avoid issues
     
     console.log('Pending freelancers found:', pendingFreelancers.length);
     
-    return successResponse(res, pendingFreelancers, 'Pending freelancers retrieved successfully');
+    // Convert file paths to URLs and ensure proper data structure
+    const freelancersWithUrls = pendingFreelancers.map(freelancer => {
+      // Handle documents conversion - include profilePicture in the documents object
+      const documents = {
+        governmentId: freelancer.documents?.governmentId || null,
+        certificates: freelancer.documents?.certificates || [],
+        profilePicture: freelancer.profilePicture || null
+      };
+      
+      return {
+        ...freelancer,
+        // Use name and email from user reference if not directly available
+        name: freelancer.name || freelancer.user?.name || 'Unknown',
+        email: freelancer.email || freelancer.user?.email || 'Unknown',
+        documents: convertDocumentsToUrls(documents, req),
+        profilePicture: freelancer.profilePicture ? getFileUrl(freelancer.profilePicture, req) : null
+      };
+    });
+    
+    // Set no-cache headers to prevent caching issues
+    res.set({
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
+    
+    return successResponse(res, freelancersWithUrls, 'Pending freelancers retrieved successfully');
   } catch (error) {
     console.error('Error fetching pending freelancers:', error);
     return errorResponse(res, 'Failed to retrieve pending freelancers', 500);
@@ -1283,11 +1301,13 @@ export const approveFreelancer = asyncHandler(async (req, res) => {
     isVerified: freelancer.isVerified
   });
 
+  // Update approval status and related fields
   freelancer.approvalStatus = 'approved';
   freelancer.isVerified = true;
   freelancer.approvedBy = req.user.id;
   freelancer.approvalDate = new Date();
   freelancer.setupCompleted = true; // Freelancer can now access the platform
+  
   await freelancer.save();
 
   console.log('Freelancer after approval:', {
@@ -1329,7 +1349,28 @@ export const approveFreelancer = asyncHandler(async (req, res) => {
     console.error('❌ Error sending freelancer approval email:', emailError);
   }
 
-  return successResponse(res, freelancer, 'Freelancer approved successfully');
+  // Return the updated freelancer data
+  const updatedFreelancer = await Freelancer.findById(freelancerId)
+    .populate('user', 'name email')
+    .select('name email phone serviceLocation yearsOfExperience skills approvalStatus setupCompleted createdAt documents profilePicture address location')
+    .lean();
+
+  // Convert file paths to URLs
+  const documents = {
+    governmentId: updatedFreelancer.documents?.governmentId || null,
+    certificates: updatedFreelancer.documents?.certificates || [],
+    profilePicture: updatedFreelancer.profilePicture || null
+  };
+  
+  const freelancerWithUrls = {
+    ...updatedFreelancer,
+    name: updatedFreelancer.name || updatedFreelancer.user?.name || 'Unknown',
+    email: updatedFreelancer.email || updatedFreelancer.user?.email || 'Unknown',
+    documents: convertDocumentsToUrls(documents, req),
+    profilePicture: updatedFreelancer.profilePicture ? getFileUrl(updatedFreelancer.profilePicture, req) : null
+  };
+
+  return successResponse(res, freelancerWithUrls, 'Freelancer approved successfully');
 });
 
 // Reject freelancer
@@ -1353,6 +1394,7 @@ export const rejectFreelancer = asyncHandler(async (req, res) => {
     return errorResponse(res, 'Freelancer is already rejected', 400);
   }
 
+  // Update rejection status and related fields
   freelancer.approvalStatus = 'rejected';
   freelancer.rejectionReason = rejectionReason;
   freelancer.approvedBy = req.user.id;
@@ -1382,5 +1424,26 @@ export const rejectFreelancer = asyncHandler(async (req, res) => {
     console.error('❌ Exception while sending freelancer rejection email:', emailError);
   }
 
-  return successResponse(res, freelancer, 'Freelancer rejected successfully');
+  // Return the updated freelancer data
+  const updatedFreelancer = await Freelancer.findById(req.params.freelancerId)
+    .populate('user', 'name email')
+    .select('name email phone serviceLocation yearsOfExperience skills approvalStatus setupCompleted createdAt documents profilePicture address location')
+    .lean();
+
+  // Convert file paths to URLs
+  const documents = {
+    governmentId: updatedFreelancer.documents?.governmentId || null,
+    certificates: updatedFreelancer.documents?.certificates || [],
+    profilePicture: updatedFreelancer.profilePicture || null
+  };
+  
+  const freelancerWithUrls = {
+    ...updatedFreelancer,
+    name: updatedFreelancer.name || updatedFreelancer.user?.name || 'Unknown',
+    email: updatedFreelancer.email || updatedFreelancer.user?.email || 'Unknown',
+    documents: convertDocumentsToUrls(documents, req),
+    profilePicture: updatedFreelancer.profilePicture ? getFileUrl(updatedFreelancer.profilePicture, req) : null
+  };
+
+  return successResponse(res, freelancerWithUrls, 'Freelancer rejected successfully');
 });

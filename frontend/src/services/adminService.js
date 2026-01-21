@@ -185,4 +185,13 @@ export const adminService = {
     const response = await api.post(`/admin/freelancers/${freelancerId}/reject`, { reason });
     return response.data;
   },
+
+  // File Management
+  async getFile(fileUrl) {
+    const encodedUrl = btoa(fileUrl);
+    const response = await api.get(`/files/${encodedUrl}`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  }
 };

@@ -15,6 +15,7 @@ import {
   Heart
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import GiftCardSection from '../../components/customer/GiftCardSection';
 
 const SalonDetails = () => {
   const { salonId } = useParams();
@@ -443,6 +444,9 @@ const SalonDetails = () => {
                 Book Appointment
               </Link>
             </div>
+                        
+            {/* Gift Cards Section */}
+            <GiftCardSection salonId={salonId} />
 
             {/* Gallery */}
             {salon.documents?.salonImages && salon.documents.salonImages.length > 0 && (

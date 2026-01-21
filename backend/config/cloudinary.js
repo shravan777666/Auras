@@ -30,34 +30,79 @@ const customerStorage = createStorage('auracare/customers');
 const staffStorage = createStorage('auracare/staff', ['jpg', 'png', 'jpeg', 'gif', 'webp', 'pdf']);
 
 // Salon storage - images and PDFs for business license
+
 const salonStorage = createStorage('auracare/salons', ['jpg', 'png', 'jpeg', 'gif', 'webp', 'pdf']);
 
+
+
+// Freelancer storage - images and PDFs for profile picture, government ID, and certificates
+
+const freelancerStorage = createStorage('auracare/freelancers', ['jpg', 'png', 'jpeg', 'gif', 'webp', 'pdf']);
+
+
+
+
+
 // Multer upload configurations
+
 const customerUpload = multer({ storage: customerStorage });
+
 const staffUpload = multer({ storage: staffStorage });
+
 const salonUpload = multer({ storage: salonStorage });
 
+const freelancerUpload = multer({ storage: freelancerStorage });
+
+
+
+
+
 // Helper function to delete an image from Cloudinary
+
 const deleteImage = async (publicId) => {
+
   try {
+
     const result = await cloudinary.uploader.destroy(publicId);
+
     return result;
+
   } catch (error) {
+
     console.error('Error deleting image from Cloudinary:', error);
+
     throw error;
+
   }
+
 };
+
+
 
 // Helper function to get image URL from public ID
+
 const getImageUrl = (publicId) => {
+
   return cloudinary.url(publicId);
+
 };
 
+
+
 export {
+
   cloudinary,
+
   customerUpload,
+
   staffUpload,
+
   salonUpload,
+
+  freelancerUpload,
+
   deleteImage,
+
   getImageUrl
+
 };

@@ -14,11 +14,7 @@ const Register = () => {
     email: '',
     password: '',
     confirmPassword: '',
-    userType: 'customer',
-    phone: '',
-    serviceLocation: '',
-    yearsOfExperience: '',
-    skills: []
+    userType: 'customer'
   })
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
@@ -54,7 +50,7 @@ const Register = () => {
       case 'customer':
         return '/customer/dashboard';
       case 'freelancer':
-        return '/freelancer/dashboard'; // Assuming freelancer dashboard path
+        return user.setupCompleted ? '/freelancer/dashboard' : '/freelancer/setup'; // Redirect to profile completion
       default:
         return '/login';
     }
@@ -145,14 +141,6 @@ const Register = () => {
     const nameError = validateName(formData.name);
     const emailError = validateEmail(formData.email);
     
-    // For freelancer type, additional fields are required
-    if (formData.userType === 'freelancer') {
-      return !nameError && !emailError && formData.password && formData.confirmPassword && 
-             formData.password === formData.confirmPassword &&
-             formData.phone && formData.serviceLocation &&
-             formData.yearsOfExperience !== '' && formData.skills.length > 0;
-    }
-    
     return !nameError && !emailError && formData.password && formData.confirmPassword && 
            formData.password === formData.confirmPassword;
   };
@@ -183,27 +171,6 @@ const Register = () => {
       toast.error('Passwords do not match');
       return;
     }
-
-    // Additional validation for freelancer fields
-    if (formData.userType === 'freelancer') {
-      if (!formData.phone?.trim()) {
-        toast.error('Phone number is required for freelancers');
-        return;
-      }
-      if (!formData.serviceLocation?.trim()) {
-        toast.error('Service location is required for freelancers');
-        return;
-      }
-      if (!formData.yearsOfExperience && formData.yearsOfExperience !== 0) {
-        toast.error('Years of experience is required for freelancers');
-        return;
-      }
-      if (!Array.isArray(formData.skills) || formData.skills.length === 0) {
-        toast.error('At least one skill is required for freelancers');
-        return;
-      }
-    }
-
     // Trim email before submission
     const trimmedEmail = formData.email.trim();
 
@@ -217,21 +184,15 @@ const Register = () => {
         email: trimmedEmail
       };
       
-      // For freelancer, include additional fields
-      if (formData.userType === 'freelancer') {
-        submissionData.phone = formData.phone;
-        submissionData.serviceLocation = formData.serviceLocation;
-        submissionData.yearsOfExperience = formData.yearsOfExperience ? parseInt(formData.yearsOfExperience) || 0 : 0;
-        submissionData.skills = formData.skills || [];
-      }
-      
       const response = await register(submissionData);
       toast.success('Registration successful! Welcome to Auracare!');
 
-      // Ensure staff are taken to setup flow until completed
+      // Ensure staff and freelancers are taken to setup flow until completed
       const user = response?.user;
       const redirectPath = user?.type === 'staff'
         ? (user?.setupCompleted ? '/staff/dashboard' : '/staff/setup')
+        : user?.type === 'freelancer'
+        ? (user?.setupCompleted ? '/freelancer/dashboard' : '/freelancer/setup')
         : getRedirectPath(user);
 
       navigate(redirectPath, { replace: true });
@@ -527,147 +488,7 @@ const Register = () => {
                 </button>
               </div>
 
-              {/* Conditional Freelancer Fields - Only show when freelancer is selected */}
-              {formData.userType === 'freelancer' && (
-                <div className="space-y-4">
-                  {/* Phone Number Field */}
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <User className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <input
-                      id="phone"
-                      name="phone"
-                      type="text"
-                      required
-                      className={`block w-full pl-10 pr-3 py-4 border rounded-lg focus:ring-2 focus:outline-none transition-all duration-200 ${
-                        focusedField === 'phone' || formData.phone
-                          ? 'border-purple-500 focus:ring-purple-200 pt-6 pb-2'
-                          : 'border-gray-300 focus:border-purple-500 focus:ring-purple-100'
-                      }`}
-                      placeholder=" "
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      onFocus={() => setFocusedField('phone')}
-                      onBlur={() => setFocusedField('')}
-                    />
-                    <label
-                      htmlFor="phone"
-                      className={`absolute left-10 transition-all duration-200 pointer-events-none ${
-                        focusedField === 'phone' || formData.phone
-                          ? 'top-2 text-xs text-purple-600'
-                          : 'top-1/2 -translate-y-1/2 text-gray-500'
-                      }`}
-                    >
-                      Phone Number
-                    </label>
-                  </div>
 
-                  {/* Service Location Field */}
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <User className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <input
-                      id="serviceLocation"
-                      name="serviceLocation"
-                      type="text"
-                      required
-                      className={`block w-full pl-10 pr-3 py-4 border rounded-lg focus:ring-2 focus:outline-none transition-all duration-200 ${
-                        focusedField === 'serviceLocation' || formData.serviceLocation
-                          ? 'border-purple-500 focus:ring-purple-200 pt-6 pb-2'
-                          : 'border-gray-300 focus:border-purple-500 focus:ring-purple-100'
-                      }`}
-                      placeholder=" "
-                      value={formData.serviceLocation}
-                      onChange={(e) => setFormData({ ...formData, serviceLocation: e.target.value })}
-                      onFocus={() => setFocusedField('serviceLocation')}
-                      onBlur={() => setFocusedField('')}
-                    />
-                    <label
-                      htmlFor="serviceLocation"
-                      className={`absolute left-10 transition-all duration-200 pointer-events-none ${
-                        focusedField === 'serviceLocation' || formData.serviceLocation
-                          ? 'top-2 text-xs text-purple-600'
-                          : 'top-1/2 -translate-y-1/2 text-gray-500'
-                      }`}
-                    >
-                      Service Location
-                    </label>
-                  </div>
-
-                  {/* Years of Experience Field */}
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <User className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <input
-                      id="yearsOfExperience"
-                      name="yearsOfExperience"
-                      type="number"
-                      min="0"
-                      required
-                      className={`block w-full pl-10 pr-3 py-4 border rounded-lg focus:ring-2 focus:outline-none transition-all duration-200 ${
-                        focusedField === 'yearsOfExperience' || formData.yearsOfExperience
-                          ? 'border-purple-500 focus:ring-purple-200 pt-6 pb-2'
-                          : 'border-gray-300 focus:border-purple-500 focus:ring-purple-100'
-                      }`}
-                      placeholder=" "
-                      value={formData.yearsOfExperience}
-                      onChange={(e) => setFormData({ ...formData, yearsOfExperience: e.target.value })}
-                      onFocus={() => setFocusedField('yearsOfExperience')}
-                      onBlur={() => setFocusedField('')}
-                    />
-                    <label
-                      htmlFor="yearsOfExperience"
-                      className={`absolute left-10 transition-all duration-200 pointer-events-none ${
-                        focusedField === 'yearsOfExperience' || formData.yearsOfExperience
-                          ? 'top-2 text-xs text-purple-600'
-                          : 'top-1/2 -translate-y-1/2 text-gray-500'
-                      }`}
-                    >
-                      Years of Experience
-                    </label>
-                  </div>
-
-                  {/* Skills Selection */}
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <User className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <div className="block w-full pl-10 pr-3 py-4 border rounded-lg focus:ring-2 focus:outline-none transition-all duration-200">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Skills
-                      </label>
-                      <div className="flex flex-wrap gap-2">
-                        {['Hair', 'Makeup', 'Skincare', 'Nails', 'Massage', 'Waxing', 'Eyebrow', 'Lashes', 'Bridal', 'Threading'].map((skill) => (
-                          <label key={skill} className="inline-flex items-center">
-                            <input
-                              type="checkbox"
-                              className="form-checkbox h-4 w-4 text-purple-600 rounded"
-                              checked={formData.skills.includes(skill)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setFormData({
-                                    ...formData,
-                                    skills: [...formData.skills, skill]
-                                  });
-                                } else {
-                                  setFormData({
-                                    ...formData,
-                                    skills: formData.skills.filter(s => s !== skill)
-                                  });
-                                }
-                              }}
-                            />
-                            <span className="ml-2 text-gray-700">{skill}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Submit Button */}

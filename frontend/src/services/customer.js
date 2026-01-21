@@ -166,6 +166,11 @@ export const customerService = {
   async getRecommendedProducts(serviceId, salonId) {
     const response = await api.get(`/product/recommended/${serviceId}/${salonId}`);
     return response.data;
+  },
+
+  async getServiceDetails(serviceId) {
+    const response = await api.get(`/service/${serviceId}`);
+    return response.data;
   }
 
 };

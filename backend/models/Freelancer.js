@@ -23,18 +23,42 @@ const FreelancerSchema = new mongoose.Schema(
     },
     phone: { 
       type: String, 
-      required: true,
+      required: false,
       trim: true 
     },
     serviceLocation: { 
       type: String, 
-      required: true,
+      required: false,
       trim: true 
+    },
+    address: { 
+      addressLine1: { type: String, required: false, trim: true },
+      addressLine2: { type: String, required: false, trim: true },
+      city: { type: String, required: false, trim: true },
+      state: { type: String, required: false, trim: true },
+      postalCode: { type: String, required: false, trim: true },
+      country: { type: String, default: 'India', trim: true },
+      fullAddress: { type: String, required: false, trim: true }
+    },
+    location: {
+      type: {
+        type: String,
+        default: "Point",
+        enum: ["Point"]
+      },
+      coordinates: {
+        type: [Number],
+        index: "2dsphere",
+        default: [0, 0]
+      },
+      address: String,
+      formattedAddress: String
     },
     yearsOfExperience: { 
       type: Number, 
-      required: true,
-      min: 0 
+      required: false,
+      min: 0,
+      default: 0
     },
     skills: [{ 
       type: String,

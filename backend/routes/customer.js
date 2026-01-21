@@ -17,6 +17,7 @@ import {
   getFavoriteSalons
 } from '../controllers/customerController.js';
 import { requireCustomer } from '../middleware/roleAuth.js';
+import { findNearestAvailableSalon } from '../controllers/customerController.js';
 import { upload } from '../middleware/upload.js';
 import { validatePagination, validateObjectId } from '../middleware/validation.js';
 
@@ -56,5 +57,8 @@ router.post('/favorite-salons', addFavoriteSalon);
 router.delete('/favorite-salons/:salonId', validateObjectId('salonId'), removeFavoriteSalon);
 router.get('/favorite-salons', getFavoriteSalons);
 router.get('/recent-salons', getRecentSalons);
+
+// Panic Mode - Find Nearest Available Salon
+router.post('/panic-mode', findNearestAvailableSalon);
 
 export default router;

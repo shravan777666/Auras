@@ -20,7 +20,8 @@ import {
   Tabs,
   Tab,
 } from '@mui/material';
-import { adminService } from '../../services/admin';
+import toast from 'react-hot-toast';
+import { adminService } from '../../services/adminService';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import BackButton from '../../components/common/BackButton';
 import { 
@@ -123,6 +124,24 @@ const PendingApprovals = () => {
       setDialogType('freelancer');
     }
     setOpenDialog(true);
+  };
+
+  const [docLoading, setDocLoading] = useState(false);
+
+  const handleViewDocument = async (documentUrl) => {
+    setDocLoading(true);
+    try {
+      const fileBlob = await adminService.getFile(documentUrl);
+      const fileType = documentUrl.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg';
+      const blob = new Blob([fileBlob], { type: fileType });
+      const url = window.URL.createObjectURL(blob);
+      window.open(url);
+    } catch (error) {
+      console.error('Error viewing document:', error);
+      toast.error('Could not open document.');
+    } finally {
+      setDocLoading(false);
+    }
   };
 
   const handleApprove = async (itemId) => {
@@ -858,6 +877,91 @@ const PendingApprovals = () => {
                     </div>
                   </Box>
                 </Box>
+              </Box>
+
+              <Divider className="my-6" />
+
+              {/* Documents Section */}
+              <Box>
+                <Typography variant="h6" className="font-bold text-gray-800 mb-4 flex items-center">
+                  <WorkIcon className="mr-2 text-purple-500" size={20} />
+                  Freelancer Documents & Images
+                </Typography>
+
+                {/* Profile Picture */}
+                {selectedFreelancer.profilePicture ? (
+                  <Box className="mb-6">
+                    <Typography variant="subtitle1" className="font-medium text-gray-700 mb-3">
+                      Profile Picture
+                    </Typography>
+                    <Box className="relative group">
+                      <img
+                        src={selectedFreelancer.profilePicture}
+                        alt="Profile Picture"
+                        className="w-full max-w-md h-64 object-contain bg-white rounded-2xl shadow-lg border-4 border-gray-100"
+                      />
+                    </Box>
+                  </Box>
+                ) : (
+                  <Box className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <Typography className="text-yellow-700 font-medium">
+                      ⚠️ No profile picture uploaded
+                    </Typography>
+                  </Box>
+                )}
+
+                {/* Government ID */}
+                {selectedFreelancer.documents?.governmentId ? (
+                  <Box className="mb-6">
+                    <Typography variant="subtitle1" className="font-medium text-gray-700 mb-3">
+                      Government ID
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      onClick={() => handleViewDocument(selectedFreelancer.documents.governmentId)}
+                      disabled={docLoading}
+                      className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold px-6 py-3 rounded-xl shadow-lg"
+                    >
+                      {docLoading ? <CircularProgress size={24} color="inherit" /> : 'View Government ID'}
+                    </Button>
+                  </Box>
+                ) : (
+                  <Box className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <Typography className="text-yellow-700 font-medium">
+                      ⚠️ No government ID uploaded
+                    </Typography>
+                  </Box>
+                )}
+
+                {/* Certificates */}
+                {selectedFreelancer.documents?.certificates && selectedFreelancer.documents.certificates.length > 0 ? (
+                  <Box className="mb-6">
+                    <Typography variant="subtitle1" className="font-medium text-gray-700 mb-3">
+                      Certificates ({selectedFreelancer.documents.certificates.length})
+                    </Typography>
+                    <Grid container spacing={2}>
+                      {selectedFreelancer.documents.certificates.map((certificate, index) => (
+                        <Grid item xs={12} sm={6} md={4} key={index}>
+                          <Button
+                            variant="outlined"
+                            fullWidth
+                            onClick={() => handleViewDocument(certificate)}
+                            disabled={docLoading}
+                          >
+                            {docLoading ? <CircularProgress size={24} /> : `View Certificate ${index + 1}`}
+                          </Button>
+                        </Grid>
+                      ))}
+                    </Grid>
+                  </Box>
+                ) : (
+                  <Box className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <Typography className="text-yellow-700 font-medium">
+                      ⚠️ No certificates uploaded
+                    </Typography>
+                  </Box>
+                )}
               </Box>
 
               <Divider className="my-6" />

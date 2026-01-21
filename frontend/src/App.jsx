@@ -32,6 +32,7 @@ const ManageStaff = React.lazy(() => import('./pages/salon/ManageStaff'))
 const GlobalStaffDirectory = React.lazy(() => import('./pages/salon/GlobalStaffDirectory'))
 const ManageServices = React.lazy(() => import('./pages/salon/ManageServices'))
 const ManageProducts = React.lazy(() => import('./pages/salon/ManageProducts'))
+const ManagePackages = React.lazy(() => import('./pages/salon/ManagePackages'))
 const SalonAppointments = React.lazy(() => import('./pages/salon/SalonAppointments'))
 const StaffAvailability = React.lazy(() => import('./pages/salon/StaffAvailability'))
 const SalonRevenueDashboard = React.lazy(() => import('./pages/salon/RevenueDashboard'))
@@ -40,6 +41,9 @@ const ClientRecommendationsPage = React.lazy(() => import('./pages/salon/ClientR
 const SalonNotifications = React.lazy(() => import('./pages/salon/SalonNotifications'))
 const CancellationDashboard = React.lazy(() => import('./pages/salon/CancellationDashboard'))
 const Reports = React.lazy(() => import('./pages/salon/Reports'))
+const GiftCards = React.lazy(() => import('./pages/salon/GiftCards'))
+const GiftCardRecipients = React.lazy(() => import('./pages/salon/GiftCardRecipients'))
+const GiftCardRedemption = React.lazy(() => import('./pages/salon/GiftCardRedemption'))
 
 // Staff Pages
 const StaffDashboard = React.lazy(() => import('./pages/staff/StaffDashboard'))
@@ -65,11 +69,20 @@ const ExploreSalons = React.lazy(() => import('./pages/customer/ExploreSalons'))
 const MapView = React.lazy(() => import('./pages/customer/MapView'));
 const Favorites = React.lazy(() => import('./pages/customer/Favorites'));
 const Recommendations = React.lazy(() => import('./pages/customer/Recommendations'));
+const HomeService = React.lazy(() => import('./pages/customer/HomeService'));
 const SearchResults = React.lazy(() => import('./pages/common/SearchResults'))
 const TestImageUpload = React.lazy(() => import('./pages/customer/TestImageUpload'))
+const GiftCardsBrowse = React.lazy(() => import('./pages/customer/GiftCardsBrowse'))
+const GiftCardPurchase = React.lazy(() => import('./pages/customer/GiftCardPurchase'))
 const QueueJoinPage = React.lazy(() => import('./pages/queue/QueueJoinPage'))
 const QueueStatusPage = React.lazy(() => import('./pages/queue/QueueStatusPage'))
 const QueuePublicPage = React.lazy(() => import('./pages/queue/QueuePublicPage'))
+
+// Freelancer Pages
+const FreelancerDashboard = React.lazy(() => import('./pages/freelancer/Dashboard'))
+const FreelancerWaitingApproval = React.lazy(() => import('./pages/freelancer/WaitingApproval'))
+const FreelancerSetup = React.lazy(() => import('./pages/freelancer/FreelancerSetup'))
+const ServiceManagement = React.lazy(() => import('./pages/freelancer/ServiceManagement'))
 
 // Common Pages
 const About = React.lazy(() => import('./pages/common/About'))
@@ -136,6 +149,14 @@ const DashboardRedirect = () => {
       return <Navigate to={user.setupCompleted ? "/staff/dashboard" : "/staff/setup"} replace />
     case 'customer':
       return <Navigate to="/customer/dashboard" replace />
+    case 'freelancer':
+      if (user.approvalStatus === 'pending') {
+        return <Navigate to="/freelancer/waiting-approval" replace />;
+      }
+      if (user.approvalStatus === 'rejected') {
+        return <Navigate to="/unauthorized" replace />; // Or a specific rejection page
+      }
+      return <Navigate to={user.setupCompleted ? "/freelancer/dashboard" : "/freelancer/setup"} replace />
     default:
       return <Navigate to="/login" replace />
   }
@@ -157,6 +178,11 @@ const SetupRequiredRoute = ({ children, setupPath }) => {
   // If user is a staff and approvalStatus is pending, redirect to waiting approval page
   if (user.type === 'staff' && user.approvalStatus === 'pending') {
     return <Navigate to="/staff/waiting-approval" replace />;
+  }
+
+  // If user is a freelancer and approvalStatus is pending, redirect to waiting approval page
+  if (user.type === 'freelancer' && user.approvalStatus === 'pending') {
+    return <Navigate to="/freelancer/waiting-approval" replace />;
   }
 
   if (!user.setupCompleted) {
@@ -295,6 +321,16 @@ function App() {
             }
           />
           <Route
+            path="/salon/packages"
+            element={
+              <ProtectedRoute allowedRoles={['salon']}>
+                <SetupRequiredRoute setupPath="/salon/setup">
+                  <ManagePackages />
+                </SetupRequiredRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/salon/products"
             element={
               <ProtectedRoute allowedRoles={['salon']}>
@@ -380,6 +416,36 @@ function App() {
               <ProtectedRoute allowedRoles={['salon']}>
                 <SetupRequiredRoute setupPath="/salon/setup">
                   <Reports />
+                </SetupRequiredRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/salon/gift-cards"
+            element={
+              <ProtectedRoute allowedRoles={['salon']}>
+                <SetupRequiredRoute setupPath="/salon/setup">
+                  <GiftCards />
+                </SetupRequiredRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/salon/gift-card-recipients"
+            element={
+              <ProtectedRoute allowedRoles={['salon']}>
+                <SetupRequiredRoute setupPath="/salon/setup">
+                  <GiftCardRecipients />
+                </SetupRequiredRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/salon/gift-card-redemption"
+            element={
+              <ProtectedRoute allowedRoles={['salon']}>
+                <SetupRequiredRoute setupPath="/salon/setup">
+                  <GiftCardRedemption />
                 </SetupRequiredRoute>
               </ProtectedRoute>
             }
@@ -597,10 +663,72 @@ function App() {
             }
           />
           <Route
+            path="/customer/home-service"
+            element={
+              <ProtectedRoute allowedRoles={['customer']}>
+                <HomeService />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/customer/gift-cards/:salonId"
+            element={
+              <ProtectedRoute allowedRoles={['customer']}>
+                <GiftCardsBrowse />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/customer/gift-card/purchase/:giftCardId"
+            element={
+              <ProtectedRoute allowedRoles={['customer']}>
+                <GiftCardPurchase />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/customer/test-image-upload"
             element={
               <ProtectedRoute allowedRoles={['customer']}>
                 <TestImageUpload />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Freelancer Routes */}
+          <Route
+            path="/freelancer/waiting-approval"
+            element={
+              <ProtectedRoute allowedRoles={['freelancer']}>
+                <FreelancerWaitingApproval />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/freelancer/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={['freelancer']}>
+                <SetupRequiredRoute setupPath="/freelancer/setup">
+                  <FreelancerDashboard />
+                </SetupRequiredRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/freelancer/setup"
+            element={
+              <ProtectedRoute allowedRoles={['freelancer']}>
+                <FreelancerSetup />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/freelancer/services"
+            element={
+              <ProtectedRoute allowedRoles={['freelancer']}>
+                <SetupRequiredRoute setupPath="/freelancer/setup">
+                  <ServiceManagement />
+                </SetupRequiredRoute>
               </ProtectedRoute>
             }
           />

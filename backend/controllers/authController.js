@@ -116,24 +116,59 @@ export const register = async (req, res) => {
     if (userType === 'freelancer') {
       const Freelancer = (await import('../models/Freelancer.js')).default;
       try {
-        await Freelancer.create({
+        // Create minimal freelancer profile for initial registration
+        // More details will be filled in during the setup process
+        const freelancerData = {
           user: user._id,
           name,
           email,
-          phone: req.body.phone || 'Not provided',
-          serviceLocation: req.body.serviceLocation || 'Not provided',
+          phone: req.body.phone || '',
+          serviceLocation: req.body.serviceLocation || '',
           yearsOfExperience: parseInt(req.body.yearsOfExperience) || 0,
-          skills: Array.isArray(req.body.skills) ? req.body.skills : [],
+          skills: req.body.skills && Array.isArray(req.body.skills) ? req.body.skills : [],
           setupCompleted: false, // Freelancers need approval before setup is considered complete
           approvalStatus: 'pending', // Set approval status to pending
           isActive: true
-        });
+        };
+
+        // Initialize address object with empty values
+        freelancerData.address = {
+          addressLine1: req.body.addressLine1 || '',
+          addressLine2: req.body.addressLine2 || '',
+          city: req.body.city || '',
+          state: req.body.state || '',
+          postalCode: req.body.postalCode || '',
+          country: req.body.country || 'India',
+          fullAddress: req.body.fullAddress || `${req.body.addressLine1 || ''} ${req.body.addressLine2 || ''} ${req.body.city || ''} ${req.body.state || ''} ${req.body.postalCode || ''}`.trim()
+        };
+
+        // Add location data if coordinates are provided
+        if (req.body.latitude && req.body.longitude) {
+          freelancerData.location = {
+            type: 'Point',
+            coordinates: [parseFloat(req.body.longitude), parseFloat(req.body.latitude)],
+            address: req.body.fullAddress || `${req.body.addressLine1 || ''} ${req.body.addressLine2 || ''} ${req.body.city || ''} ${req.body.state || ''} ${req.body.postalCode || ''}`.trim(),
+            formattedAddress: req.body.fullAddress || `${req.body.addressLine1 || ''} ${req.body.addressLine2 || ''} ${req.body.city || ''} ${req.body.state || ''} ${req.body.postalCode || ''}`.trim()
+          };
+        }
+
+        await Freelancer.create(freelancerData);
         console.log('✅ Freelancer profile created successfully for user:', user._id);
       } catch (freelancerError) {
         console.error('❌ Error creating freelancer profile:', freelancerError);
         // If freelancer profile creation fails, delete the user to maintain data consistency
         await User.findByIdAndDelete(user._id);
         throw new Error(`Freelancer profile creation failed: ${freelancerError.message}`);
+      }
+    }
+
+    // For freelancer, update the user object with freelancer-specific data
+    if (userType === 'freelancer') {
+      const Freelancer = (await import('../models/Freelancer.js')).default;
+      const freelancerProfile = await Freelancer.findOne({ user: user._id });
+      if (freelancerProfile) {
+        user.setupCompleted = freelancerProfile.setupCompleted;
+        user.approvalStatus = freelancerProfile.approvalStatus;
       }
     }
 
@@ -149,6 +184,7 @@ export const register = async (req, res) => {
       ...(user.type === 'staff' && { approvalStatus: 'pending' }), // Staff are pending on registration
       ...(user.type === 'freelancer' && { approvalStatus: 'pending' }), // Freelancers are pending on registration
     };
+
 
     // Send registration confirmation email
     try {
