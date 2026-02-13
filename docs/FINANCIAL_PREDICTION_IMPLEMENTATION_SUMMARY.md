@@ -6,7 +6,7 @@ This document summarizes the implementation of the Financial Prediction system f
 
 ## Components Created
 
-### 1. Python ML Microservice (`backend/ml-service/`)
+### 1. Python ML Microservice (`ml-service/`)
 
 **Files:**
 - `app.py` - Flask application with prediction and training endpoints
@@ -106,7 +106,7 @@ The system provides:
 
 ### Option 1: Manual Setup
 1. Start MongoDB
-2. Run ML Service: `cd backend/ml-service && python app.py`
+2. Run ML Service: `cd ml-service && python app.py`
 3. Run Backend: `cd backend && node server.js`
 4. Run Frontend: `cd frontend && npm run dev`
 

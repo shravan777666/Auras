@@ -166,10 +166,18 @@ export const validateProduct = [
 
 // Appointment
 export const validateAppointment = [
-  body('salonId').isString().notEmpty(),
-  body('services').isArray({ min: 1 }),
-  body('appointmentDate').isString().notEmpty(),
-  body('appointmentTime').isString().notEmpty(),
+  body('salonId').optional().isMongoId().withMessage('Invalid salonId format'),
+  body('freelancerId').optional().isMongoId().withMessage('Invalid freelancerId format'),
+  body('services').isArray({ min: 1 }).withMessage('At least one service is required'),
+  body('appointmentDate').isString().notEmpty().withMessage('Appointment date is required'),
+  body('appointmentTime').isString().notEmpty().withMessage('Appointment time is required'),
+  // At least one of salonId or freelancerId must be provided
+  body().custom((value) => {
+    if (!value.salonId && !value.freelancerId) {
+      throw new Error('Either salonId or freelancerId is required');
+    }
+    return true;
+  }),
   handleValidation
 ];
 

@@ -233,7 +233,6 @@ auracare/
 │   ├── models/          # MongoDB schemas
 │   ├── routes/          # API routes
 │   ├── utils/           # Helper functions
-│   ├── ml-service/      # Financial prediction ML service
 │   ├── .env             # Environment variables
 │   ├── server.js        # Main server file
 │   └── package.json
@@ -249,6 +248,13 @@ auracare/
 │   ├── .env             # Environment variables
 │   ├── package.json
 │   └── vite.config.js
+├── ml-service/          # Machine Learning microservice (Python/Flask)
+│   ├── models/          # Trained ML models (.pkl files)
+│   ├── app.py           # Flask API server
+│   ├── train_model.py   # Model training scripts
+│   ├── requirements.txt # Python dependencies
+│   └── README.md        # ML service documentation
+├── docs/                # Documentation files
 ├── FINANCIAL_PREDICTION_SYSTEM.md      # Financial prediction documentation
 ├── FINANCIAL_SUMMARY.md                # Financial summary documentation
 ├── LOYALTY_POINTS_SYSTEM.md            # Loyalty program documentation

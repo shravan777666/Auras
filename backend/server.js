@@ -68,6 +68,9 @@ import addonRoutes from './routes/addon.js';
 // Import addon dashboard routes
 import addonDashboardRoutes from './routes/addonDashboard.js';
 
+// Import add-on offer routes
+import addOnOfferRoutes from './routes/addOnOfferRoutes.js';
+
 // Import payment routes
 import paymentRoutes from './routes/payment.js';
 
@@ -387,6 +390,7 @@ app.use('/api/client-profiles', clientProfileRoutes);
 app.use('/api/customer/messages', customerMessageRoutes);
 app.use('/api/broadcast', broadcastRoutes);
 app.use('/api/staff-invitations', staffInvitationRoutes);
+app.use('/api/addon-offers', addOnOfferRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/alerts', alertsRoutes);
 app.use('/api/salon-settings', salonSettingsRoutes);

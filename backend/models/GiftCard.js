@@ -47,8 +47,8 @@ const giftCardSchema = new mongoose.Schema({
   },
   code: {
     type: String,
-    unique: true,
     required: true
+    // unique index is defined below in schema.index()
   },
   termsAndConditions: {
     type: String,

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 import LoadingSpinner from '../common/LoadingSpinner'
@@ -28,16 +28,18 @@ const haversineKm = (lat1, lon1, lat2, lon2) => {
   return R * c
 }
 
-const SalonMap = ({ onNavigateNearest, onUserLocation }) => {
+const SalonMap = ({ onNavigateNearest, onUserLocation, salons: propSalons }) => {
   const [loading, setLoading] = useState(true)
-  const [salons, setSalons] = useState([])
+  const [salons, setSalons] = useState(propSalons || [])
   const [center, setCenter] = useState(defaultCenter)
   const [geoResolved, setGeoResolved] = useState([])
   const [userMarker, setUserMarker] = useState(null)
   const [error, setError] = useState(null)
   
   // Filter salons with valid coordinates
-  const withCoordsForNearest = (geoResolved.length > 0 ? geoResolved : salons).filter(x => typeof x.lat === 'number' && typeof x.lng === 'number');
+  const withCoords = useMemo(() => {
+    return (geoResolved.length > 0 ? geoResolved : salons).filter(x => typeof x.lat === 'number' && typeof x.lng === 'number');
+  }, [geoResolved, salons]);
 
   // Leaflet refs
   const mapElRef = useRef(null)
@@ -69,6 +71,13 @@ const SalonMap = ({ onNavigateNearest, onUserLocation }) => {
     })
   }
 
+  // Update salons when prop changes
+  useEffect(() => {
+    if (propSalons && propSalons.length > 0) {
+      setSalons(propSalons);
+    }
+  }, [propSalons]);
+
   useEffect(() => {
     const load = async () => {
       try {
@@ -85,9 +94,15 @@ const SalonMap = ({ onNavigateNearest, onUserLocation }) => {
           console.warn('Could not get user location:', error.message)
         }
 
-        // Fetch salon locations
-        const res = await customerService.getSalonLocations()
-        const items = res?.data || []
+        // Fetch salon locations only if not provided as props
+        let items = []
+        if (propSalons && propSalons.length > 0) {
+          items = propSalons
+        } else {
+          const res = await customerService.getSalonLocations()
+          items = res?.data || []
+        }
+        
         setSalons(items)
 
         // Start with salons that already have coords
@@ -125,138 +140,130 @@ const SalonMap = ({ onNavigateNearest, onUserLocation }) => {
       }
     }
     load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Function to fetch salon services and create popup content
-  const fetchSalonServices = async (salon) => {
-    try {
-      const response = await customerService.getSalonServices(salon._id)
-      const services = response?.data || []
-      
-      // Create popup content with salon name, services, and action buttons
-      let popupContent = `
-        <div class="salon-popup">
-          <h3 class="font-bold text-lg mb-2">${salon.name || 'Salon'}</h3>
-          ${salon.address ? `<p class="text-gray-600 text-sm mb-2">${salon.address}</p>` : ''}
-      `
-      
-      if (services.length > 0) {
-        popupContent += '<div class="mb-3"><h4 class="font-semibold text-md mb-1">Services:</h4><ul class="list-disc pl-5">'
-        services.slice(0, 5).forEach(service => {
-          popupContent += `<li class="text-sm">${service.name} - ₹${service.price}</li>`
-        })
-        if (services.length > 5) {
-          popupContent += `<li class="text-sm">+${services.length - 5} more services</li>`
-        }
-        popupContent += '</ul></div>'
-      } else {
-        popupContent += '<p class="text-gray-500 text-sm mb-3">No services available</p>'
-      }
-      
-      popupContent += `
-        <div class="flex gap-2 mt-2">
-          <a href="/customer/salon/${salon._id}" class="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">View Salon</a>
-          <a href="/customer/book-appointment/${salon._id}" class="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700">Book Now</a>
+  // Function to create popup content with salon name, services, and action buttons
+  const createPopupContent = useCallback((salon) => {
+    // For now, we'll show basic salon info without services since the salon data
+    // from getSalonLocations() doesn't include services. We can enhance this later
+    // by fetching services on demand or including them in the salon data.
+    const salonName = salon.name || salon.salonName || 'Salon';
+    
+    // Escape HTML special characters to prevent rendering issues
+    const escapeHtml = (text) => {
+      if (!text) return '';
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    };
+    
+    const safeSalonName = escapeHtml(salonName);
+    const safeAddress = salon.address ? escapeHtml(salon.address) : '';
+    const safePhone = salon.phone ? escapeHtml(salon.phone) : '';
+    
+    // Create complete popup HTML
+    const popupContent = `
+      <div style="min-width: 280px; max-width: 380px; font-family: system-ui, -apple-system, sans-serif;">
+        <h3 style="font-weight: bold; font-size: 1.25rem; margin: 0 0 0.5rem 0; color: #1f2937; line-height: 1.3;">${safeSalonName}</h3>
+        ${safeAddress ? `<p style="color: #6b7280; font-size: 0.875rem; margin: 0 0 0.5rem 0; line-height: 1.4;">📍 ${safeAddress}</p>` : ''}
+        ${safePhone ? `<p style="color: #6b7280; font-size: 0.875rem; margin: 0 0 0.75rem 0;">📞 ${safePhone}</p>` : ''}
+        <p style="color: #9ca3af; font-size: 0.875rem; margin-bottom: 1rem; font-style: italic; margin-top: 0.5rem;">Click "View Details" to see available services</p>
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem;">
+          <a href="/customer/salon/${salon._id}" style="padding: 0.625rem 1rem; background-color: #2563eb; color: white; font-size: 0.875rem; font-weight: 500; border-radius: 0.375rem; text-decoration: none; display: inline-block; text-align: center; flex: 1; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='#1d4ed8'" onmouseout="this.style.backgroundColor='#2563eb'">View Details</a>
+          <a href="/customer/book-appointment/${salon._id}" style="padding: 0.625rem 1rem; background-color: #16a34a; color: white; font-size: 0.875rem; font-weight: 500; border-radius: 0.375rem; text-decoration: none; display: inline-block; text-align: center; flex: 1; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='#15803d'" onmouseout="this.style.backgroundColor='#16a34a'">Book Now</a>
         </div>
-        </div>
-      `
-      
-      return popupContent
-    } catch (error) {
-      console.error('Error fetching salon services:', error)
-      return `
-        <div class="salon-popup">
-          <h3 class="font-bold text-lg mb-2">${salon.name || 'Salon'}</h3>
-          ${salon.address ? `<p class="text-gray-600 text-sm mb-2">${salon.address}</p>` : ''}
-          <p class="text-red-500 text-sm">Failed to load services</p>
-          <div class="flex gap-2 mt-2">
-            <a href="/customer/salon/${salon._id}" class="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">View Salon</a>
-            <a href="/customer/book-appointment/${salon._id}" class="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700">Book Now</a>
-          </div>
-        </div>
-      `
-    }
-  }
+      </div>
+    `;
+    
+    return popupContent;
+  }, [])
 
+  // Initialize map and update markers when data is available
   useEffect(() => {
-    if (withCoordsForNearest.length > 0 && !mapRef.current && mapElRef.current) {
+    if (withCoords.length > 0 && mapElRef.current) {
       try {
-        mapRef.current = L.map(mapElRef.current).setView(center, 12)
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; OpenStreetMap contributors',
-          maxZoom: 18
-        }).addTo(mapRef.current)
-        markersLayerRef.current = L.layerGroup().addTo(mapRef.current)
+        // Initialize map if not already created
+        if (!mapRef.current) {
+          mapRef.current = L.map(mapElRef.current).setView(center, 12)
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors',
+            maxZoom: 18
+          }).addTo(mapRef.current)
+          markersLayerRef.current = L.layerGroup().addTo(mapRef.current)
+        }
+        
+        // Update markers
+        const map = mapRef.current
+        const layer = markersLayerRef.current
+        if (map && layer) {
+          layer.clearLayers()
+          withCoords.forEach((s) => {
+            try {
+              const marker = L.marker([s.lat, s.lng])
+              
+              // Create popup content
+              const popupContent = createPopupContent(s);
+              
+              // Bind popup
+              marker.bindPopup(popupContent, { 
+                maxWidth: 400,
+                minWidth: 280,
+                maxHeight: 400,
+                autoPan: true,
+                closeButton: true,
+                autoClose: false,
+                className: 'salon-info-popup'
+              });
+              
+              marker.addTo(layer)
+            } catch (markerError) {
+              console.warn('Error creating marker for salon:', s.name, markerError)
+            }
+          })
+          
+          // Center map appropriately
+          if (center && center[0] !== defaultCenter[0] && center[1] !== defaultCenter[1]) {
+            map.setView(center, 14)
+          } else {
+            map.setView([withCoords[0].lat, withCoords[0].lng], 12)
+          }
+        }
       } catch (mapError) {
-        console.error('Error initializing map:', mapError)
+        console.error('Error initializing/updating map:', mapError)
         setError('Failed to initialize map. Please try again later.')
       }
     }
-    
-    // Update map view when center changes
-    if (mapRef.current) {
-      mapRef.current.setView(center, mapRef.current.getZoom())
-    }
-  }, [center, withCoordsForNearest]);
+  }, [withCoords, center, createPopupContent]); // Depend on actual data and center
 
-  // Update markers when coordinates list changes
+  // Update map view when center changes (for user location updates)
   useEffect(() => {
-    const map = mapRef.current
-    const layer = markersLayerRef.current
-    if (!map || !layer) return
-    
-    try {
-      layer.clearLayers()
-      const withCoords = (geoResolved.length > 0 ? geoResolved : salons).filter(x => typeof x.lat === 'number' && typeof x.lng === 'number')
-      withCoords.forEach((s) => {
-        try {
-          const marker = L.marker([s.lat, s.lng])
-          
-          // Bind popup with loading state
-          marker.bindPopup('<div class="text-sm">Loading...</div>', { maxWidth: 300 })
-          
-          // Add click event to fetch services and update popup
-          marker.on('click', async function() {
-            const popupContent = await fetchSalonServices(s)
-            marker.getPopup().setContent(popupContent)
-            marker.openPopup()
-          })
-          
-          marker.addTo(layer)
-        } catch (markerError) {
-          console.warn('Error creating marker for salon:', s.name, markerError)
-        }
-      })
+    if (mapRef.current) {
+      mapRef.current.setView(center, mapRef.current.getZoom());
       
-      // Add user location marker if available
+      // Add/update user location marker
+      const map = mapRef.current;
       if (center && center[0] !== defaultCenter[0] && center[1] !== defaultCenter[1]) {
         try {
           // Remove existing user marker if it exists
           if (userMarker) {
-            userMarker.remove()
+            userMarker.remove();
           }
           
           const newUserMarker = L.marker(center, {
             title: 'Your Location'
-          }).addTo(map)
-          newUserMarker.bindPopup('<b>Your Current Location</b>').openPopup()
-          setUserMarker(newUserMarker)
+          }).addTo(map);
+          newUserMarker.bindPopup('<b>Your Current Location</b>');
+          setUserMarker(newUserMarker);
         } catch (userMarkerError) {
-          console.warn('Error creating user location marker:', userMarkerError)
+          console.warn('Error creating user location marker:', userMarkerError);
         }
       }
-      
-      // Center map on user location or first salon
-      if (center && center[0] !== defaultCenter[0] && center[1] !== defaultCenter[1]) {
-        map.setView(center, 14)
-      } else if (withCoords.length > 0) {
-        map.setView([withCoords[0].lat, withCoords[0].lng], 12)
-      }
-    } catch (updateError) {
-      console.error('Error updating map markers:', updateError)
-      setError('Failed to update map markers. Please try again later.')
     }
-  }, [geoResolved, salons, center, userMarker])
+  }, [center, userMarker]); // Depend on center and userMarker
 
   if (loading) return <LoadingSpinner text="Loading map..." />
 
@@ -281,7 +288,7 @@ const SalonMap = ({ onNavigateNearest, onUserLocation }) => {
   return (
     <div className="bg-white rounded-xl border overflow-hidden">
       <div className="h-96">
-        {withCoordsForNearest.length === 0 ? (
+        {withCoords.length === 0 ? (
           <div className="h-full w-full flex items-center justify-center text-gray-600">
             No salon coordinates available to display on map
           </div>
@@ -306,7 +313,7 @@ const SalonMap = ({ onNavigateNearest, onUserLocation }) => {
                   (pos) => {
                     const { latitude, longitude } = pos.coords
                     let min = { d: Infinity, s: null }
-                    withCoordsForNearest.forEach((x) => {
+                    withCoords.forEach((x) => {
                       const d = haversineKm(latitude, longitude, x.lat, x.lng)
                       if (d < min.d) min = { d, s: x }
                     })

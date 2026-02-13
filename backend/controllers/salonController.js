@@ -2005,7 +2005,13 @@ export const getSalonLocationsPublic = asyncHandler(async (req, res) => {
       setupCompleted: true,
       approvalStatus: 'approved'
     })
-    .select('salonName salonAddress contactNumber latitude longitude')
+    .select('salonName salonAddress contactNumber latitude longitude services')
+    .populate({
+      path: 'services',
+      match: { isActive: true },
+      select: 'name price category duration',
+      options: { limit: 10 } // Limit to first 10 services to avoid large payloads
+    })
     .lean();
 
     // Format locations for the map
@@ -2071,6 +2077,7 @@ export const getSalonLocationsPublic = asyncHandler(async (req, res) => {
         name: salon.salonName,
         address: address,
         phone: salon.contactNumber,
+        services: salon.services || [],
         lat: lat,
         lng: lng
       };

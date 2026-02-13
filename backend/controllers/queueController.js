@@ -32,7 +32,7 @@ const generateTokenNumber = async (salonId) => {
 // Join the queue
 export const joinQueue = async (req, res) => {
   try {
-    const { customerId, serviceId } = req.body;
+    const { customerId, serviceId, staffId } = req.body;
     const salonId = req.user.id; // Assuming salon owner is making the request
 
     // Validate salon exists
@@ -65,6 +65,18 @@ export const joinQueue = async (req, res) => {
       }
     }
 
+    // Validate staff exists (optional)
+    if (staffId) {
+      const Staff = (await import('../models/Staff.js')).default;
+      const staff = await Staff.findById(staffId);
+      if (!staff) {
+        return res.status(404).json({
+          success: false,
+          message: 'Staff member not found'
+        });
+      }
+    }
+
     // Calculate queue position (number of people waiting ahead)
     const waitingCount = await Queue.countDocuments({
       salonId,
@@ -80,6 +92,7 @@ export const joinQueue = async (req, res) => {
       tokenNumber,
       customerId,
       serviceId: serviceId || undefined,
+      staffId: staffId || undefined,
       queuePosition: waitingCount + 1,
       status: 'waiting'
     });
@@ -142,7 +155,10 @@ export const getQueueStatus = async (req, res) => {
     const currentService = await Queue.findOne({
       salonId,
       status: 'in-service'
-    }).populate('customerId', 'name email phone');
+    })
+    .populate('customerId', 'name email phone')
+    .populate('staffId', 'name')
+    .populate('serviceId', 'name duration price');
 
     // Get next 5 tokens in queue (including those who have arrived)
     const upcomingTokens = await Queue.find({
@@ -151,7 +167,9 @@ export const getQueueStatus = async (req, res) => {
     })
     .sort({ queuePosition: 1 })
     .limit(5)
-    .populate('customerId', 'name email phone');
+    .populate('customerId', 'name email phone')
+    .populate('staffId', 'name')
+    .populate('serviceId', 'name duration price');
 
     // Get total waiting count (including those who have arrived)
     const totalWaiting = await Queue.countDocuments({
@@ -167,7 +185,9 @@ export const getQueueStatus = async (req, res) => {
     })
     .sort({ completedAt: -1 })
     .limit(3)
-    .populate('customerId', 'name email phone');
+    .populate('customerId', 'name email phone')
+    .populate('staffId', 'name')
+    .populate('serviceId', 'name duration price');
 
     res.status(200).json({
       success: true,
@@ -232,7 +252,28 @@ export const getQueue = async (req, res) => {
 export const updateQueueStatus = async (req, res) => {
   try {
     const { tokenNumber, action, staffId } = req.body;
-    const salonId = req.user.id;
+    
+    // Find salon by user email (for salon owners)
+    const User = (await import('../models/User.js')).default;
+    const Salon = (await import('../models/Salon.js')).default;
+    
+    const user = await User.findById(req.user.id);
+    if (!user || user.type !== 'salon') {
+      return res.status(404).json({
+        success: false,
+        message: 'Salon owner account required'
+      });
+    }
+    
+    const salon = await Salon.findOne({ email: user.email });
+    if (!salon) {
+      return res.status(404).json({
+        success: false,
+        message: 'Salon profile not found'
+      });
+    }
+    
+    const salonId = salon._id;
 
     // Find the queue entry by token number and salon ID
     const queueEntry = await Queue.findOne({

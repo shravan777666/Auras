@@ -1,6 +1,17 @@
-# Financial Prediction ML Service
+# AuraCares Machine Learning Service
+
+**This is a standalone microservice for machine learning predictions, separated from the main backend for better modularity and scalability.**
 
 This directory contains the Python microservice for financial forecasting using Linear Regression and Support Vector Regression (SVR) for expense prediction.
+
+## Service Architecture
+
+This ML service has been separated from the backend to:
+- Enable independent scaling of ML workloads
+- Isolate Python dependencies from Node.js backend
+- Allow for easier model updates and retraining
+- Provide better resource management for ML tasks
+- Support future ML features without affecting the main application
 
 ## Overview
 
@@ -10,10 +21,12 @@ The ML service provides revenue predictions for the next week based on historica
 
 - Linear Regression model for revenue prediction
 - Support Vector Regression (SVR) model for expense prediction
+- Decision Tree model for add-on acceptance prediction
 - REST API for integration with the main application
 - Model training with historical data
 - Health check endpoint
 - Confidence scoring for predictions
+- Feature importance analysis
 
 ## Setup
 
@@ -64,11 +77,17 @@ setup.bat
 
 2. The service will be available at `http://localhost:5001`
 
-## API Endpoints
+## API Documentation
+
+For complete API documentation with standardized request/response formats, see [API.md](API.md).
+
+### Quick Reference of Available Endpoints:
 
 - `GET /health` - Health check
 - `GET /predict` - Get next week's revenue prediction
-- `POST /train` - Train the model with new data
+- `POST /predict-addon` - Predict add-on acceptance
+- `POST /train` - Train the revenue model with new data
+- `POST /train-addon` - Train the add-on model with new data
 - `POST /predict/next_month` - Predict next month's expenses using SVR
 
 ## Model Details

@@ -48,8 +48,8 @@ const recommendationSchema = new mongoose.Schema({
   },
   expiresAt: {
     type: Date,
-    default: () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-    index: true
+    default: () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
+    // TTL index is defined below in schema.index()
   },
   notes: {
     type: String,

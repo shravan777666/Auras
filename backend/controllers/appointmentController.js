@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import Appointment from '../models/Appointment.js';
 import Service from '../models/Service.js';
 import Salon from '../models/Salon.js';
@@ -34,7 +35,8 @@ const parseAppointmentDateTime = (appointmentDate, appointmentTime) => {
 // Book new appointment
 export const bookAppointment = asyncHandler(async (req, res) => {
   try {
-    console.log('Booking appointment request:', req.body);
+    console.log('=== Booking Appointment Request ===');
+    console.log('Body:', JSON.stringify(req.body, null, 2));
     console.log('User:', req.user);
     
     const userId = req.user.id;
@@ -113,8 +115,11 @@ export const bookAppointment = asyncHandler(async (req, res) => {
       // Verify freelancer exists and is approved
       const Freelancer = (await import('../models/Freelancer.js')).default;
       const freelancer = await Freelancer.findById(freelancerId);
-      if (!freelancer || freelancer.approvalStatus !== 'APPROVED') {
+      if (!freelancer) {
         return notFoundResponse(res, 'Freelancer');
+      }
+      if (freelancer.approvalStatus !== 'approved') {
+        return errorResponse(res, 'Freelancer is not approved for bookings', 403);
       }
       entity = freelancer;
       entityName = 'Freelancer';
@@ -124,48 +129,101 @@ export const bookAppointment = asyncHandler(async (req, res) => {
     }
 
     // Verify services exist and belong to the entity
-    const serviceIds = services.map(s => s.serviceId);
-    let serviceRecords;
-    if (salonId) {
-      serviceRecords = await Service.find({
-        _id: { $in: serviceIds },
-        salonId,
-        isActive: true
-      });
-    } else {
-      // For freelancers, look for services that may be linked to freelancer
-      serviceRecords = await Service.find({
-        _id: { $in: serviceIds },
-        isActive: true
-      });
-    }
-
-    if (serviceRecords.length !== services.length) {
-      return errorResponse(res, 'Some services not found or not available', 400);
-    }
-
-    // Calculate total duration and amount
+    let serviceDetails = [];
     let totalDuration = 0;
     let totalAmount = 0;
-    const serviceDetails = [];
 
-    for (const service of services) {
-      const serviceRecord = serviceRecords.find(s => s._id.toString() === service.serviceId);
-      const durationMinutes = Number(serviceRecord.duration) || 0;
-      const unitPrice = (
-        serviceRecord.discountedPrice !== undefined && serviceRecord.discountedPrice !== null
-          ? Number(serviceRecord.discountedPrice)
-          : Number(serviceRecord.price)
-      ) || 0;
+    if (salonId) {
+      // Separate regular services from offers
+      const regularServices = services.filter(s => !s.isOffer);
+      const offerServices = services.filter(s => s.isOffer);
+      
+      // For salons, verify regular services from the Service collection
+      if (regularServices.length > 0) {
+        const serviceIds = regularServices.map(s => s.serviceId);
+        const serviceRecords = await Service.find({
+          _id: { $in: serviceIds },
+          salonId,
+          isActive: true
+        });
 
-      totalDuration += durationMinutes;
-      totalAmount += unitPrice;
+        if (serviceRecords.length !== regularServices.length) {
+          return errorResponse(res, 'Some services not found or not available', 400);
+        }
 
-      serviceDetails.push({
-        serviceId: service.serviceId,
-        serviceName: serviceRecord.name,
-        price: unitPrice,
-        duration: durationMinutes
+        // Calculate total duration and amount for regular salon services
+        for (const service of regularServices) {
+          const serviceRecord = serviceRecords.find(s => s._id.toString() === service.serviceId);
+          const durationMinutes = Number(serviceRecord.duration) || 0;
+          const unitPrice = (
+            serviceRecord.discountedPrice !== undefined && serviceRecord.discountedPrice !== null
+              ? Number(serviceRecord.discountedPrice)
+              : Number(serviceRecord.price)
+          ) || 0;
+
+          totalDuration += durationMinutes;
+          totalAmount += unitPrice;
+
+          serviceDetails.push({
+            serviceId: service.serviceId,
+            serviceName: serviceRecord.name,
+            price: unitPrice,
+            duration: durationMinutes
+          });
+        }
+      }
+      
+      // Process offer services (add-on offers)
+      for (const offer of offerServices) {
+        const durationMinutes = Number(offer.duration) || 60; // Default 60 mins
+        const unitPrice = Number(offer.price) || 0;
+
+        totalDuration += durationMinutes;
+        totalAmount += unitPrice;
+
+        serviceDetails.push({
+          serviceId: offer.serviceId,
+          serviceName: offer.serviceName || 'Add-on Offer',
+          price: unitPrice,
+          duration: durationMinutes,
+          isOffer: true
+        });
+      }
+    } else {
+      // For freelancers, services are actually skills with pricing from the frontend
+      // The serviceId will be like "skill_xxx_0" which is not a MongoDB ObjectId
+      // So we don't include serviceId in the serviceDetails for freelancer appointments
+      console.log('Processing freelancer services:', services);
+      
+      for (const service of services) {
+        const durationMinutes = Number(service.duration) || 60; // Default 60 mins if not provided
+        const unitPrice = Number(service.price) || 0;
+
+        console.log('Processing freelancer service:', {
+          serviceName: service.serviceName,
+          price: unitPrice,
+          duration: durationMinutes,
+          rawService: service
+        });
+
+        totalDuration += durationMinutes;
+        totalAmount += unitPrice;
+
+        const serviceDetail = {
+          // Don't include serviceId for freelancer services as they use skill IDs which aren't ObjectIds
+          serviceName: service.serviceName || service.skillName || 'Freelancer Service',
+          price: unitPrice,
+          duration: durationMinutes
+        };
+        
+        console.log('Adding freelancer service:', serviceDetail);
+        serviceDetails.push(serviceDetail);
+      }
+      
+      console.log('Total freelancer service details:', {
+        serviceCount: serviceDetails.length,
+        totalDuration,
+        totalAmount
       });
     }
 
@@ -208,6 +266,15 @@ export const bookAppointment = asyncHandler(async (req, res) => {
       customerProfile.totalPointsRedeemed = (customerProfile.totalPointsRedeemed || 0) + pointsToRedeem;
       await customerProfile.save();
     }
+
+    console.log('💰 Final appointment amounts:', {
+      totalAmount,
+      finalAmount,
+      pointsRedeemed,
+      discountFromPoints,
+      entityType: salonId ? 'Salon' : 'Freelancer',
+      serviceCount: serviceDetails.length
+    });
 
     // Verify staff availability if specified
     if (staffId) {
@@ -368,6 +435,13 @@ export const bookAppointment = asyncHandler(async (req, res) => {
       .populate('freelancerId', 'name email phone serviceLocation address')
       .populate('staffId', 'name skills')
       .populate('services.serviceId', 'name category');
+
+    console.log('✅ Appointment booked successfully:', {
+      appointmentId: populatedAppointment._id,
+      totalAmount: populatedAppointment.totalAmount,
+      finalAmount: populatedAppointment.finalAmount,
+      serviceCount: populatedAppointment.services.length
+    });
 
     return successResponse(res, populatedAppointment, 'Appointment booked successfully! Confirmation email sent.', 201);
   } catch (error) {
@@ -926,49 +1000,105 @@ export const checkInAppointment = asyncHandler(async (req, res) => {
       return errorResponse(res, 'Salon ID is required', 400);
     }
     
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(salonId)) {
+      console.error('Invalid salonId format:', salonId);
+      return errorResponse(res, 'Invalid salon ID format', 400);
+    }
+    
+    if (!mongoose.Types.ObjectId.isValid(customerId)) {
+      console.error('Invalid customerId format:', customerId);
+      return errorResponse(res, 'Invalid customer ID format', 400);
+    }
+    
     // Find appointments for this customer at this salon that are approved and upcoming
     const now = new Date();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
+    // Format today's date to match the appointmentDate format for comparison
+    const todayFormatted = today.toISOString().slice(0, 10);
+    
+    // Find appointments that are today or in the future
+    // Using $gte to match appointments from today onwards
     const appointment = await Appointment.findOne({
       customerId,
       salonId,
       status: 'Approved', // Only allow check-in for approved appointments
-      appointmentDate: { $gte: today.toISOString().split('T')[0] }, // Only today or future appointments
+      appointmentDate: { $gte: todayFormatted }, // Match appointments from today onwards
     }).sort({ appointmentDate: 1, appointmentTime: 1 });
+    
+    console.log('Check-in request - Looking for appointment:', { customerId, salonId, todayFormatted });
+    console.log('Found appointment:', appointment ? { id: appointment._id, status: appointment.status, date: appointment.appointmentDate } : 'No appointment found');
     
     if (!appointment) {
       return errorResponse(res, 'No upcoming appointments found at this salon', 404);
     }
     
-    // Check if appointment is today
-    const appointmentDate = new Date(appointment.appointmentDate);
-    const isToday = appointmentDate.toDateString() === new Date().toDateString();
+    // Check if appointment is not in the past (allow today and future appointments)
+    const appointmentDateStr = appointment.appointmentDate;
+    const appointmentDateOnly = appointmentDateStr.substring(0, 10); // Extract YYYY-MM-DD part
+    const todayStr = new Date().toISOString().slice(0, 10);
     
-    if (!isToday) {
-      return errorResponse(res, 'Appointment is not scheduled for today', 400);
+    // Allow check-in for today's appointments and future appointments
+    // Compare dates as strings since they're in the same format
+    const isNotPast = appointmentDateOnly >= todayStr;
+    
+    if (!isNotPast) {
+      return errorResponse(res, 'Cannot check in for past appointments', 400);
     }
     
     // Update appointment status to 'In-Progress' or add an 'arrived' status if we want to track arrival separately
     // For now, we'll add a checkInTime field to track when customer arrived
+    console.log('Updating appointment:', { id: appointment._id, status: appointment.status });
     appointment.checkInTime = new Date();
     appointment.status = 'In-Progress'; // Or we could add a new 'arrived' status
     
     await appointment.save();
+    console.log('Appointment updated successfully:', { id: appointment._id, status: appointment.status, checkInTime: appointment.checkInTime });
     
     // Also add the customer to the queue system to ensure they appear in the salon owner's queue
     // First, check if there's already a queue entry for this appointment
+    console.log('Attempting to import and access Queue model...');
     const Queue = (await import('../models/Queue.js')).default;
+    console.log('Queue model imported successfully');
     
-    // Check if customer already has an active queue entry for this salon
+    // First, check if customer already has a queue entry for this salon TODAY
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(startOfDay);
+    endOfDay.setHours(23, 59, 59, 999);
+    
+    console.log('Checking for existing queue entry for today...');
     let queueEntry = await Queue.findOne({
       salonId,
       customerId,
-      status: { $in: ['waiting', 'arrived', 'in-service'] } // Active statuses
+      createdAt: { $gte: startOfDay, $lte: endOfDay }
     });
     
-    if (!queueEntry) {
+    // If found, check if it's still active or completed
+    if (queueEntry) {
+      console.log('Found existing queue entry from today:', {
+        id: queueEntry._id,
+        status: queueEntry.status,
+        tokenNumber: queueEntry.tokenNumber
+      });
+      
+      // If it's completed or cancelled, we can reactivate it
+      if (queueEntry.status === 'completed' || queueEntry.status === 'cancelled') {
+        console.log('Reactivating completed/cancelled queue entry');
+        queueEntry.status = 'arrived';
+        queueEntry.arrivedAt = new Date();
+        await queueEntry.save();
+      } else if (queueEntry.status === 'waiting') {
+        // If waiting, just mark as arrived
+        queueEntry.status = 'arrived';
+        queueEntry.arrivedAt = new Date();
+        await queueEntry.save();
+      }
+      // If already 'arrived' or 'in-service', no change needed
+    } else {
+      console.log('No existing queue entry found for today, creating new one...');
       // If no active queue entry exists, create one based on the appointment
       const Service = (await import('../models/Service.js')).default;
       const serviceId = appointment.services && appointment.services.length > 0 
@@ -992,20 +1122,42 @@ export const checkInAppointment = asyncHandler(async (req, res) => {
       const salon = await Salon.findById(salonId);
       const prefix = salon?.salonName?.substring(0, 3).toUpperCase() || 'Q';
       
-      // Find the highest token number for this salon today
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const lastToken = await Queue.findOne({
+      // Get all tokens for today to find the highest number (reuse startOfDay/endOfDay from above)
+      const todaysTokens = await Queue.find({
         salonId,
-        createdAt: { $gte: today, $lte: new Date(today.setHours(23, 59, 59, 999)) }
-      }).sort({ tokenNumber: -1 });
+        createdAt: { $gte: startOfDay, $lte: endOfDay }
+      }).select('tokenNumber');
       
       let tokenNumber;
-      if (lastToken) {
-        const lastNumber = parseInt(lastToken.tokenNumber.replace(prefix, ''));
-        tokenNumber = `${prefix}${(lastNumber + 1).toString().padStart(3, '0')}`;
-      } else {
-        tokenNumber = `${prefix}001`;
+      let maxNumber = 0;
+      
+      // Parse all token numbers to find the highest
+      todaysTokens.forEach(token => {
+        const match = token.tokenNumber.match(/\d+$/);
+        if (match) {
+          const num = parseInt(match[0]);
+          if (num > maxNumber) {
+            maxNumber = num;
+          }
+        }
+      });
+      
+      // Generate new token with next number
+      let attempts = 0;
+      let tokenExists = true;
+      
+      while (tokenExists && attempts < 100) {
+        maxNumber++;
+        tokenNumber = `${prefix}${maxNumber.toString().padStart(3, '0')}`;
+        
+        // Check if this token already exists (double-check for safety)
+        const existingToken = await Queue.findOne({ tokenNumber });
+        tokenExists = !!existingToken;
+        attempts++;
+      }
+      
+      if (attempts >= 100) {
+        throw new Error('Unable to generate unique token number');
       }
       
       // Create queue entry
@@ -1014,6 +1166,7 @@ export const checkInAppointment = asyncHandler(async (req, res) => {
         tokenNumber,
         customerId,
         serviceId: serviceId || undefined,
+        staffId: appointment.staffId || undefined, // Include staff from appointment
         queuePosition: waitingCount + 1,
         status: 'arrived' // Set status to arrived since they just checked in
       });
@@ -1031,13 +1184,6 @@ export const checkInAppointment = asyncHandler(async (req, res) => {
           $inc: { queuePosition: 1 } 
         }
       );
-    } else {
-      // If queue entry exists, just update the status to arrived if it's waiting
-      if (queueEntry.status === 'waiting') {
-        queueEntry.status = 'arrived';
-        queueEntry.arrivedAt = new Date();
-        await queueEntry.save();
-      }
     }
     
     return successResponse(res, {
@@ -1048,7 +1194,14 @@ export const checkInAppointment = asyncHandler(async (req, res) => {
     
   } catch (error) {
     console.error('Error checking in appointment:', error);
-    return errorResponse(res, 'Server error while checking in appointment', 500);
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      customerId: req.user?.id,
+      salonId: req.body?.salonId
+    });
+    return errorResponse(res, `Server error while checking in appointment: ${error.message}`, 500);
   }
 });
 

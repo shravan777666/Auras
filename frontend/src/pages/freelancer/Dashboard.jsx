@@ -99,28 +99,28 @@ const FreelancerDashboard = () => {
   const statsCards = [
     {
       title: 'Total Appointments',
-      value: stats.totalAppointments,
+      value: stats?.totalAppointments || 0,
       icon: Calendar,
       color: 'bg-blue-100 text-blue-600',
       change: '+12% from last month'
     },
     {
       title: 'Completed',
-      value: stats.completedAppointments,
+      value: stats?.completedAppointments || 0,
       icon: CheckCircle,
       color: 'bg-green-100 text-green-600',
       change: '+8% from last month'
     },
     {
       title: 'Pending',
-      value: stats.pendingAppointments,
+      value: stats?.pendingAppointments || 0,
       icon: AlertCircle,
       color: 'bg-yellow-100 text-yellow-600',
       change: '-3 from last month'
     },
     {
       title: 'Earnings',
-      value: `₹${stats.earnings}`,
+      value: `₹${stats?.earnings || 0}`,
       icon: DollarSign,
       color: 'bg-purple-100 text-purple-600',
       change: '+15% from last month'
@@ -217,7 +217,7 @@ const FreelancerDashboard = () => {
                   <MapPin className="h-5 w-5 text-gray-400 mr-3" />
                   <div>
                     <p className="text-sm text-gray-600">Service Location</p>
-                    <p className="font-medium">{profile?.serviceLocation || 'N/A'}</p>
+                    <p className="font-medium">{profile?.serviceLocation || profile?.location || 'N/A'}</p>
                   </div>
                 </div>
                 
@@ -225,7 +225,7 @@ const FreelancerDashboard = () => {
                   <Clock className="h-5 w-5 text-gray-400 mr-3" />
                   <div>
                     <p className="text-sm text-gray-600">Experience</p>
-                    <p className="font-medium">{profile?.experience || 'N/A'} years</p>
+                    <p className="font-medium">{profile?.yearsOfExperience || profile?.experience || 'N/A'} years</p>
                   </div>
                 </div>
                 
@@ -235,8 +235,8 @@ const FreelancerDashboard = () => {
                     <p className="text-sm text-gray-600">Rating</p>
                     <div className="flex items-center">
                       <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                      <span className="font-medium ml-1">{stats.rating}</span>
-                      <span className="text-gray-400 ml-1">({stats.reviews} reviews)</span>
+                      <span className="font-medium ml-1">{stats?.rating || 0}</span>
+                      <span className="text-gray-400 ml-1">({stats?.reviews || 0} reviews)</span>
                     </div>
                   </div>
                 </div>
@@ -252,7 +252,7 @@ const FreelancerDashboard = () => {
                     key={index}
                     className="px-3 py-1 bg-purple-100 text-purple-700 text-sm font-medium rounded-full"
                   >
-                    {skill}
+                    {typeof skill === 'string' ? skill : skill?.name || 'Skill'}
                   </span>
                 ))}
                 {(!profile?.skills || profile.skills.length === 0) && (
@@ -307,46 +307,117 @@ const FreelancerDashboard = () => {
               </div>
               
               <div className="space-y-4">
-                {recentAppointments.map((appointment) => (
-                  <div key={appointment.id} className="flex items-center justify-between p-4 border border-gray-100 rounded-lg hover:bg-gray-50">
-                    <div className="flex-1">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-sm font-bold mr-3">
-                          {appointment.customer.charAt(0)}
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900">{appointment.customer}</p>
-                          <p className="text-sm text-gray-600">{appointment.service}</p>
-                        </div>
-                      </div>
-                    </div>
+                {recentAppointments && recentAppointments.length > 0 ? (
+                  recentAppointments.map((appointment) => {
+                    const customerName = typeof appointment.customer === 'string' 
+                      ? appointment.customer 
+                      : appointment.customer?.name || 'Unknown';
+                    const services = typeof appointment.services === 'string'
+                      ? appointment.services
+                      : 'Service';
                     
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-gray-900">₹{appointment.amount}</p>
-                      <p className="text-xs text-gray-500">{appointment.date} at {appointment.time}</p>
-                      <div className="flex items-center mt-1">
-                        {appointment.status === 'completed' && (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Completed
-                          </span>
-                        )}
-                        {appointment.status === 'pending' && (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                            <AlertCircle className="h-3 w-3 mr-1" />
-                            Pending
-                          </span>
-                        )}
-                        {appointment.rating && (
-                          <div className="flex items-center ml-2">
-                            <Star className="h-3 w-3 text-yellow-400 fill-current" />
-                            <span className="text-xs text-gray-600 ml-1">{appointment.rating}</span>
+                    return (
+                  <div key={appointment.id} className="p-4 border border-gray-100 rounded-lg hover:bg-gray-50">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center mb-2">
+                          <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-sm font-bold mr-3">
+                            {customerName.charAt(0)}
                           </div>
-                        )}
+                          <div>
+                            <p className="font-medium text-gray-900">{customerName}</p>
+                            <p className="text-sm text-gray-600">{services}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="ml-13 space-y-1">
+                          <p className="text-sm font-medium text-gray-900">₹{appointment.finalAmount || appointment.amount || 0}</p>
+                          <p className="text-xs text-gray-500">{appointment.date || 'N/A'} at {appointment.time || 'N/A'}</p>
+                          <div className="flex items-center mt-1">
+                            {(appointment.status === 'Completed' || appointment.status === 'completed') && (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Completed
+                              </span>
+                            )}
+                            {appointment.status === 'Approved' && (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Approved
+                              </span>
+                            )}
+                            {(appointment.status === 'Pending' || appointment.status === 'pending') && (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                <AlertCircle className="h-3 w-3 mr-1" />
+                                Pending
+                              </span>
+                            )}
+                            {(appointment.status === 'Rejected' || appointment.status === 'rejected' || appointment.status === 'Cancelled' || appointment.status === 'cancelled') && (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                <XCircle className="h-3 w-3 mr-1" />
+                                Cancelled
+                              </span>
+                            )}
+                            {appointment.rating && typeof appointment.rating === 'number' && (
+                              <div className="flex items-center ml-2">
+                                <Star className="h-3 w-3 text-yellow-400 fill-current" />
+                                <span className="text-xs text-gray-600 ml-1">{appointment.rating}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
+                      
+                      {/* Approve/Reject buttons for Pending appointments */}
+                      {(appointment.status === 'Pending' || appointment.status === 'pending') && (
+                        <div className="flex space-x-2 ml-4">
+                          <button
+                            onClick={async () => {
+                              try {
+                                await freelancerService.approveAppointment(appointment.id);
+                                toast.success('Appointment approved successfully');
+                                // Refresh appointments
+                                const data = await freelancerService.getRecentAppointments();
+                                setRecentAppointments(data.data || []);
+                              } catch (error) {
+                                console.error('Error approving appointment:', error);
+                                toast.error(error.response?.data?.message || 'Failed to approve appointment');
+                              }
+                            }}
+                            className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg transition-colors"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={async () => {
+                              try {
+                                await freelancerService.rejectAppointment(appointment.id);
+                                toast.success('Appointment rejected');
+                                // Refresh appointments
+                                const data = await freelancerService.getRecentAppointments();
+                                setRecentAppointments(data.data || []);
+                              } catch (error) {
+                                console.error('Error rejecting appointment:', error);
+                                toast.error(error.response?.data?.message || 'Failed to reject appointment');
+                              }
+                            }}
+                            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded-lg transition-colors"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
-                ))}
+                    );
+                  })
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <Calendar className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+                    <p>No appointments yet</p>
+                    <p className="text-sm mt-1">Your recent appointments will appear here</p>
+                  </div>
+                )}
               </div>
             </div>
 

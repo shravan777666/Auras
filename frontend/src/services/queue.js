@@ -2,8 +2,12 @@ import api from './api';
 
 export const queueService = {
   // Join the queue
-  async joinQueue(customerId, serviceId) {
-    const response = await api.post('/queue/join', { customerId, serviceId });
+  async joinQueue(customerId, serviceId, staffId = null) {
+    const payload = { customerId, serviceId };
+    if (staffId) {
+      payload.staffId = staffId;
+    }
+    const response = await api.post('/queue/join', payload);
     return response.data;
   },
 

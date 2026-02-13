@@ -164,6 +164,28 @@ export const freelancerService = {
       console.error('Error deleting freelancer service:', error);
       throw error;
     }
+  },
+
+  // Approve appointment
+  approveAppointment: async (appointmentId) => {
+    try {
+      const response = await api.put(`/freelancer/appointments/${appointmentId}/approve`);
+      return response.data;
+    } catch (error) {
+      console.error('Error approving appointment:', error);
+      throw error;
+    }
+  },
+
+  // Reject appointment
+  rejectAppointment: async (appointmentId, reason) => {
+    try {
+      const response = await api.put(`/freelancer/appointments/${appointmentId}/reject`, { reason });
+      return response.data;
+    } catch (error) {
+      console.error('Error rejecting appointment:', error);
+      throw error;
+    }
   }
 }
 

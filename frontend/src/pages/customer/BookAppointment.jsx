@@ -7,6 +7,7 @@ import { cancellationPolicyService } from "../../services/cancellationPolicy";
 import { default as packageService } from "../../services/packageService";
 import { freelancerService } from "../../services/freelancerService";
 import giftCardService from "../../services/giftCardService";
+import addOnOfferService from "../../services/addOnOffer";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import SalonAvailabilityDisplay from "../../components/customer/SalonAvailabilityDisplay";
 import LoyaltyRedemptionWidget from "../../components/customer/LoyaltyRedemptionWidget";
@@ -57,6 +58,9 @@ const BookAppointment = () => {
   const [idleSlots, setIdleSlots] = useState([]);
   const [addonSuggestions, setAddonSuggestions] = useState([]);
   const [selectedAddons, setSelectedAddons] = useState([]);
+  const [addOnOffers, setAddOnOffers] = useState([]); // Database add-on offers
+  const [addOnOffersLoading, setAddOnOffersLoading] = useState(false);
+  const [selectedOffers, setSelectedOffers] = useState([]); // Selected add-on offers for tracking
   const [showPaymentButton, setShowPaymentButton] = useState(false);
   const [createdAppointment, setCreatedAppointment] = useState(null);
   const [paymentProcessing, setPaymentProcessing] = useState(false);
@@ -419,6 +423,39 @@ const BookAppointment = () => {
     
     fetchRecommendedProducts();
   }, [selectedServices.length, selectedPackages.length, salonId, user, isHomeService]);
+
+  // Fetch active add-on offers from database using salonId from URL
+  useEffect(() => {
+    const fetchAddOnOffers = async () => {
+      if (!salonId || isFreelancer) {
+        console.log('Skipping add-on offers fetch:', { salonId, isFreelancer });
+        return;
+      }
+      
+      try {
+        setAddOnOffersLoading(true);
+        console.log('Fetching add-on offers for salonId:', salonId);
+        const response = await addOnOfferService.getActiveOffers(salonId);
+        
+        console.log('Add-on offers response:', response);
+        
+        if (response.success && response.data) {
+          console.log('Setting add-on offers:', response.data);
+          setAddOnOffers(response.data);
+        } else {
+          console.log('No offers data in response');
+          setAddOnOffers([]);
+        }
+      } catch (error) {
+        console.error('Error fetching add-on offers:', error);
+        setAddOnOffers([]);
+      } finally {
+        setAddOnOffersLoading(false);
+      }
+    };
+
+    fetchAddOnOffers();
+  }, [salonId, isFreelancer]);
 
   // Suggest add-ons based on customer history (fallback when no idle slots)
   const suggestAddonsBasedOnHistory = async () => {
@@ -845,6 +882,20 @@ const BookAppointment = () => {
     console.log('Updated selected addons:', selectedAddons);
   };
 
+  // Toggle add-on offer selection from database
+  const toggleOffer = (offer) => {
+    console.log('Toggling offer:', offer);
+    const exists = selectedOffers.some(o => o._id === offer._id);
+    
+    if (exists) {
+      console.log('Removing offer from selection');
+      setSelectedOffers(selectedOffers.filter(o => o._id !== offer._id));
+    } else {
+      console.log('Adding offer to selection');
+      setSelectedOffers([...selectedOffers, offer]);
+    }
+  };
+
   // Add product to booking
   const handleAddProductToBooking = (product) => {
     console.log('Adding product to booking:', product);
@@ -968,6 +1019,10 @@ const BookAppointment = () => {
     return selectedAddons.reduce((total, addon) => total + Number(addon.price || 0), 0);
   };
 
+  const calculateOffersTotal = () => {
+    return selectedOffers.reduce((total, offer) => total + Number(offer.discountedPrice || 0), 0);
+  };
+
   const calculateProductTotal = () => {
     return selectedProducts.reduce((total, product) => total + (Number(product.price || 0) * Number(product.quantity || 1)), 0);
   };
@@ -989,8 +1044,8 @@ const BookAppointment = () => {
     }
     
     try {
-      if (!salon?._id || (selectedServices.length === 0 && selectedAddons.length === 0) || !appointmentDate || !appointmentTime) {
-        toast.error("Please select services, date, and time");
+      if (!salon?._id || (selectedServices.length === 0 && selectedAddons.length === 0 && selectedOffers.length === 0) || !appointmentDate || !appointmentTime) {
+        toast.error("Please select at least one service, add-on, or offer, along with date and time");
         return;
       }
 
@@ -1002,14 +1057,17 @@ const BookAppointment = () => {
       try {
         const serviceTotal = calculateServiceTotal();
         const addonTotal = calculateAddonTotal();
-        const totalAmount = serviceTotal + addonTotal;
+        const offersTotal = calculateOffersTotal();
+        const totalAmount = serviceTotal + addonTotal + offersTotal;
         
         console.log('Booking details:', {
           salonId: salon._id,
           selectedServices,
           selectedAddons,
+          selectedOffers,
           totalServices: selectedServices.length,
           totalAddons: selectedAddons.length,
+          totalOffers: selectedOffers.length,
           totalAmount
         });
         
@@ -1030,10 +1088,44 @@ const BookAppointment = () => {
           }
         }
         
-        const allServices = [
-          ...selectedServices,
-          ...selectedAddons.map(addon => ({ serviceId: addon.serviceId }))
-        ];
+        // For freelancers, we need to include full service details (price, duration, serviceName)
+        // because the backend can't look them up from the database
+        const allServices = isFreelancer
+          ? [
+              ...selectedServices.map(selected => {
+                const serviceId = typeof selected === 'string' ? selected : (selected.serviceId || selected._id);
+                const service = salon.services.find(s => s._id === serviceId);
+                return {
+                  serviceId: serviceId,
+                  serviceName: service?.name || 'Service',
+                  price: service?.discountedPrice ?? service?.price ?? 0,
+                  duration: service?.duration || 60
+                };
+              }),
+              ...selectedAddons.map(addon => ({
+                serviceId: addon.serviceId,
+                serviceName: addon.serviceName,
+                price: addon.price,
+                duration: 60 // Default duration for addons
+              })),
+              ...selectedOffers.map(offer => ({
+                serviceId: offer._id,
+                serviceName: offer.name,
+                price: offer.discountedPrice || offer.price || 0,
+                duration: 60, // Default duration for offers
+                isOffer: true
+              }))
+            ]
+          : [
+              ...selectedServices,
+              ...selectedAddons.map(addon => ({ serviceId: addon.serviceId })),
+              ...selectedOffers.map(offer => ({ 
+                serviceId: offer._id, 
+                serviceName: offer.name,
+                price: offer.discountedPrice || offer.price || 0,
+                isOffer: true 
+              }))
+            ];
         
         console.log('All services to book:', allServices);
         
@@ -1060,8 +1152,20 @@ const BookAppointment = () => {
             discountAmount: redemptionData.discountAmount
           })
         };        
+        console.log('📤 Booking payload:', JSON.stringify(payload, null, 2));
+        
         const res = await customerService.bookAppointment(payload);
+        
+        console.log('📥 Booking response:', res);
+        
         if (res?.success) {
+          console.log('✅ Appointment created:', {
+            appointmentId: res.data._id,
+            totalAmount: res.data.totalAmount,
+            finalAmount: res.data.finalAmount,
+            serviceCount: res.data.services?.length
+          });
+          
           setCreatedAppointment(res.data);
           setShowPaymentButton(true);
           
@@ -1113,15 +1217,17 @@ const BookAppointment = () => {
       }
 
       const { paymentService } = await import('../../services/payment');
-      const orderResponse = await paymentService.createPaymentOrder(createdAppointment._id);
       
-      if (!orderResponse?.success) {
-        toast.error(orderResponse?.message || 'Failed to create payment order');
-        setPaymentProcessing(false);
-        return;
-      }
+      try {
+        const orderResponse = await paymentService.createPaymentOrder(createdAppointment._id);
+        
+        if (!orderResponse?.success) {
+          toast.error(orderResponse?.message || 'Failed to create payment order');
+          setPaymentProcessing(false);
+          return;
+        }
 
-      const orderData = orderResponse.data;
+        const orderData = orderResponse.data;
       
       const options = {
         key: 'rzp_test_RP6aD2gNdAuoRE',
@@ -1143,8 +1249,23 @@ const BookAppointment = () => {
             if (verifyResponse?.success) {
               toast.success('Payment successful! Appointment confirmed.');
               
+              // Create addon sales records if any offers were selected
+              if (selectedOffers.length > 0) {
+                try {
+                  const salesResponse = await addOnOfferService.createAddonSales(
+                    orderData.appointmentId,
+                    selectedOffers
+                  );
+                  console.log('Addon sales records created:', salesResponse);
+                } catch (salesError) {
+                  console.error('Failed to create addon sales records:', salesError);
+                  // Don't block the success flow if sales recording fails
+                }
+              }
+              
               setSelectedServices([]);
               setSelectedAddons([]);
+              setSelectedOffers([]);
               setAppointmentDate("");
               setAppointmentTime("");
               setCustomerNotes("");
@@ -1199,18 +1320,26 @@ const BookAppointment = () => {
 
       const rzp = new window.Razorpay(options);
       rzp.open();
+      } catch (paymentOrderError) {
+        console.error('Error creating payment order:', paymentOrderError);
+        const errorMessage = paymentOrderError.message || 'Failed to create payment order. Please try again.';
+        toast.error(errorMessage);
+        setPaymentProcessing(false);
+      }
     } catch (error) {
       console.error('Payment error:', error);
-      toast.error('Failed to process payment. Please try again.');
+      const errorMessage = error.message || 'Failed to process payment. Please try again.';
+      toast.error(errorMessage);
       setPaymentProcessing(false);
     }
   };
 
   const serviceTotal = calculateServiceTotal();
   const addonTotal = calculateAddonTotal();
+  const offersTotal = calculateOffersTotal();
   const productTotal = calculateProductTotal();
   const homeServiceFee = isHomeService ? 200 : 0; // Add home service fee
-  const overallTotal = serviceTotal + addonTotal + productTotal + homeServiceFee;
+  const overallTotal = serviceTotal + addonTotal + offersTotal + productTotal + homeServiceFee;
   const finalAmount = redemptionData.usePoints 
     ? Math.max(0, overallTotal - redemptionData.discountAmount) 
     : overallTotal;
@@ -1715,101 +1844,78 @@ const BookAppointment = () => {
                 </div>
               )}
 
-              {/* Addon Suggestions */}
-              <div className="mt-4 border-2 border-dashed border-blue-300 rounded-lg p-4 bg-gradient-to-r from-blue-50 to-indigo-50">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-bold text-blue-800 flex items-center text-lg">
-                    <span className="bg-blue-500 text-white p-1 rounded mr-2">🎁</span>
-                    Special Add-on Offers
-                  </h3>
-                  {selectedServices.length > 0 && (
-                    <button 
-                      onClick={suggestAddonsBasedOnHistory}
-                      className="text-xs bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded transition-colors flex items-center"
-                    >
-                      <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                      Refresh
-                    </button>
+              {/* Add-on Offers from Database - Only show if offers exist */}
+              {!isFreelancer && (
+                <div className="mt-4 border-2 border-dashed border-blue-300 rounded-lg p-4 bg-gradient-to-r from-blue-50 to-indigo-50">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-bold text-blue-800 flex items-center text-lg">
+                      <span className="bg-blue-500 text-white p-1 rounded mr-2">🎁</span>
+                      Special Add-on Offers
+                    </h3>
+                  </div>
+                  <p className="text-sm text-blue-700 mb-3">Enhance your {isHomeService ? 'home service' : 'salon'} experience with these exclusive offers!</p>
+                  
+                  {addOnOffersLoading ? (
+                    <div className="text-center py-6">
+                      <div className="flex justify-center mb-3">
+                        <div className="h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                      </div>
+                      <p className="text-blue-700 font-medium">Loading special offers...</p>
+                    </div>
+                  ) : addOnOffers.length > 0 ? (
+                    <div className="space-y-3 border rounded-lg p-3 bg-white shadow-sm">
+                      {addOnOffers.map((offer) => {
+                        const checked = selectedOffers.some(o => o._id === offer._id);
+                        const savings = offer.basePrice - offer.discountedPrice;
+                        const discountPercent = Math.round((savings / offer.basePrice) * 100);
+                        
+                        return (
+                          <div key={offer._id} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0 hover:bg-blue-50 rounded transition-colors">
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between">
+                                <span className="font-semibold text-gray-900">{offer.serviceName}</span>
+                                <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full font-bold">
+                                  Save ₹{savings.toFixed(0)}
+                                </span>
+                              </div>
+                              {offer.description && (
+                                <p className="text-xs text-gray-600 mt-1">{offer.description}</p>
+                              )}
+                              <div className="flex items-center mt-1">
+                                <span className="text-lg font-bold text-green-600">₹{offer.discountedPrice.toFixed(0)}</span>
+                                <span className="ml-2 text-sm text-gray-500 line-through">₹{offer.basePrice}</span>
+                                <span className="ml-2 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
+                                  {discountPercent}% OFF
+                                </span>
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1 flex items-center">
+                                <Clock className="h-3 w-3 mr-1" />
+                                <span>Valid until {new Date(offer.endDate).toLocaleDateString()}</span>
+                              </div>
+                              {offer.termsAndConditions && (
+                                <p className="text-xs text-gray-500 mt-1 italic">T&C: {offer.termsAndConditions}</p>
+                              )}
+                            </div>
+                            <input 
+                              type="checkbox" 
+                              className="ml-3 h-6 w-6 text-blue-600 rounded focus:ring-blue-500 border-2"
+                              checked={checked} 
+                              onChange={() => toggleOffer(offer)} 
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4">
+                      <p className="text-gray-600">No special offers available at this time.</p>
+                    </div>
                   )}
                 </div>
-                <p className="text-sm text-blue-700 mb-3">Enhance your {isHomeService ? 'home service' : 'salon'} experience with these exclusive services!</p>
-                
-                {selectedServices.length === 0 ? (
-                  <div className="text-center py-4">
-                    <div className="bg-gray-200 border-2 border-dashed rounded-xl w-16 h-16 mx-auto mb-3 flex items-center justify-center">
-                      <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                      </svg>
-                    </div>
-                    <p className="text-gray-600">Select a service to see personalized add-on offers</p>
-                  </div>
-                ) : addonSuggestions.length > 0 ? (
-                  <div className="space-y-3 border rounded-lg p-3 bg-white shadow-sm">
-                    {addonSuggestions.map((addon, index) => {
-                      const checked = !!selectedAddons.find(a => a.serviceId === addon.service._id);
-                      const discountedPrice = addon.estimatedPrice * (1 - addon.discount);
-                      const savings = addon.estimatedPrice - discountedPrice;
-                      
-                      return (
-                        <div key={index} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0 hover:bg-blue-50 rounded transition-colors">
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between">
-                              <span className="font-semibold text-gray-900">{addon.service.name}</span>
-                              <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full font-bold">
-                                Save ₹{savings.toFixed(0)}
-                              </span>
-                            </div>
-                            <div className="flex items-center mt-1">
-                              <span className="text-lg font-bold text-green-600">₹{discountedPrice.toFixed(0)}</span>
-                              <span className="ml-2 text-sm text-gray-500 line-through">₹{addon.estimatedPrice}</span>
-                              <span className="ml-2 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
-                                {Math.round(addon.discount * 100)}% OFF
-                              </span>
-                            </div>
-                            <div className="text-xs text-gray-500 mt-1 flex items-center">
-                              <Clock className="h-3 w-3 mr-1" />
-                              <span>Available for next {addon.gapSize} minutes</span>
-                            </div>
-                          </div>
-                          <input 
-                            type="checkbox" 
-                            className="ml-3 h-6 w-6 text-blue-600 rounded focus:ring-blue-500 border-2"
-                            checked={checked} 
-                            onChange={() => toggleAddon(addon)} 
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-6">
-                    <div className="flex justify-center mb-3">
-                      <div className="h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                    </div>
-                    <p className="text-blue-700 font-medium">Finding the perfect add-ons for you...</p>
-                    <p className="text-sm text-blue-600 mt-1">Personalizing offers based on your preferences</p>
-                    <div className="mt-4 flex justify-center space-x-3">
-                      <button 
-                        onClick={generateFallbackSuggestions}
-                        className="text-sm bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition-colors"
-                      >
-                        Show Instant Offers
-                      </button>
-                      <button 
-                        onClick={suggestAddonsBasedOnHistory}
-                        className="text-sm bg-white hover:bg-gray-100 text-blue-600 border border-blue-300 px-4 py-2 rounded transition-colors"
-                      >
-                        Try Again
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+              )}
               
               {/* Loyalty Redemption Widget */}
-              {(selectedServices.length > 0 || selectedAddons.length > 0) && user?.id && (
+              {(selectedServices.length > 0 || selectedAddons.length > 0 || selectedOffers.length > 0) && user?.id && (
                 <div className="mt-4">
                   <LoyaltyRedemptionWidget
                     customerId={user.id}
@@ -1901,7 +2007,7 @@ const BookAppointment = () => {
                 )}
                 
                 {/* Booking Summary */}
-                {(selectedServices.length > 0 || selectedAddons.length > 0) && (
+                {(selectedServices.length > 0 || selectedAddons.length > 0 || selectedOffers.length > 0) && (
                   <div className="border rounded p-3 bg-gray-50">
                     <h4 className="font-medium mb-2">Booking Summary</h4>
                     {selectedServices.map((selected, index) => {
@@ -1929,6 +2035,12 @@ const BookAppointment = () => {
                         <span>₹{addon.price}</span>
                       </div>
                     ))}
+                    {selectedOffers.map((offer, index) => (
+                      <div key={index} className="flex justify-between text-sm py-1 text-indigo-600">
+                        <span>{offer.name} (Offer)</span>
+                        <span>₹{offer.discountedPrice || offer.price || 0}</span>
+                      </div>
+                    ))}
                     {isHomeService && (
                       <div className="flex justify-between text-sm py-1 text-purple-600">
                         <span>
@@ -1941,7 +2053,7 @@ const BookAppointment = () => {
                     <div className="border-t border-gray-300 my-2 pt-2">
                       <div className="flex justify-between font-medium">
                         <span>Subtotal</span>
-                        <span>₹{serviceTotal + addonTotal + productTotal}</span>
+                        <span>₹{serviceTotal + addonTotal + calculateOffersTotal() + productTotal}</span>
                       </div>
                       {isHomeService && (
                         <div className="flex justify-between text-sm text-purple-600">
@@ -1965,14 +2077,14 @@ const BookAppointment = () => {
                 
                 <button 
                   onClick={handleBooking} 
-                  disabled={!!dateError || (selectedServices.length === 0 && selectedAddons.length === 0) || (isHomeService && !homeServiceAddress.trim())}
-                  className={`px-4 py-2 text-white rounded ${!!dateError || (selectedServices.length === 0 && selectedAddons.length === 0) || (isHomeService && !homeServiceAddress.trim()) ? 'bg-gray-400 cursor-not-allowed' : 'bg-primary-600 hover:bg-primary-700'}`}
+                  disabled={!!dateError || (selectedServices.length === 0 && selectedAddons.length === 0 && selectedOffers.length === 0) || (isHomeService && !homeServiceAddress.trim())}
+                  className={`px-4 py-2 text-white rounded ${!!dateError || (selectedServices.length === 0 && selectedAddons.length === 0 && selectedOffers.length === 0) || (isHomeService && !homeServiceAddress.trim()) ? 'bg-gray-400 cursor-not-allowed' : 'bg-primary-600 hover:bg-primary-700'}`}
                 >
                   {isHomeService ? 'Book Home Service' : 'Book Appointment'}
                 </button>
                 
-                {/* Cancellation Policy Agreement - Only show when services are selected */}
-                {(selectedServices.length > 0 || selectedAddons.length > 0) && (
+                {/* Cancellation Policy Agreement - Only show when services/addons/offers are selected */}
+                {(selectedServices.length > 0 || selectedAddons.length > 0 || selectedOffers.length > 0) && (
                   <div className="mt-4">
                     <CancellationPolicyDisplay 
                       salonId={salon._id} 

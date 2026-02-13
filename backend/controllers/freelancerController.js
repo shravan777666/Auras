@@ -7,34 +7,45 @@ import mongoose from 'mongoose';
 // Get freelancer dashboard stats
 export const getDashboardStats = async (req, res) => {
   try {
+    console.log('📊 Getting freelancer dashboard stats for user:', req.user.id);
+    
     // Find the freelancer profile based on the authenticated user
     const freelancer = await Freelancer.findOne({ user: req.user.id }).populate('user');
     
     if (!freelancer) {
+      console.error('❌ Freelancer profile not found for user:', req.user.id);
       return errorResponse(res, 'Freelancer profile not found', 404);
     }
 
-    // Calculate stats
-    const totalAppointments = await Appointment.countDocuments({
-      freelancer: freelancer._id
+    console.log('✅ Freelancer found:', {
+      freelancerId: freelancer._id,
+      name: freelancer.name,
+      userId: freelancer.user?._id
     });
 
+    // Calculate stats
+    const totalAppointments = await Appointment.countDocuments({
+      freelancerId: freelancer._id
+    });
+
+    console.log('📅 Total appointments for freelancer:', totalAppointments);
+
     const completedAppointments = await Appointment.countDocuments({
-      freelancer: freelancer._id,
-      status: 'completed'
+      freelancerId: freelancer._id,
+      status: 'Completed'
     });
 
     const pendingAppointments = await Appointment.countDocuments({
-      freelancer: freelancer._id,
-      status: { $in: ['confirmed', 'pending'] }
+      freelancerId: freelancer._id,
+      status: { $in: ['Pending', 'Approved'] }
     });
 
     // Calculate earnings (sum of completed appointments)
     const earningsResult = await Appointment.aggregate([
       {
         $match: {
-          freelancer: freelancer._id,
-          status: 'completed'
+          freelancerId: freelancer._id,
+          status: 'Completed'
         }
       },
       {
@@ -51,8 +62,8 @@ export const getDashboardStats = async (req, res) => {
     const ratingResult = await Appointment.aggregate([
       {
         $match: {
-          freelancer: freelancer._id,
-          status: 'completed',
+          freelancerId: freelancer._id,
+          status: 'Completed',
           rating: { $exists: true, $ne: null }
         }
       },
@@ -76,6 +87,8 @@ export const getDashboardStats = async (req, res) => {
       rating,
       reviews
     };
+
+    console.log('✅ Dashboard stats calculated:', stats);
 
     return successResponse(res, stats, 'Dashboard stats retrieved successfully');
   } catch (error) {
@@ -316,30 +329,40 @@ export const updateProfile = async (req, res) => {
 // Get recent appointments
 export const getRecentAppointments = async (req, res) => {
   try {
+    console.log('📅 Getting recent appointments for user:', req.user.id);
+    
     const freelancer = await Freelancer.findOne({ user: req.user.id });
 
     if (!freelancer) {
+      console.error('❌ Freelancer profile not found for user:', req.user.id);
       return errorResponse(res, 'Freelancer profile not found', 404);
     }
 
+    console.log('✅ Freelancer found:', freelancer._id);
+
     // Get recent appointments (last 10 appointments ordered by date)
     const recentAppointments = await Appointment.find({
-      freelancer: freelancer._id
+      freelancerId: freelancer._id
     })
-    .populate('customer', 'name email phone')
-    .populate('service', 'name price duration')
+    .populate('customerId', 'name email phone')
+    .populate('services.serviceId', 'name price duration')
     .sort({ createdAt: -1 })
     .limit(5);
+
+    console.log('📋 Found appointments:', recentAppointments.length);
 
     // Format the appointments data
     const formattedAppointments = recentAppointments.map(appointment => ({
       id: appointment._id,
-      customer: appointment.customer?.name || 'Unknown Customer',
-      service: appointment.service?.name || 'Unknown Service',
-      date: appointment.date,
-      time: appointment.startTime,
+      customer: appointment.customerId?.name || 'Unknown Customer',
+      customerEmail: appointment.customerId?.email,
+      customerPhone: appointment.customerId?.phone,
+      services: appointment.services?.map(s => s.serviceId?.name || s.serviceName).join(', ') || 'Unknown Service',
+      date: appointment.appointmentDate,
+      time: appointment.appointmentTime,
       status: appointment.status,
       amount: appointment.totalAmount || 0,
+      finalAmount: appointment.finalAmount || 0,
       rating: appointment.rating,
       createdAt: appointment.createdAt
     }));
@@ -362,7 +385,7 @@ export const getAppointments = async (req, res) => {
 
     const { page = 1, limit = 10, status } = req.query;
 
-    const filter = { freelancer: freelancer._id };
+    const filter = { freelancerId: freelancer._id };
     if (status) {
       filter.status = status;
     }
@@ -370,9 +393,9 @@ export const getAppointments = async (req, res) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     const appointments = await Appointment.find(filter)
-      .populate('customer', 'name email phone')
-      .populate('service', 'name price duration')
-      .sort({ date: -1, startTime: -1 })
+      .populate('customerId', 'name email phone')
+      .populate('services.serviceId', 'name price duration')
+      .sort({ appointmentDate: -1, appointmentTime: -1 })
       .skip(skip)
       .limit(parseInt(limit));
 
@@ -380,12 +403,15 @@ export const getAppointments = async (req, res) => {
 
     const formattedAppointments = appointments.map(appointment => ({
       id: appointment._id,
-      customer: appointment.customer?.name || 'Unknown Customer',
-      service: appointment.service?.name || 'Unknown Service',
-      date: appointment.date,
-      time: appointment.startTime,
+      customer: appointment.customerId?.name || 'Unknown Customer',
+      customerEmail: appointment.customerId?.email,
+      customerPhone: appointment.customerId?.phone,
+      services: appointment.services?.map(s => s.serviceId?.name || s.serviceName).join(', ') || 'Unknown Service',
+      date: appointment.appointmentDate,
+      time: appointment.appointmentTime,
       status: appointment.status,
       amount: appointment.totalAmount || 0,
+      finalAmount: appointment.finalAmount || 0,
       rating: appointment.rating,
       createdAt: appointment.createdAt
     }));
@@ -524,8 +550,8 @@ export const getFreelancerById = async (req, res) => {
     const ratingResult = await Appointment.aggregate([
       {
         $match: {
-          freelancer: freelancer._id,
-          status: 'completed',
+          freelancerId: freelancer._id,
+          status: 'Completed',
           rating: { $exists: true, $ne: null }
         }
       },
@@ -896,5 +922,119 @@ export const getApprovedFreelancers = async (req, res) => {
   } catch (error) {
     console.error('Error fetching approved freelancers:', error);
     return errorResponse(res, 'Internal server error', 500);
+  }
+};
+
+// Approve appointment
+export const approveAppointment = async (req, res) => {
+  try {
+    const { appointmentId } = req.params;
+    console.log('✅ Approving appointment:', appointmentId, 'for user:', req.user.id);
+
+    // Find freelancer
+    const freelancer = await Freelancer.findOne({ user: req.user.id });
+    if (!freelancer) {
+      return errorResponse(res, 'Freelancer profile not found', 404);
+    }
+
+    // Find appointment
+    const appointment = await Appointment.findById(appointmentId);
+    if (!appointment) {
+      return errorResponse(res, 'Appointment not found', 404);
+    }
+
+    console.log('Appointment details:', {
+      appointmentId: appointment._id,
+      freelancerId: appointment.freelancerId,
+      salonId: appointment.salonId,
+      status: appointment.status
+    });
+
+    // Check if this is a freelancer appointment
+    if (!appointment.freelancerId) {
+      return errorResponse(res, 'This is not a freelancer appointment', 400);
+    }
+
+    // Verify appointment belongs to this freelancer
+    if (appointment.freelancerId.toString() !== freelancer._id.toString()) {
+      return errorResponse(res, 'Unauthorized to approve this appointment', 403);
+    }
+
+    // Check if already approved
+    if (appointment.status === 'Approved') {
+      return errorResponse(res, 'Appointment is already approved', 400);
+    }
+
+    // Update appointment status
+    appointment.status = 'Approved';
+    await appointment.save();
+
+    console.log('✅ Appointment approved successfully:', appointmentId);
+
+    return successResponse(res, appointment, 'Appointment approved successfully');
+  } catch (error) {
+    console.error('Error approving appointment:', error);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    return errorResponse(res, error.message || 'Internal server error', 500);
+  }
+};
+
+// Reject appointment
+export const rejectAppointment = async (req, res) => {
+  try {
+    const { appointmentId } = req.params;
+    const { reason } = req.body;
+    console.log('❌ Rejecting appointment:', appointmentId, 'for user:', req.user.id);
+
+    // Find freelancer
+    const freelancer = await Freelancer.findOne({ user: req.user.id });
+    if (!freelancer) {
+      return errorResponse(res, 'Freelancer profile not found', 404);
+    }
+
+    // Find appointment
+    const appointment = await Appointment.findById(appointmentId);
+    if (!appointment) {
+      return errorResponse(res, 'Appointment not found', 404);
+    }
+
+    console.log('Appointment details:', {
+      appointmentId: appointment._id,
+      freelancerId: appointment.freelancerId,
+      salonId: appointment.salonId,
+      status: appointment.status
+    });
+
+    // Check if this is a freelancer appointment
+    if (!appointment.freelancerId) {
+      return errorResponse(res, 'This is not a freelancer appointment', 400);
+    }
+
+    // Verify appointment belongs to this freelancer
+    if (appointment.freelancerId.toString() !== freelancer._id.toString()) {
+      return errorResponse(res, 'Unauthorized to reject this appointment', 403);
+    }
+
+    // Check if already rejected or completed
+    if (appointment.status === 'Cancelled') {
+      return errorResponse(res, 'Appointment is already cancelled', 400);
+    }
+
+    // Update appointment status
+    appointment.status = 'Cancelled';
+    if (reason) {
+      appointment.cancellationReason = reason; // Store rejection reason
+    }
+    await appointment.save();
+
+    console.log('❌ Appointment rejected successfully:', appointmentId);
+
+    return successResponse(res, appointment, 'Appointment rejected successfully');
+  } catch (error) {
+    console.error('Error rejecting appointment:', error);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    return errorResponse(res, error.message || 'Internal server error', 500);
   }
 };

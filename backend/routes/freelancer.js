@@ -13,7 +13,9 @@ import {
   getFreelancerServices,
   addFreelancerService,
   updateFreelancerService,
-  deleteFreelancerService
+  deleteFreelancerService,
+  approveAppointment,
+  rejectAppointment
 } from '../controllers/freelancerController.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { verifyRoles } from '../middleware/roleAuth.js';
@@ -38,6 +40,8 @@ router.put('/profile', authenticateToken, verifyRoles(['freelancer']), freelance
 // Appointment routes
 router.get('/appointments/recent', authenticateToken, verifyRoles(['freelancer']), getRecentAppointments);
 router.get('/appointments', authenticateToken, verifyRoles(['freelancer']), getAppointments);
+router.put('/appointments/:appointmentId/approve', authenticateToken, verifyRoles(['freelancer']), approveAppointment);
+router.put('/appointments/:appointmentId/reject', authenticateToken, verifyRoles(['freelancer']), rejectAppointment);
 
 // Availability/Schedule routes
 router.get('/schedule', authenticateToken, verifyRoles(['freelancer']), getSchedule);

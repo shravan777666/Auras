@@ -18,7 +18,7 @@ The financial prediction system consists of:
 
 Navigate to the ml-service directory:
 ```bash
-cd backend/ml-service
+cd ml-service
 ```
 
 Install the required Python packages:

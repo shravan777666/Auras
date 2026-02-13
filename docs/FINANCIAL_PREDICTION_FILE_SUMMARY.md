@@ -4,7 +4,7 @@ This document provides a comprehensive summary of all files created and modified
 
 ## New Files Created
 
-### Backend ML Service (`backend/ml-service/`)
+### Backend ML Service (`ml-service/`)
 1. `app.py` - Flask application with prediction and training endpoints
 2. `train_model.py` - Model training functions
 3. `init_model.py` - Model initialization with sample data

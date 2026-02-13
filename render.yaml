@@ -24,6 +24,10 @@ services:
         value: 876578995275917
       - key: CLOUDINARY_API_SECRET
         value: X5ELAMbkjO6-VOEMcAgc_0CNsfw
+      - key: ML_SERVICE_URL
+        value: https://auracare-ml-service.onrender.com
+      - key: ML_SERVICE_TIMEOUT
+        value: 5000
     healthCheckPath: /health
     autoDeploy: true
 
@@ -51,4 +55,20 @@ services:
         value: dzbjcacnn
       - key: VITE_CLOUDINARY_API_KEY
         value: 876578995275917
+    autoDeploy: true
+
+  # Machine Learning Service
+  - type: web
+    name: auracare-ml-service
+    env: python
+    plan: free
+    rootDir: ml-service
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: FLASK_DEBUG
+        value: 0
+    healthCheckPath: /health
     autoDeploy: true

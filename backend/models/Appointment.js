@@ -10,8 +10,13 @@ const AppointmentSchema = new mongoose.Schema(
     staffId: { type: mongoose.Schema.Types.ObjectId, ref: 'Staff' },
     services: [
       {
-        serviceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Service' },
-        serviceName: { type: String },
+        serviceId: { 
+          type: mongoose.Schema.Types.ObjectId, 
+          ref: 'Service', 
+          required: false,
+          default: null
+        },
+        serviceName: { type: String, required: true },
         price: { type: Number, required: true },
         duration: { type: Number, required: true }
       }
@@ -188,9 +193,26 @@ AppointmentSchema.methods.updateStatus = async function (newStatus) {
           }
         }
       } else if (this.freelancerId) {
-        // For freelancer appointments, we might want to create revenue records differently
-        // For now, we'll skip revenue creation for freelancers
-        console.log('Revenue creation skipped for freelancer appointment');
+        // For freelancer appointments, create revenue records with freelancerId
+        // Get freelancer to find owner
+        const Freelancer = (await import('./Freelancer.js')).default;
+        const freelancer = await Freelancer.findById(this.freelancerId);
+
+        if (freelancer) {
+          // Create revenue record for each service
+          for (const service of this.services) {
+            await Revenue.create({
+              service: service.serviceName,
+              amount: service.price,
+              appointmentId: this._id,
+              freelancerId: this.freelancerId,
+              ownerId: freelancer.ownerId || freelancer._id, // Freelancer might be own owner
+              customerId: this.customerId,
+              date: formatToISOString(new Date()),
+              description: `Payment for ${service.serviceName} - Appointment #${this._id}`
+            });
+          }
+        }
       }
 
       // Calculate and award loyalty points

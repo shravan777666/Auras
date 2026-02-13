@@ -236,14 +236,21 @@ const QueueManagement = ({ salonId }) => {
           
           <div className="bg-blue-50 p-4 rounded-lg">
             <div className="flex items-center justify-between">
-              <div>
+              <div className="flex-1">
                 <p className="text-2xl font-bold text-blue-900">{queueData.currentService.tokenNumber}</p>
-                <p className="text-sm text-blue-700 mt-1">
-                  Customer: {queueData.currentService.customerId?.name || queueData.currentService.customerId || 'N/A'}
-                </p>
-                <p className="text-sm text-blue-700">
-                  Service: {queueData.currentService.serviceId?.name || queueData.currentService.serviceId || 'N/A'}
-                </p>
+                <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1">
+                  <p className="text-sm text-blue-700">
+                    <span className="font-semibold">Customer:</span> {queueData.currentService.customerId?.name || 'N/A'}
+                  </p>
+                  <p className="text-sm text-blue-700">
+                    <span className="font-semibold">Service:</span> {queueData.currentService.serviceId?.name || 'N/A'}
+                  </p>
+                  {queueData.currentService.serviceId?.duration && (
+                    <p className="text-sm text-blue-700">
+                      <span className="font-semibold">Duration:</span> {queueData.currentService.serviceId.duration} min
+                    </p>
+                  )}
+                </div>
               </div>
               <div className="text-right">
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
@@ -275,20 +282,38 @@ const QueueManagement = ({ salonId }) => {
           </div>
         ) : (
           <div className="space-y-4">
-            {queueData.upcomingTokens.map((token, index) => (
-              <div key={token._id || token.tokenNumber} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center justify-center w-12 h-12 rounded-full bg-gray-100">
-                    <span className="text-lg font-bold text-gray-700">{token.queuePosition}</span>
+            {queueData.upcomingTokens.map((token, index) => {
+              // Calculate estimated start time
+              const estimatedMinutes = token.estimatedWaitTime || (index * 30); // Default 30 min per customer
+              const estimatedTime = new Date(Date.now() + estimatedMinutes * 60000);
+              const timeString = estimatedTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+              
+              return (
+              <div key={token._id || token.tokenNumber} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+                <div className="flex items-center gap-4 flex-1">
+                  <div className="flex items-center justify-center w-12 h-12 rounded-full bg-indigo-100">
+                    <span className="text-lg font-bold text-indigo-700">{token.queuePosition}</span>
                   </div>
-                  <div>
-                    <p className="text-lg font-semibold text-gray-900">{token.tokenNumber}</p>
-                    <p className="text-sm text-gray-600">
-                      Customer: {token.customerId?.name || token.customerId || 'N/A'}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      Service: {token.serviceId?.name || token.serviceId || 'N/A'}
-                    </p>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-lg font-semibold text-gray-900">{token.tokenNumber}</p>
+                      {token.status === 'arrived' && (
+                        <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
+                          Arrived
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1">
+                      <p className="text-sm text-gray-600">
+                        <span className="font-medium">Customer:</span> {token.customerId?.name || 'N/A'}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        <span className="font-medium">Service:</span> {token.serviceId?.name || 'N/A'}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        <span className="font-medium">Est. Start:</span> {timeString}
+                      </p>
+                    </div>
                   </div>
                 </div>
                 
@@ -316,7 +341,8 @@ const QueueManagement = ({ salonId }) => {
                   </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -335,12 +361,14 @@ const QueueManagement = ({ salonId }) => {
                     Completed
                   </span>
                 </div>
-                <p className="text-sm text-gray-600 mt-2">
-                  Customer: {token.customerId?.name || token.customerId || 'N/A'}
-                </p>
-                <p className="text-sm text-gray-600">
-                  Service: {token.serviceId?.name || token.serviceId || 'N/A'}
-                </p>
+                <div className="mt-2 space-y-1">
+                  <p className="text-sm text-gray-600">
+                    <span className="font-medium">Customer:</span> {token.customerId?.name || 'N/A'}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    <span className="font-medium">Service:</span> {token.serviceId?.name || 'N/A'}
+                  </p>
+                </div>
               </div>
             ))}
           </div>

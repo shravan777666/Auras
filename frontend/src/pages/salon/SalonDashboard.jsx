@@ -63,6 +63,7 @@ import PayrollProcessingCard from '../../components/salon/PayrollProcessingCard'
 import PayrollSummaryTable from '../../components/salon/PayrollSummaryTable';
 import QueueManagement from '../../components/salon/QueueManagement';
 import GiftCardRecipientsComponent from '../../components/salon/GiftCardRecipients';
+import AddOnOffers from '../../components/salon/AddOnOffers';
 
 // Register Chart.js components
 ChartJS.register(
@@ -262,6 +263,7 @@ const SalonDashboard = () => {
     { id: 'packages', label: 'Packages', icon: Package },
     { id: 'products', label: 'Products', icon: ShoppingCart },
     { id: 'giftcards', label: 'Gift Cards', icon: CreditCard },
+    { id: 'offers', label: 'Add-on Offers', icon: Zap },
     { id: 'queue', label: 'Queue', icon: QrCode },
     { id: 'finance', label: 'Finance', icon: DollarSign },
     { id: 'reports', label: 'Reports', icon: FileText },
@@ -457,6 +459,8 @@ const SalonDashboard = () => {
         return renderProductsContent();
       case 'giftcards':
         return renderGiftCardsContent();
+      case 'offers':
+        return renderOffersContent();
       case 'finance':
         return renderFinanceContent();
       case 'reports':
@@ -1324,6 +1328,15 @@ const SalonDashboard = () => {
           </div>
           <GiftCardRecipientsComponent salonId={dashboardData?.salonInfo?._id} />
         </div>
+      </div>
+    );
+  };
+
+  // Add-on Offers content
+  const renderOffersContent = () => {
+    return (
+      <div className="space-y-6">
+        <AddOnOffers />
       </div>
     );
   };

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, CreditCard } from 'lucide-react';
-import GiftCardRecipients from '../../components/salon/GiftCardRecipients';
+import GiftCardRecipientsComponent from '../../components/salon/GiftCardRecipients';
 import BackButton from '../../components/common/BackButton';
 
 const GiftCardRecipients = () => {
@@ -29,7 +29,7 @@ const GiftCardRecipients = () => {
 
       {/* Gift Card Recipients Content */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <GiftCardRecipients />
+        <GiftCardRecipientsComponent />
       </div>
     </div>
   );

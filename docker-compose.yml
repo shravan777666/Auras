@@ -60,7 +60,7 @@ services:
   # Machine Learning Service
   ml-service:
     build:
-      context: ./backend/ml-service
+      context: ./ml-service
       dockerfile: Dockerfile
     container_name: auracares_ml_service
     restart: always

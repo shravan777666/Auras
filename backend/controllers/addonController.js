@@ -197,22 +197,52 @@ export const predictAddonAcceptance = asyncHandler(async (req, res) => {
       day_of_week: dayOfWeek
     };
     
-    // In a real implementation, we would call the ML service
-    // For now, we'll simulate a prediction
-    // In production, you would make an HTTP request to the ML service:
-    /*
-    const mlResponse = await fetch('http://localhost:5001/predict-addon', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(predictionData)
-    });
+    // Call the ML service for add-on prediction
+    const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:5001';
+    const ML_SERVICE_TIMEOUT = process.env.ML_SERVICE_TIMEOUT || 5000;
     
-    const mlResult = await mlResponse.json();
-    */
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), ML_SERVICE_TIMEOUT);
+      
+      const mlResponse = await fetch(`${ML_SERVICE_URL}/predict-addon`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(predictionData),
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      const mlResult = await mlResponse.json();
+      
+      if (mlResult.success) {
+        // Use the actual prediction from ML service
+        const mlPrediction = mlResult.data;
+        const prediction = mlPrediction.prediction;
+        const probability = mlPrediction.probability;
+        
+        const result = {
+          prediction,
+          probability: Math.round(probability * 100) / 100,
+          message: prediction === 1 
+            ? "Add-on offer is likely to be accepted" 
+            : "Add-on offer is likely to be rejected"
+        };
+        
+        return successResponse(res, result, 'Add-on acceptance prediction generated successfully');
+      } else {
+        // Fallback to simulation if ML service fails
+        console.warn('ML service failed, using fallback prediction:', mlResult.message);
+      }
+    } catch (mlError) {
+      // Fallback to simulation if ML service is unreachable
+      console.warn('ML service unreachable, using fallback prediction:', mlError.message);
+    }
     
-    // Simulate ML prediction (in a real scenario, this would come from the ML service)
+    // Simulate ML prediction as fallback
     // Simple logic: higher loyalty and gap size increase acceptance probability
     const loyaltyFactor = Math.min(totalAppointments / 10, 1); // Normalize to 0-1
     const gapFactor = Math.min(timeGapSize / 120, 1); // Normalize to 0-1
@@ -227,11 +257,11 @@ export const predictAddonAcceptance = asyncHandler(async (req, res) => {
       prediction,
       probability: Math.round(probability * 100) / 100,
       message: prediction === 1 
-        ? "Add-on offer is likely to be accepted" 
-        : "Add-on offer is likely to be rejected"
+        ? "Add-on offer is likely to be accepted (using fallback prediction)" 
+        : "Add-on offer is likely to be rejected (using fallback prediction)"
     };
     
-    return successResponse(res, result, 'Add-on acceptance prediction generated successfully');
+    return successResponse(res, result, 'Add-on acceptance prediction generated with fallback method');
   } catch (error) {
     console.error('Error predicting add-on acceptance:', error);
     return errorResponse(res, 'Failed to predict add-on acceptance', 500);

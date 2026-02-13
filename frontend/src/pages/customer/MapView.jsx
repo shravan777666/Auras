@@ -20,7 +20,7 @@ const MapView = () => {
     try {
       setLoading(true)
       setError(null)
-      const res = await customerService.browseSalons({ page: 1, limit: 50 })
+      const res = await customerService.getSalonLocations()
       if (res?.success) {
         setSalons(res.data || [])
       } else {
@@ -113,7 +113,7 @@ const MapView = () => {
           </div>
           
           <div className="p-4">
-            <SalonMap onUserLocation={handleUserLocation} />
+            <SalonMap salons={salons} onUserLocation={handleUserLocation} />
           </div>
         </div>
       </main>

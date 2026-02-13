@@ -8,8 +8,8 @@ const queueSchema = new mongoose.Schema({
   },
   tokenNumber: {
     type: String,
-    required: true,
-    unique: true
+    required: true
+    // unique index is defined below in schema.index()
   },
   customerId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -27,7 +27,7 @@ const queueSchema = new mongoose.Schema({
   },
   staffId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+    ref: 'Staff'
   },
   queuePosition: {
     type: Number,

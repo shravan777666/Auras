@@ -115,3 +115,14 @@ temp/
 .sass-cache/
 connect.lock
 typings/
+
+# Python / ML Service
+ml-service/__pycache__/
+ml-service/*.pyc
+ml-service/venv/
+ml-service/.venv/
+ml-service/*.pkl
+ml-service/*.h5
+ml-service/*.pt
+ml-service/logs/
+ml-service/.pytest_cache/

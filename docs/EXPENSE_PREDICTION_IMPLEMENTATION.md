@@ -14,12 +14,12 @@ The expense prediction feature uses a machine learning model to forecast next mo
 
 ### Files Created/Modified
 
-1. **`backend/ml-service/expense_predictor.py`** - Main expense prediction module
-2. **`backend/ml-service/expense_models.py`** - Pydantic models for input validation
-3. **`backend/ml-service/train_expense_model.py`** - Training script
-4. **`backend/ml-service/test_expense_predictor.py`** - Unit tests
-5. **`backend/ml-service/app.py`** - Updated to include the new endpoint
-6. **`backend/ml-service/requirements.txt`** - Updated dependencies
+1. **`ml-service/expense_predictor.py`** - Main expense prediction module
+2. **`ml-service/expense_models.py`** - Pydantic models for input validation
+3. **`ml-service/train_expense_model.py`** - Training script
+4. **`ml-service/test_expense_predictor.py`** - Unit tests
+5. **`ml-service/app.py`** - Updated to include the new endpoint
+6. **`ml-service/requirements.txt`** - Updated dependencies
 
 ### Features Implemented
 
@@ -110,7 +110,7 @@ The expense prediction feature uses a machine learning model to forecast next mo
 
 1. Navigate to the ML service directory:
    ```bash
-   cd backend/ml-service
+   cd ml-service
    ```
 
 2. Run the training script:
@@ -122,7 +122,7 @@ The expense prediction feature uses a machine learning model to forecast next mo
 
 1. Navigate to the ML service directory:
    ```bash
-   cd backend/ml-service
+   cd ml-service
    ```
 
 2. Start the Flask server:
@@ -144,7 +144,7 @@ The expense forecast is automatically displayed on the Expense Tracking page at 
 
 Run the unit tests:
 ```bash
-cd backend/ml-service
+cd ml-service
 python test_expense_predictor.py
 ```
 
@@ -152,7 +152,7 @@ python test_expense_predictor.py
 
 Test the API endpoint:
 ```bash
-cd backend/ml-service
+cd ml-service
 python test_expense_api.py
 ```
 
