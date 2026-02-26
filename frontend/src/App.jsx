@@ -70,6 +70,8 @@ const MapView = React.lazy(() => import('./pages/customer/MapView'));
 const Favorites = React.lazy(() => import('./pages/customer/Favorites'));
 const Recommendations = React.lazy(() => import('./pages/customer/Recommendations'));
 const HomeService = React.lazy(() => import('./pages/customer/HomeService'));
+const HairstyleRecommendation = React.lazy(() => import('./pages/customer/HairstyleRecommendation'));
+const FaceAnalysis = React.lazy(() => import('./pages/customer/FaceAnalysis'));
 const SearchResults = React.lazy(() => import('./pages/common/SearchResults'))
 const TestImageUpload = React.lazy(() => import('./pages/customer/TestImageUpload'))
 const GiftCardsBrowse = React.lazy(() => import('./pages/customer/GiftCardsBrowse'))
@@ -667,6 +669,22 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['customer']}>
                 <HomeService />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/customer/hairstyle-recommendation"
+            element={
+              <ProtectedRoute allowedRoles={['customer']}>
+                <HairstyleRecommendation />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/customer/face-analysis"
+            element={
+              <ProtectedRoute allowedRoles={['customer']}>
+                <FaceAnalysis />
               </ProtectedRoute>
             }
           />

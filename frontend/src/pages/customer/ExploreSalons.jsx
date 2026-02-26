@@ -12,6 +12,7 @@ import {
   User
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import ChatbotButton from '../../components/customer/ChatbotButton';
 
 const ExploreSalons = () => {
   const { user } = useAuth();
@@ -351,6 +352,9 @@ const ExploreSalons = () => {
           </div>
         )}
       </div>
+
+      {/* Chatbot Button */}
+      <ChatbotButton />
     </div>
   );
 };

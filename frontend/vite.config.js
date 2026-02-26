@@ -10,6 +10,7 @@ export default defineConfig(({ command, mode }) => {
   console.log('Command:', command)
   console.log('Mode:', mode)
   console.log('Loaded env.VITE_API_URL:', env.VITE_API_URL)
+  console.log('Loaded env.VITE_ML_SERVICE_URL:', env.VITE_ML_SERVICE_URL)
   console.log('========================')
   
   return {
@@ -38,7 +39,8 @@ export default defineConfig(({ command, mode }) => {
     },
     define: {
       // Properly define environment variables for the client
-      'import.meta.env.VITE_API_URL': JSON.stringify(env.VITE_API_URL)
+      'import.meta.env.VITE_API_URL': JSON.stringify(env.VITE_API_URL),
+      'import.meta.env.VITE_ML_SERVICE_URL': JSON.stringify(env.VITE_ML_SERVICE_URL)
     }
   }
 })

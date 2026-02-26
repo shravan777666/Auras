@@ -68,6 +68,9 @@ import addonRoutes from './routes/addon.js';
 // Import addon dashboard routes
 import addonDashboardRoutes from './routes/addonDashboard.js';
 
+// Import chatbot routes
+import chatbotRoutes from './routes/chatbot.js';
+
 // Import add-on offer routes
 import addOnOfferRoutes from './routes/addOnOfferRoutes.js';
 
@@ -418,6 +421,9 @@ app.use('/api/packages', packageRoutes);
 
 // Add customer notification routes
 app.use('/api/customer/notifications', customerNotificationRoutes);
+
+// Add chatbot routes
+app.use('/api/chatbot', chatbotRoutes);
 
 // Add freelancer routes
 app.use('/api/freelancer', freelancerRoutes);

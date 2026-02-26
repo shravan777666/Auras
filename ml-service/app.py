@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from sklearn.linear_model import LinearRegression
 from sklearn.tree import DecisionTreeClassifier
@@ -9,8 +9,11 @@ import os
 from datetime import datetime, timedelta
 import calendar
 import logging
+import cv2
 from expense_predictor import ExpensePredictor
 from expense_models import ExpensePredictionRequest
+from face_shape_analyzer import get_face_analyzer
+from face_symmetry_analyzer import get_symmetry_analyzer
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -399,6 +402,138 @@ def predict_next_month_expense():
             'success': False,
             'message': f'Error generating expense prediction: {str(e)}'
         }), 500
+
+@app.route('/analyze-face-shape', methods=['POST'])
+def analyze_face_shape():
+    """
+    Analyze face shape from uploaded image using MediaPipe FaceMesh
+    """
+    try:
+        logger.info('Received face shape analysis request')
+        
+        # Check if image file is in request
+        if 'image' not in request.files:
+            logger.warning('No image file provided')
+            return jsonify({
+                'success': False,
+                'message': 'No image file provided'
+            }), 400
+        
+        file = request.files['image']
+        
+        if file.filename == '':
+            logger.warning('Empty filename')
+            return jsonify({
+                'success': False,
+                'message': 'No file selected'
+            }), 400
+        
+        # Read image file
+        file_bytes = np.frombuffer(file.read(), np.uint8)
+        image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+        
+        if image is None:
+            logger.error('Failed to decode image')
+            return jsonify({
+                'success': False,
+                'message': 'Invalid image file'
+            }), 400
+        
+        logger.info(f'Image loaded successfully, shape: {image.shape}')
+        
+        # Get face analyzer instance
+        analyzer = get_face_analyzer()
+        
+        # Analyze face
+        result = analyzer.analyze_face(image)
+        
+        if result['success']:
+            logger.info(f'Face analysis successful: {result["data"]["face_shape"]}')
+            return jsonify(result), 200
+        else:
+            logger.warning(f'Face analysis failed: {result["message"]}')
+            return jsonify(result), 400
+            
+    except Exception as e:
+        logger.error(f'Error in face shape analysis endpoint: {str(e)}', exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': f'Server error: {str(e)}'
+        }), 500
+
+@app.route('/analyze-face-symmetry', methods=['POST'])
+def analyze_face_symmetry():
+    """
+    Analyze facial symmetry and recommend exercises
+    """
+    try:
+        logger.info('Received face symmetry analysis request')
+        
+        # Check if image file is in request
+        if 'image' not in request.files:
+            logger.warning('No image file provided')
+            return jsonify({
+                'success': False,
+                'message': 'No image file provided'
+            }), 400
+        
+        file = request.files['image']
+        
+        if file.filename == '':
+            logger.warning('Empty filename')
+            return jsonify({
+                'success': False,
+                'message': 'No file selected'
+            }), 400
+        
+        # Read image file
+        file_bytes = np.frombuffer(file.read(), np.uint8)
+        image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+        
+        if image is None:
+            logger.error('Failed to decode image')
+            return jsonify({
+                'success': False,
+                'message': 'Invalid image file'
+            }), 400
+        
+        logger.info(f'Image loaded successfully, shape: {image.shape}')
+        
+        # Get symmetry analyzer instance
+        analyzer = get_symmetry_analyzer()
+        
+        # Analyze facial symmetry
+        result = analyzer.analyze_face_symmetry(image)
+        
+        if result['success']:
+            logger.info(f'Face symmetry analysis successful: {result["data"]["primary_issue"]}')
+            return jsonify(result), 200
+        else:
+            logger.warning(f'Face symmetry analysis failed: {result["message"]}')
+            return jsonify(result), 400
+            
+    except Exception as e:
+        logger.error(f'Error in face symmetry analysis endpoint: {str(e)}', exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': f'Server error: {str(e)}'
+        }), 500
+
+@app.route('/static/videos/<filename>', methods=['GET'])
+def serve_video(filename):
+    """
+    Serve workout video files from static folder
+    """
+    try:
+        static_dir = os.path.join(os.path.dirname(__file__), 'static')
+        logger.info(f'Serving video file: {filename}')
+        return send_from_directory(static_dir, filename)
+    except Exception as e:
+        logger.error(f'Error serving video file: {str(e)}')
+        return jsonify({
+            'success': False,
+            'message': f'Video file not found: {filename}'
+        }), 404
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)

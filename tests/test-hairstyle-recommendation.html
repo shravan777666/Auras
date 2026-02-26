@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hairstyle Recommendation Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #fce4ec 0%, #f3e5f5 50%, #e3f2fd 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .content {
+            padding: 20px;
+        }
+        
+        .video-container {
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            position: relative;
+            aspect-ratio: 16/9;
+        }
+        
+        video, #result-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            flex: 1;
+            min-width: 150px;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(236, 72, 153, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #e5e7eb;
+            color: #374151;
+        }
+        
+        .btn-secondary:hover:not(:disabled) {
+            background: #d1d5db;
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .result {
+            margin-top: 20px;
+            padding: 20px;
+            background: linear-gradient(135deg, #fce4ec 0%, #f3e5f5 100%);
+            border-radius: 10px;
+        }
+        
+        .result h3 {
+            color: #8b5cf6;
+            margin-bottom: 15px;
+        }
+        
+        .face-shape {
+            font-size: 32px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 15px;
+        }
+        
+        .recommendations {
+            list-style: none;
+        }
+        
+        .recommendations li {
+            background: white;
+            padding: 10px 15px;
+            margin: 8px 0;
+            border-radius: 8px;
+            border-left: 4px solid #ec4899;
+        }
+        
+        .error {
+            background: #fee2e2;
+            border-left: 4px solid #ef4444;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+            color: #991b1b;
+        }
+        
+        .success {
+            background: #d1fae5;
+            border-left: 4px solid #10b981;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+            color: #065f46;
+        }
+        
+        .info {
+            background: #dbeafe;
+            border-left: 4px solid #3b82f6;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+            color: #1e40af;
+        }
+        
+        .measurements {
+            font-size: 14px;
+            color: #6b7280;
+            margin-top: 10px;
+        }
+        
+        canvas {
+            display: none;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>✨ Hairstyle Recommendation Test</h1>
+            <p>Test the face shape analysis feature</p>
+        </div>
+        
+        <div class="content">
+            <div id="status" class="info">
+                <strong>Status:</strong> Ready to start. Click "Start Camera" below.
+            </div>
+            
+            <div class="video-container">
+                <video id="video" autoplay playsinline></video>
+                <img id="result-image" style="display: none;">
+            </div>
+            
+            <canvas id="canvas"></canvas>
+            
+            <div class="controls">
+                <button id="startBtn" class="btn-primary" onclick="startCamera()">
+                    📷 Start Camera
+                </button>
+                <button id="captureBtn" class="btn-primary" onclick="captureAndAnalyze()" disabled>
+                    ✨ Capture & Analyze
+                </button>
+                <button id="resetBtn" class="btn-secondary" onclick="reset()" style="display: none;">
+                    🔄 Try Again
+                </button>
+            </div>
+            
+            <div id="result"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:5001';
+        let stream = null;
+        
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = type;
+            statusDiv.innerHTML = `<strong>Status:</strong> ${message}`;
+        }
+        
+        async function startCamera() {
+            try {
+                updateStatus('Requesting camera access...', 'info');
+                
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        facingMode: 'user'
+                    },
+                    audio: false
+                });
+                
+                const video = document.getElementById('video');
+                video.srcObject = stream;
+                video.style.display = 'block';
+                document.getElementById('result-image').style.display = 'none';
+                
+                updateStatus('Camera started! Position your face in the frame and click "Capture & Analyze"', 'success');
+                
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('captureBtn').disabled = false;
+                
+            } catch (err) {
+                console.error('Camera error:', err);
+                let message = 'Failed to access camera. ';
+                if (err.name === 'NotAllowedError') {
+                    message += 'Please allow camera access.';
+                } else if (err.name === 'NotFoundError') {
+                    message += 'No camera found.';
+                } else {
+                    message += err.message;
+                }
+                updateStatus(message, 'error');
+            }
+        }
+        
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+        }
+        
+        async function captureAndAnalyze() {
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            const captureBtn = document.getElementById('captureBtn');
+            
+            // Check video is ready
+            if (video.videoWidth === 0 || video.videoHeight === 0) {
+                updateStatus('Video not ready. Please wait a moment and try again.', 'error');
+                return;
+            }
+            
+            try {
+                updateStatus('Analyzing... <span class="loading"></span>', 'info');
+                captureBtn.disabled = true;
+                
+                // Capture frame
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0);
+                
+                // Get image as blob
+                const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+                
+                console.log('Image captured, size:', blob.size, 'bytes');
+                
+                // Create FormData
+                const formData = new FormData();
+                formData.append('image', blob, 'face.jpg');
+                
+                console.log('Sending to:', `${API_URL}/analyze-face-shape`);
+                
+                // Send to backend
+                const response = await fetch(`${API_URL}/analyze-face-shape`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                console.log('Response status:', response.status);
+                const data = await response.json();
+                console.log('Response data:', data);
+                
+                if (response.ok && data.success) {
+                    displayResult(data.data);
+                    
+                    // Show captured image
+                    const resultImage = document.getElementById('result-image');
+                    resultImage.src = canvas.toDataURL('image/jpeg');
+                    resultImage.style.display = 'block';
+                    video.style.display = 'none';
+                    
+                    stopCamera();
+                    updateStatus('Analysis complete! ✓', 'success');
+                    
+                    document.getElementById('resetBtn').style.display = 'block';
+                } else {
+                    updateStatus(`Analysis failed: ${data.message || 'Unknown error'}`, 'error');
+                    captureBtn.disabled = false;
+                }
+                
+            } catch (err) {
+                console.error('Analysis error:', err);
+                updateStatus(`Error: ${err.message}`, 'error');
+                captureBtn.disabled = false;
+            }
+        }
+        
+        function displayResult(data) {
+            const resultDiv = document.getElementById('result');
+            
+            const recommendations = data.recommended_hairstyles
+                .map((style, i) => `<li><strong>${i + 1}.</strong> ${style}</li>`)
+                .join('');
+            
+            resultDiv.innerHTML = `
+                <div class="result">
+                    <h3>Your Face Shape</h3>
+                    <div class="face-shape">${data.face_shape}</div>
+                    
+                    ${data.face_measurements ? `
+                        <div class="measurements">
+                            Face Length: ${data.face_measurements.face_length?.toFixed(1)} • 
+                            Width: ${data.face_measurements.face_width?.toFixed(1)} • 
+                            Ratio: ${data.face_measurements.ratio?.toFixed(2)}
+                        </div>
+                    ` : ''}
+                    
+                    <h3 style="margin-top: 20px;">Recommended Hairstyles</h3>
+                    <ul class="recommendations">
+                        ${recommendations}
+                    </ul>
+                    
+                    ${data.tips ? `
+                        <div style="margin-top: 15px; padding: 12px; background: white; border-radius: 8px;">
+                            <strong>💡 Styling Tips:</strong><br>
+                            ${data.tips}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+        
+        function reset() {
+            document.getElementById('result').innerHTML = '';
+            document.getElementById('result-image').style.display = 'none';
+            document.getElementById('video').style.display = 'block';
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('captureBtn').disabled = true;
+            document.getElementById('resetBtn').style.display = 'none';
+            updateStatus('Ready to start. Click "Start Camera" below.', 'info');
+        }
+    </script>
+</body>
+</html>

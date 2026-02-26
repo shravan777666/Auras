@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import MessageNotificationBadge from '../../components/customer/MessageNotificationBadge';
 import RecentSalonsCarousel from '../../components/customer/RecentSalonsCarousel';
+import ChatbotButton from '../../components/customer/ChatbotButton';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002'
 
@@ -275,6 +276,20 @@ const CustomerDashboard = () => {
           >
             <Home className="h-4 w-4 mr-2" />
             Home Service
+          </Link>
+          <Link
+            to="/customer/hairstyle-recommendation"
+            className="inline-flex items-center justify-center px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white font-medium rounded-lg transition-all shadow-sm hover:shadow-md"
+          >
+            <Sparkles className="h-4 w-4 mr-2" />
+            Hairstyle Recommendation
+          </Link>
+          <Link
+            to="/customer/face-analysis"
+            className="inline-flex items-center justify-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-all shadow-sm hover:shadow-md"
+          >
+            <Scissors className="h-4 w-4 mr-2" />
+            Start Face Analysis
           </Link>
           <button
             onClick={handlePanicMode}
@@ -995,6 +1010,9 @@ const CustomerDashboard = () => {
         {activeSection === 'history' && renderHistorySection()}
         {activeSection === 'profile' && renderProfileSection()}
       </main>
+
+      {/* Chatbot Button */}
+      <ChatbotButton />
     </div>
   );
 };

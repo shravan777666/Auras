@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import GiftCardSection from '../../components/customer/GiftCardSection';
+import ChatbotButton from '../../components/customer/ChatbotButton';
 
 const SalonDetails = () => {
   const { salonId } = useParams();
@@ -468,6 +469,9 @@ const SalonDetails = () => {
           </div>
         </div>
       </div>
+
+      {/* Chatbot Button */}
+      <ChatbotButton />
     </div>
   );
 };

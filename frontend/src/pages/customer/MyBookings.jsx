@@ -21,6 +21,7 @@ import {
   Filter,
   QrCode
 } from 'lucide-react';
+import ChatbotButton from '../../components/customer/ChatbotButton';
 
 const MyBookings = () => {
   const { user } = useAuth();
@@ -605,6 +606,9 @@ const MyBookings = () => {
           </div>
         )}
       </div>
+
+      {/* Chatbot Button */}
+      <ChatbotButton />
     </div>
   );
 };
