@@ -33,7 +33,6 @@ const SalonMap = ({ onNavigateNearest, onUserLocation, salons: propSalons }) => 
   const [salons, setSalons] = useState(propSalons || [])
   const [center, setCenter] = useState(defaultCenter)
   const [geoResolved, setGeoResolved] = useState([])
-  const [userMarker, setUserMarker] = useState(null)
   const [error, setError] = useState(null)
   
   // Filter salons with valid coordinates
@@ -45,6 +44,7 @@ const SalonMap = ({ onNavigateNearest, onUserLocation, salons: propSalons }) => 
   const mapElRef = useRef(null)
   const mapRef = useRef(null)
   const markersLayerRef = useRef(null)
+  const userMarkerRef = useRef(null)
 
   // Get user's current location
   const getUserLocation = () => {
@@ -249,21 +249,22 @@ const SalonMap = ({ onNavigateNearest, onUserLocation, salons: propSalons }) => 
       if (center && center[0] !== defaultCenter[0] && center[1] !== defaultCenter[1]) {
         try {
           // Remove existing user marker if it exists
-          if (userMarker) {
-            userMarker.remove();
+          if (userMarkerRef.current) {
+            userMarkerRef.current.remove();
           }
           
           const newUserMarker = L.marker(center, {
             title: 'Your Location'
           }).addTo(map);
           newUserMarker.bindPopup('<b>Your Current Location</b>');
-          setUserMarker(newUserMarker);
+          userMarkerRef.current = newUserMarker;
         } catch (userMarkerError) {
           console.warn('Error creating user location marker:', userMarkerError);
         }
       }
     }
-  }, [center, userMarker]); // Depend on center and userMarker
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [center]); // Only depend on center, not userMarker to avoid infinite loop
 
   if (loading) return <LoadingSpinner text="Loading map..." />
 
