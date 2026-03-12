@@ -34,7 +34,7 @@ export const errorResponse = (res, message = 'Bad Request', status = 400) => {
 };
 
 export const paginatedResponse = (res, items, meta) => {
-  return res.status(200).json({ success: true, data: items, meta });
+  return res.status(200).json({ success: true, data: items, pagination: meta, message: 'Success' });
 };
 
 export const notFoundResponse = (res, entity = 'Resource') => {

@@ -373,6 +373,14 @@ export const browseSalons = asyncHandler(async (req, res) => {
       salonObj.documents = convertDocumentsToUrls(salonObj.documents, req);
     }
     
+    // Fallback: Extract coordinates from salonAddress if not at top level
+    if ((!salonObj.latitude || !salonObj.longitude) && salonObj.salonAddress && typeof salonObj.salonAddress === 'object') {
+      if (salonObj.salonAddress.latitude && salonObj.salonAddress.longitude) {
+        salonObj.latitude = salonObj.salonAddress.latitude;
+        salonObj.longitude = salonObj.salonAddress.longitude;
+      }
+    }
+    
     return salonObj;
   });
 
@@ -444,6 +452,14 @@ export const getSalonDetails = asyncHandler(async (req, res) => {
       }
       return serviceObj;
     });
+  }
+
+  // Fallback: Extract coordinates from salonAddress if not at top level
+  if ((!salonObj.latitude || !salonObj.longitude) && salonObj.salonAddress && typeof salonObj.salonAddress === 'object') {
+    if (salonObj.salonAddress.latitude && salonObj.salonAddress.longitude) {
+      salonObj.latitude = salonObj.salonAddress.latitude;
+      salonObj.longitude = salonObj.salonAddress.longitude;
+    }
   }
 
   return successResponse(res, salonObj, 'Salon details retrieved successfully');
