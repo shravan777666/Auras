@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { queueService } from '../../services/queue';
 import { salonService } from '../../services/salon';
-import { serviceService } from '../../services/service';
 import { toast } from 'react-hot-toast';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { Users, Clock, QrCode, CheckCircle } from 'lucide-react';
@@ -40,7 +39,7 @@ const QueueJoinPage = () => {
   // Fetch services
   const fetchServices = async () => {
     try {
-      const response = await serviceService.getServiceCatalog({ salonId });
+      const response = await salonService.getServiceCatalog({ salonId });
       if (response.success) {
         setServices(response.data);
       } else {
