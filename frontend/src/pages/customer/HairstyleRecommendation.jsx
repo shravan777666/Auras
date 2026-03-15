@@ -4,6 +4,29 @@ import { Camera, ArrowLeft, RefreshCw, Sparkles, User, CheckCircle } from 'lucid
 import toast from 'react-hot-toast';
 
 const API_URL = import.meta.env.VITE_ML_SERVICE_URL || 'http://localhost:5001';
+const APPLY_HORIZONTAL_FLIP_CORRECTION = true;
+
+const toAbsoluteImageUrl = (url) => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  return `${API_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+};
+
+const normalizeHairstyleItem = (item) => {
+  if (typeof item === 'string') {
+    return {
+      name: item,
+      description: '',
+      image_url: ''
+    };
+  }
+
+  return {
+    name: item?.name || 'Recommended Style',
+    description: item?.description || '',
+    image_url: item?.image_url || ''
+  };
+};
 
 const HairstyleRecommendation = () => {
   const navigate = useNavigate();
@@ -16,6 +39,7 @@ const HairstyleRecommendation = () => {
   const [error, setError] = useState(null);
   const [capturedImage, setCapturedImage] = useState(null);
   const [cameraLoading, setCameraLoading] = useState(false);
+  const [brokenImages, setBrokenImages] = useState({});
 
   useEffect(() => {
     return () => {
@@ -129,7 +153,16 @@ const HairstyleRecommendation = () => {
       canvas.height = video.videoHeight;
       
       const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      if (APPLY_HORIZONTAL_FLIP_CORRECTION) {
+        // Un-mirror front camera frames so saved image matches real orientation.
+        ctx.save();
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        ctx.restore();
+      } else {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      }
       
       // Get image as base64
       const imageDataUrl = canvas.toDataURL('image/jpeg', 0.9);
@@ -177,8 +210,67 @@ const HairstyleRecommendation = () => {
     setResult(null);
     setCapturedImage(null);
     setError(null);
+    setBrokenImages({});
     startCamera();
   };
+
+  const handleImageError = (url) => {
+    if (!url) return;
+    setBrokenImages(prev => ({ ...prev, [url]: true }));
+  };
+
+  const primaryRecommendations = result?.hairstyle_recommendations?.primary
+    ? result.hairstyle_recommendations.primary.map(normalizeHairstyleItem)
+    : [];
+
+  const secondaryRecommendations = result?.hairstyle_recommendations?.secondary
+    ? result.hairstyle_recommendations.secondary.map(normalizeHairstyleItem)
+    : [];
+
+  const fallbackRecommendations = result?.recommended_hairstyles
+    ? result.recommended_hairstyles.map(normalizeHairstyleItem)
+    : [];
+
+  const hasStructuredRecommendations = primaryRecommendations.length > 0 || secondaryRecommendations.length > 0;
+
+  const renderHairstyleCard = (hairstyle, index, accentClass = 'border-pink-200 hover:border-pink-400') => (
+    <div
+      key={`${hairstyle.name}-${index}`}
+      className={`bg-gradient-to-br from-pink-50 to-purple-50 rounded-lg p-4 border-2 transition-colors ${accentClass}`}
+    >
+      {(() => {
+        const imageSrc = hairstyle.image_url ? toAbsoluteImageUrl(hairstyle.image_url) : '';
+        const showImage = imageSrc && !brokenImages[imageSrc];
+
+        return (
+          <div className="w-full aspect-[4/3] bg-white rounded-md mb-3 overflow-hidden border border-pink-100 flex items-center justify-center">
+            {showImage ? (
+              <img
+                src={imageSrc}
+                alt={hairstyle.name}
+                className="w-full h-full object-contain"
+                loading="lazy"
+                onError={() => handleImageError(imageSrc)}
+              />
+            ) : (
+              <span className="text-sm text-gray-400">Image preview unavailable</span>
+            )}
+          </div>
+        );
+      })()}
+      <div className="flex items-start space-x-3">
+        <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-r from-pink-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
+          {index + 1}
+        </div>
+        <div className="flex-1">
+          <h4 className="font-semibold text-gray-900">{hairstyle.name}</h4>
+          {hairstyle.description && (
+            <p className="text-sm text-gray-600 mt-1">{hairstyle.description}</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 py-8 px-4">
@@ -244,7 +336,10 @@ const HairstyleRecommendation = () => {
                   playsInline
                   muted
                   className="w-full h-full object-cover"
-                  style={{ display: 'block' }}
+                  style={{
+                    display: 'block',
+                    transform: APPLY_HORIZONTAL_FLIP_CORRECTION ? 'scaleX(-1)' : 'none'
+                  }}
                 />
                 <div className="absolute inset-0 border-4 border-pink-500 opacity-50 pointer-events-none">
                   <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-80 border-2 border-white rounded-full opacity-30"></div>
@@ -343,23 +438,31 @@ const HairstyleRecommendation = () => {
                     <Sparkles className="h-6 w-6 text-pink-600" />
                     <h3 className="text-xl font-bold text-gray-900">Recommended Hairstyles</h3>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {result.recommended_hairstyles?.map((hairstyle, index) => (
-                      <div
-                        key={index}
-                        className="bg-gradient-to-br from-pink-50 to-purple-50 rounded-lg p-4 border-2 border-pink-200 hover:border-pink-400 transition-colors"
-                      >
-                        <div className="flex items-start space-x-3">
-                          <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-r from-pink-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
-                            {index + 1}
-                          </div>
-                          <div className="flex-1">
-                            <h4 className="font-semibold text-gray-900">{hairstyle}</h4>
+                  {hasStructuredRecommendations ? (
+                    <div className="space-y-6">
+                      {primaryRecommendations.length > 0 && (
+                        <div>
+                          <h4 className="text-lg font-semibold text-gray-900 mb-3">Primary Recommendations</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {primaryRecommendations.map((hairstyle, index) => renderHairstyleCard(hairstyle, index, 'border-pink-300 hover:border-pink-500'))}
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      )}
+
+                      {secondaryRecommendations.length > 0 && (
+                        <div>
+                          <h4 className="text-lg font-semibold text-gray-900 mb-3">Secondary Recommendations</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {secondaryRecommendations.map((hairstyle, index) => renderHairstyleCard(hairstyle, index, 'border-purple-200 hover:border-purple-400'))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {fallbackRecommendations.map((hairstyle, index) => renderHairstyleCard(hairstyle, index))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Additional Tips */}

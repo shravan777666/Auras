@@ -8,8 +8,11 @@ import numpy as np
 from typing import Dict, List, Tuple, Optional
 import logging
 import os
+import importlib
 
 logger = logging.getLogger(__name__)
+
+BASE_IMAGE_URL = '/static/hairstyles/'
 
 class FaceShapeAnalyzer:
     """
@@ -26,63 +29,319 @@ class FaceShapeAnalyzer:
         self.eye_cascade = cv2.CascadeClassifier(
             os.path.join(cascade_path, 'haarcascade_eye.xml')
         )
+
+        self.model_path = os.path.join(os.path.dirname(__file__), 'model', 'face_shape_model.h5')
+        self.face_shape_labels = ['Round', 'Oval', 'Square', 'Heart', 'Oblong']
+        self.face_shape_model = None
         
         logger.info("Face Shape Analyzer initialized with OpenCV")
         
         # Hairstyle recommendations mapping
         self.hairstyle_recommendations = {
-            'Round': [
-                'Long Layered Cuts - adds length to elongate the face',
-                'Side-Swept Bangs - creates angles and asymmetry',
-                'High Ponytail or Top Knot - adds height',
-                'Angular Bob - adds definition',
-                'Textured Pixie Cut - creates visual length'
-            ],
-            'Oval': [
-                'Almost Any Style Works! - most versatile face shape',
-                'Blunt Bob - emphasizes balanced proportions',
-                'Soft Waves - adds volume and movement',
-                'Curtain Bangs - frames the face beautifully',
-                'Long Straight Hair - showcases symmetry'
-            ],
-            'Long': [
-                'Chin-Length Bob - adds width and balance',
-                'Side Bangs or Fringe - shortens face visually',
-                'Waves or Curls - adds volume at sides',
-                'Layered Shoulder-Length Cut - creates width',
-                'Avoid Very Long Straight Hair - can elongate further'
-            ],
-            'Square': [
-                'Soft Layers - softens angular features',
-                'Side-Swept Bangs - creates diagonal lines',
-                'Long Wavy Styles - adds softness',
-                'Rounded Bob - balances square jawline',
-                'Textured Lob (Long Bob) - very flattering'
-            ],
-            'Heart': [
-                'Chin-Length Bob - balances wider forehead',
-                'Side-Swept Bangs - softens forehead',
-                'Long Layers Starting at Chin - adds width below',
-                'Textured Pixie - can work well',
-                'Avoid Heavy Top Volume - keeps balance'
-            ],
-            'Diamond': [
-                'Chin-Length Cuts - emphasizes cheekbones',
-                'Side-Swept Bangs - balances narrow forehead',
-                'Textured Waves - adds width at temples',
-                'Deep Side Part - creates asymmetry',
-                'Soft Layers Around Face - highlights cheekbones'
-            ]
+            'Round': {
+                'primary': [
+                    {
+                        'name': 'Textured Crop',
+                        'image_url': f'{BASE_IMAGE_URL}round/textured_crop.jpg',
+                        'description': 'Short, textured top with faded sides'
+                    },
+                    {
+                        'name': 'Low Fade with Natural Top',
+                        'image_url': f'{BASE_IMAGE_URL}round/low_fade_natural_top.jpg',
+                        'description': 'Clean fade on sides with longer natural top'
+                    },
+                    {
+                        'name': 'Modern Buzz Cut',
+                        'image_url': f'{BASE_IMAGE_URL}round/modern_buzz_cut.jpg',
+                        'description': 'Uniform short length all around'
+                    }
+                ],
+                'secondary': [
+                    {
+                        'name': 'Afro',
+                        'image_url': f'{BASE_IMAGE_URL}round/afro.jpg',
+                        'description': 'Full, rounded natural style'
+                    },
+                    {
+                        'name': 'Waves',
+                        'image_url': f'{BASE_IMAGE_URL}round/waves.jpg',
+                        'description': 'Patterned wave texture'
+                    },
+                    {
+                        'name': 'S-Curls',
+                        'image_url': f'{BASE_IMAGE_URL}round/s_curls.jpg',
+                        'description': 'Soft, defined S-shaped curls'
+                    },
+                    {
+                        'name': 'Bowl Cut',
+                        'image_url': f'{BASE_IMAGE_URL}round/bowl_cut.jpg',
+                        'description': 'Classic rounded cut'
+                    },
+                    {
+                        'name': 'Tight Curls',
+                        'image_url': f'{BASE_IMAGE_URL}round/tight_curls.jpg',
+                        'description': 'Defined, close-cropped curls'
+                    }
+                ]
+            },
+            'Oval': {
+                'primary': [
+                    {
+                        'name': 'Messy Medium-Length Hair',
+                        'image_url': f'{BASE_IMAGE_URL}oval/messy_medium.jpg',
+                        'description': 'Textured, casual medium length'
+                    },
+                    {
+                        'name': 'Wavy Medium-Length Cut',
+                        'image_url': f'{BASE_IMAGE_URL}oval/wavy_medium.jpg',
+                        'description': 'Natural waves at medium length'
+                    },
+                    {
+                        'name': 'Side Part Haircut',
+                        'image_url': f'{BASE_IMAGE_URL}oval/side_part.jpg',
+                        'description': 'Classic side-parted style'
+                    }
+                ],
+                'secondary': [
+                    {
+                        'name': 'Quiff',
+                        'image_url': f'{BASE_IMAGE_URL}oval/quiff.jpg',
+                        'description': 'Voluminous front with tapered back'
+                    },
+                    {
+                        'name': 'Spiky Hair',
+                        'image_url': f'{BASE_IMAGE_URL}oval/spiky.jpg',
+                        'description': 'Textured, spiked up style'
+                    },
+                    {
+                        'name': 'Faux Hawk',
+                        'image_url': f'{BASE_IMAGE_URL}oval/faux_hawk.jpg',
+                        'description': 'Modern mohawk variation'
+                    },
+                    {
+                        'name': 'Long Hair',
+                        'image_url': f'{BASE_IMAGE_URL}oval/long_hair.jpg',
+                        'description': 'Extended length all around'
+                    },
+                    {
+                        'name': 'Tousled',
+                        'image_url': f'{BASE_IMAGE_URL}oval/tousled.jpg',
+                        'description': 'Carefree, textured look'
+                    }
+                ]
+            },
+            'Square': {
+                'primary': [
+                    {
+                        'name': 'Mid Fade with Textured Top',
+                        'image_url': f'{BASE_IMAGE_URL}square/mid_fade_textured.jpg',
+                        'description': 'Medium fade with textured upper'
+                    },
+                    {
+                        'name': 'Short Quiff',
+                        'image_url': f'{BASE_IMAGE_URL}square/short_quiff.jpg',
+                        'description': 'Short, lifted front style'
+                    },
+                    {
+                        'name': 'Slick Back with Taper',
+                        'image_url': f'{BASE_IMAGE_URL}square/slick_back_taper.jpg',
+                        'description': 'Sleek back with tapered sides'
+                    }
+                ],
+                'secondary': [
+                    {
+                        'name': 'Low Fade',
+                        'image_url': f'{BASE_IMAGE_URL}square/low_fade.jpg',
+                        'description': 'Subtle fade starting low'
+                    },
+                    {
+                        'name': 'Mid Fade',
+                        'image_url': f'{BASE_IMAGE_URL}square/mid_fade.jpg',
+                        'description': 'Classic medium fade'
+                    },
+                    {
+                        'name': 'Burst Fade',
+                        'image_url': f'{BASE_IMAGE_URL}square/burst_fade.jpg',
+                        'description': 'Rounded fade around ears'
+                    },
+                    {
+                        'name': 'Crew Cut',
+                        'image_url': f'{BASE_IMAGE_URL}square/crew_cut.jpg',
+                        'description': 'Short, uniform military style'
+                    },
+                    {
+                        'name': 'Pompadour',
+                        'image_url': f'{BASE_IMAGE_URL}square/pompadour.jpg',
+                        'description': 'Voluminous front swept back'
+                    },
+                    {
+                        'name': 'Undercut',
+                        'image_url': f'{BASE_IMAGE_URL}square/undercut.jpg',
+                        'description': 'Shaved sides with longer top'
+                    }
+                ]
+            },
+            'Heart': {
+                'primary': [
+                    {
+                        'name': 'Curly Top with Fade',
+                        'image_url': f'{BASE_IMAGE_URL}heart/curly_top_fade.jpg',
+                        'description': 'Curly upper with faded sides'
+                    },
+                    {
+                        'name': 'French Crop',
+                        'image_url': f'{BASE_IMAGE_URL}heart/french_crop.jpg',
+                        'description': 'Short top with textured fringe'
+                    },
+                    {
+                        'name': 'Caesar Cut',
+                        'image_url': f'{BASE_IMAGE_URL}heart/caesar_cut.jpg',
+                        'description': 'Short, forward-brushed fringe'
+                    }
+                ],
+                'secondary': [
+                    {
+                        'name': 'Cornrows',
+                        'image_url': f'{BASE_IMAGE_URL}heart/cornrows.jpg',
+                        'description': 'Braided rows close to scalp'
+                    },
+                    {
+                        'name': 'Braids',
+                        'image_url': f'{BASE_IMAGE_URL}heart/braids.jpg',
+                        'description': 'Various braided styles'
+                    },
+                    {
+                        'name': 'Dreadlocks',
+                        'image_url': f'{BASE_IMAGE_URL}heart/dreadlocks.jpg',
+                        'description': 'Rope-like matted strands'
+                    },
+                    {
+                        'name': 'Twists',
+                        'image_url': f'{BASE_IMAGE_URL}heart/twists.jpg',
+                        'description': 'Twisted strand style'
+                    },
+                    {
+                        'name': 'Curly Fringe',
+                        'image_url': f'{BASE_IMAGE_URL}heart/curly_fringe.jpg',
+                        'description': 'Curly front fringe'
+                    }
+                ]
+            },
+            'Oblong': {
+                'primary': [
+                    {
+                        'name': 'Classic Taper',
+                        'image_url': f'{BASE_IMAGE_URL}oblong/classic_taper.jpg',
+                        'description': 'Gradual fade from top to bottom'
+                    },
+                    {
+                        'name': 'Drop Fade Haircut',
+                        'image_url': f'{BASE_IMAGE_URL}oblong/drop_fade.jpg',
+                        'description': 'Fade that drops behind ear'
+                    },
+                    {
+                        'name': 'Clean Shave with Beard Focus',
+                        'image_url': f'{BASE_IMAGE_URL}oblong/clean_shave_beard.jpg',
+                        'description': 'Smooth shave with styled beard'
+                    }
+                ],
+                'secondary': [
+                    {
+                        'name': 'Skin Fade',
+                        'image_url': f'{BASE_IMAGE_URL}oblong/skin_fade.jpg',
+                        'description': 'Fade down to skin'
+                    },
+                    {
+                        'name': 'Razor Fade',
+                        'image_url': f'{BASE_IMAGE_URL}oblong/razor_fade.jpg',
+                        'description': 'Sharp, clean fade'
+                    },
+                    {
+                        'name': 'Flat Top',
+                        'image_url': f'{BASE_IMAGE_URL}oblong/flat_top.jpg',
+                        'description': 'Flat, squared top'
+                    },
+                    {
+                        'name': 'Crop Top',
+                        'image_url': f'{BASE_IMAGE_URL}oblong/crop_top.jpg',
+                        'description': 'Short, cropped upper'
+                    },
+                    {
+                        'name': 'Taper',
+                        'image_url': f'{BASE_IMAGE_URL}oblong/Taper.jpg',
+                        'description': 'Gradual length reduction'
+                    }
+                ]
+            }
         }
         
         self.styling_tips = {
             'Round': 'Create height and volume at the crown. Avoid blunt cuts at chin level.',
             'Oval': 'Your face shape is very versatile! Most styles will look great on you.',
-            'Long': 'Add width at the sides and avoid excessive height. Horizontal lines work well.',
+            'Oblong': 'Add width at the sides and avoid excessive height. Horizontal lines work well.',
             'Square': 'Soften angles with layers and waves. Side parts work better than center.',
-            'Heart': 'Balance your wider forehead with volume at the chin level.',
-            'Diamond': 'Emphasize your beautiful cheekbones and balance the narrow forehead and chin.'
+            'Heart': 'Balance your wider forehead with volume at the chin level.'
         }
+
+        self._load_face_shape_model()
+
+    def _load_face_shape_model(self) -> None:
+        """Load trained .h5 face shape model if available."""
+        if not os.path.exists(self.model_path):
+            logger.warning('Face shape model not found at %s. Using rule-based fallback.', self.model_path)
+            return
+
+        try:
+            keras_models = importlib.import_module('tensorflow.keras.models')
+            load_model = getattr(keras_models, 'load_model')
+            self.face_shape_model = load_model(self.model_path)
+            logger.info('Loaded face shape model from %s', self.model_path)
+        except Exception as e:
+            logger.warning('Unable to load face shape model (%s). Using rule-based fallback.', str(e))
+            self.face_shape_model = None
+
+    def predict_face_shape_with_model(self, image: np.ndarray, landmarks: Dict) -> Optional[str]:
+        """
+        Predict face shape using the trained .h5 model.
+
+        Returns None when model is unavailable or prediction fails.
+        """
+        if self.face_shape_model is None:
+            return None
+
+        try:
+            x, y, w, h = landmarks['face_box']
+            img_h, img_w = image.shape[:2]
+
+            x = max(0, x)
+            y = max(0, y)
+            w = min(w, img_w - x)
+            h = min(h, img_h - y)
+
+            if w <= 0 or h <= 0:
+                return None
+
+            face_crop = image[y:y + h, x:x + w]
+            if face_crop.size == 0:
+                return None
+
+            # Match common classifier preprocessing: RGB, resized, normalized [0, 1].
+            face_rgb = cv2.cvtColor(face_crop, cv2.COLOR_BGR2RGB)
+            face_resized = cv2.resize(face_rgb, (224, 224), interpolation=cv2.INTER_AREA)
+            model_input = face_resized.astype(np.float32) / 255.0
+            model_input = np.expand_dims(model_input, axis=0)
+
+            prediction = self.face_shape_model.predict(model_input, verbose=0)
+            prediction = np.asarray(prediction)
+
+            if prediction.ndim == 2 and prediction.shape[1] >= len(self.face_shape_labels):
+                class_idx = int(np.argmax(prediction[0][:len(self.face_shape_labels)]))
+                return self.face_shape_labels[class_idx]
+
+            return None
+        except Exception as e:
+            logger.warning('Model prediction failed (%s). Falling back to rule-based classification.', str(e))
+            return None
     
     def calculate_distance(self, point1: Tuple[float, float], point2: Tuple[float, float]) -> float:
         """
@@ -232,11 +491,11 @@ class FaceShapeAnalyzer:
             return 'Oval'
         elif ratio >= 1.3:
             # Significantly longer than wide
-            return 'Long'
+            return 'Oblong'
         
         return 'Oval'  # Default to oval
     
-    def get_hairstyle_recommendations(self, face_shape: str) -> List[str]:
+    def get_hairstyle_recommendations(self, face_shape: str) -> Dict[str, List[Dict[str, str]]]:
         """
         Get hairstyle recommendations for given face shape
         
@@ -244,7 +503,7 @@ class FaceShapeAnalyzer:
             face_shape: Classified face shape
             
         Returns:
-            List of recommended hairstyles
+            Dictionary with primary and secondary hairstyle recommendations
         """
         return self.hairstyle_recommendations.get(face_shape, self.hairstyle_recommendations['Oval'])
     
@@ -283,19 +542,33 @@ class FaceShapeAnalyzer:
             # Calculate measurements
             measurements = self.calculate_face_measurements(landmarks)
             
-            # Classify face shape
-            face_shape = self.classify_face_shape(measurements)
+            # Prefer trained model prediction, fallback to rule-based classification.
+            model_face_shape = self.predict_face_shape_with_model(image, landmarks)
+            if model_face_shape is not None:
+                face_shape = model_face_shape
+                prediction_source = 'model'
+            else:
+                face_shape = self.classify_face_shape(measurements)
+                prediction_source = 'rule_based'
             
             # Get recommendations
-            hairstyles = self.get_hairstyle_recommendations(face_shape)
+            hairstyle_recommendations = self.get_hairstyle_recommendations(face_shape)
             tips = self.get_styling_tips(face_shape)
+
+            # Backward-compatible flat list for older clients (string-only names).
+            flat_recommendations = [
+                item.get('name', 'Recommended Style')
+                for item in (hairstyle_recommendations['primary'] + hairstyle_recommendations['secondary'])
+            ]
             
             return {
                 'success': True,
                 'data': {
                     'face_shape': face_shape,
+                    'prediction_source': prediction_source,
                     'face_measurements': measurements,
-                    'recommended_hairstyles': hairstyles,
+                    'recommended_hairstyles': flat_recommendations,
+                    'hairstyle_recommendations': hairstyle_recommendations,
                     'tips': tips
                 }
             }

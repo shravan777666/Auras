@@ -77,6 +77,17 @@ setup.bat
 
 2. The service will be available at `http://localhost:5001`
 
+## Render Deployment
+
+Use these settings for a Render Python web service with `ml-service` as the root directory:
+
+- Build command: `pip install -r requirements.txt`
+- Start command: `gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120`
+
+If the service was created from Render's placeholder template and still runs
+`gunicorn your_application.wsgi`, this repository now includes a compatibility
+WSGI module at `your_application/wsgi.py` so the service can still boot.
+
 ## API Documentation
 
 For complete API documentation with standardized request/response formats, see [API.md](API.md).

@@ -121,8 +121,20 @@ ml-service/__pycache__/
 ml-service/*.pyc
 ml-service/venv/
 ml-service/.venv/
+ml-service/model/
 ml-service/*.pkl
 ml-service/*.h5
 ml-service/*.pt
 ml-service/logs/
 ml-service/.pytest_cache/
+
+# Local planning/temporary docs
+ACTION_ITEMS.md
+CUSTOM_SERVICE_FEATURE.md
+GOOGLE_OAUTH_CHECKLIST.md
+GOOGLE_OAUTH_FIX.md
+OAUTH_FLOW_DIAGRAM.md
+QUICK_GOOGLE_OAUTH_FIX.md
+
+# Mobile app kept out of this commit scope
+aura_mobile/

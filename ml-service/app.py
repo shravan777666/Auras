@@ -22,6 +22,51 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
+
+def normalize_face_shape_response(result):
+    """
+    Ensure legacy-safe response shape for hosted frontends.
+
+    Older clients expect `recommended_hairstyles` to be a list of strings.
+    """
+    if not isinstance(result, dict):
+        return result
+
+    if not result.get('success'):
+        return result
+
+    data = result.get('data')
+    if not isinstance(data, dict):
+        return result
+
+    recommendations = data.get('recommended_hairstyles')
+
+    if isinstance(recommendations, list):
+        normalized_list = []
+        for item in recommendations:
+            if isinstance(item, dict):
+                normalized_list.append(item.get('name', 'Recommended Style'))
+            else:
+                normalized_list.append(str(item))
+        data['recommended_hairstyles'] = normalized_list
+        return result
+
+    structured = data.get('hairstyle_recommendations')
+    if isinstance(structured, dict):
+        primary = structured.get('primary', []) if isinstance(structured.get('primary'), list) else []
+        secondary = structured.get('secondary', []) if isinstance(structured.get('secondary'), list) else []
+
+        normalized_list = []
+        for item in primary + secondary:
+            if isinstance(item, dict):
+                normalized_list.append(item.get('name', 'Recommended Style'))
+            else:
+                normalized_list.append(str(item))
+
+        data['recommended_hairstyles'] = normalized_list
+
+    return result
+
 # Load the trained models and feature lists
 try:
     logger.info("Loading revenue prediction model...")
@@ -446,6 +491,7 @@ def analyze_face_shape():
         
         # Analyze face
         result = analyzer.analyze_face(image)
+        result = normalize_face_shape_response(result)
         
         if result['success']:
             logger.info(f'Face analysis successful: {result["data"]["face_shape"]}')

@@ -12,7 +12,7 @@ def get_google_drive_download_url(sharing_link):
     Convert a Google Drive sharing link to a direct download URL
     
     Args:
-        sharing_link: Google Drive sharing link (e.g., https://drive.google.com/file/d/FILE_ID/view?usp=sharing)
+        sharing_link: Google Drive sharing link (e.g., https://drive.google.com/file/d/1JOxC0W0rr03CWeb0m3dUxEyzma1kUA0l/view?usp=sharing)
         
     Returns:
         Direct download URL
