@@ -227,32 +227,47 @@ export const login = async (req, res) => {
     console.log('Request headers:', req.headers);
     
     const { email, password } = req.body;
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : email;
     console.log('Login attempt:', { email, password: password ? '[PROVIDED]' : '[MISSING]' });
 
-    if (!email || !password) {
+    if (!normalizedEmail || !password) {
       console.log('❌ Missing email or password');
       return errorResponse(res, 'Email and password are required', 400);
     }
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      console.log('❌ Invalid email format:', email);
+    if (!emailRegex.test(normalizedEmail)) {
+      console.log('❌ Invalid email format:', normalizedEmail);
       return errorResponse(res, 'Invalid email format', 400);
     }
 
     // Find user by email first to determine their role
-    const user = await User.findOne({ email, isActive: true }).select('+password');
+    const user = await User.findOne({ email: normalizedEmail, isActive: true }).select('+password');
     
     if (!user) {
-      console.log('❌ User not found with email:', email);
+      console.log('❌ User not found with email:', normalizedEmail);
       return errorResponse(res, 'No user found with provided credentials.', 401);
     }
 
+    // Users created with Google OAuth may not have a local password.
+    if (!user.password) {
+      if (user.provider === 'google' || user.googleId) {
+        return errorResponse(res, 'This account uses Google sign-in. Please continue with Google.', 400);
+      }
+      return errorResponse(res, 'Account password is not configured. Please reset your password.', 400);
+    }
+
     // Check password
-    const isMatch = await bcrypt.compare(password, user.password);
+    let isMatch = false;
+    try {
+      isMatch = await bcrypt.compare(password, user.password);
+    } catch (compareError) {
+      console.error('❌ Password comparison failed:', compareError);
+      return errorResponse(res, 'Unable to verify credentials. Please reset your password.', 400);
+    }
     if (!isMatch) {
-      console.log('❌ Password mismatch for user:', email);
+      console.log('❌ Password mismatch for user:', normalizedEmail);
       return errorResponse(res, 'Incorrect password.', 401);
     }
 
@@ -428,7 +443,7 @@ export const googleCallback = async (req, res) => {
     if (!user) {
       console.log('❌ No user found in request');
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3008';
-      const errorUrl = `${frontendUrl}/auth/callback?error=oauth_failed`;
+      const errorUrl = `${frontendUrl}/?error=oauth_failed`;
       console.log('Redirecting to error URL:', errorUrl);
       return res.redirect(errorUrl);
     }
@@ -439,7 +454,7 @@ export const googleCallback = async (req, res) => {
       console.log('❌ User not found in database:', user.email);
       // If user doesn't exist in our database, we can't authenticate them
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3008';
-      const errorUrl = `${frontendUrl}/auth/callback?error=user_not_found`;
+      const errorUrl = `${frontendUrl}/?error=user_not_found`;
       console.log('Redirecting to error URL:', errorUrl);
       return res.redirect(errorUrl);
     }
@@ -466,12 +481,13 @@ export const googleCallback = async (req, res) => {
       userData: userData
     });
     
-    // Redirect to frontend OAuth callback with token and user info
+    // Redirect to frontend root with OAuth query params.
+    // The SPA then routes internally to /auth/callback, avoiding static-host deep-link 404s.
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3008';
     
     // Create a simpler redirect URL without complex query parameters
     // This should help avoid issues with URL encoding and routing
-    const redirectUrl = `${frontendUrl}/auth/callback?token=${token}&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name)}&type=${user.type}&setupCompleted=${user.setupCompleted}`;
+    const redirectUrl = `${frontendUrl}/?token=${token}&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name)}&type=${user.type}&setupCompleted=${user.setupCompleted}`;
     
     console.log('Redirecting to frontend callback URL:', redirectUrl);
     res.redirect(redirectUrl);
@@ -479,7 +495,7 @@ export const googleCallback = async (req, res) => {
   } catch (error) {
     console.error('Google OAuth callback error:', error);
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3008';
-    const errorUrl = `${frontendUrl}/auth/callback?error=oauth_error&message=${encodeURIComponent(error.message)}`;
+    const errorUrl = `${frontendUrl}/?error=oauth_error&message=${encodeURIComponent(error.message)}`;
     console.log('Redirecting to error URL:', errorUrl);
     return res.redirect(errorUrl);
   }
@@ -495,7 +511,7 @@ export const googleFailure = (req, res) => {
   });
   
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3008';
-  const errorUrl = `${frontendUrl}/auth/callback?error=oauth_cancelled`;
+  const errorUrl = `${frontendUrl}/?error=oauth_cancelled`;
   console.log('Redirecting to error URL:', errorUrl);
   return res.redirect(errorUrl);
 };

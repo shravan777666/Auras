@@ -67,7 +67,7 @@ const AddonDashboard = () => {
                   </option>
                 ))}
               </select>
-              
+
               {selectedSalonId && (
                 <button
                   onClick={() => setSelectedSalonId(null)}

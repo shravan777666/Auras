@@ -1,5 +1,5 @@
 import React, { Suspense } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
 import LoadingSpinner from './components/common/LoadingSpinner'
 import ErrorBoundary from './components/common/ErrorBoundary'
@@ -194,10 +194,38 @@ const SetupRequiredRoute = ({ children, setupPath }) => {
   return children
 }
 
+const OAuthQueryRedirect = () => {
+  const location = useLocation()
+  const navigate = useNavigate()
+
+  React.useEffect(() => {
+    if (location.pathname === '/auth/callback' || !location.search) {
+      return
+    }
+
+    const params = new URLSearchParams(location.search)
+    const hasOAuthParams =
+      params.has('token') ||
+      params.has('error') ||
+      params.has('message') ||
+      params.has('email') ||
+      params.has('type')
+
+    if (!hasOAuthParams) {
+      return
+    }
+
+    navigate(`/auth/callback${location.search}`, { replace: true })
+  }, [location.pathname, location.search, navigate])
+
+  return null
+}
+
 function App() {
   return (
     <div className="min-h-screen bg-gray-50">
       <ErrorBoundary>
+      <OAuthQueryRedirect />
       <Suspense fallback={<LoadingSpinner />}>
         <Routes>
           {/* Public Routes */}
