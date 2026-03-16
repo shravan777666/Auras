@@ -111,7 +111,7 @@ export const getDashboard = asyncHandler(async (req, res) => {
       Appointment.countDocuments({ customerId }),
       Appointment.countDocuments({ 
         customerId,
-        status: { $in: ['Pending', 'Confirmed'] },
+        status: { $in: ['Pending', 'Approved', 'Confirmed'] },
         appointmentDate: { $gte: new Date() }
       }),
       Appointment.countDocuments({ customerId, status: 'Completed' }),
@@ -692,7 +692,16 @@ export const getBookings = asyncHandler(async (req, res) => {
   const filter = { customerId };
 
   if (req.query.status) {
-    filter.status = req.query.status;
+    const requestedStatuses = String(req.query.status)
+      .split(',')
+      .map((status) => status.trim())
+      .filter(Boolean);
+
+    if (requestedStatuses.length > 1) {
+      filter.status = { $in: requestedStatuses };
+    } else if (requestedStatuses.length === 1) {
+      filter.status = requestedStatuses[0];
+    }
   }
 
   const [bookings, totalBookings] = await Promise.all([

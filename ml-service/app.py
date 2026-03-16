@@ -581,6 +581,38 @@ def serve_video(filename):
             'message': f'Video file not found: {filename}'
         }), 404
 
+@app.route('/static/hairstyles/<face_shape>/<filename>', methods=['GET'])
+def serve_hairstyle_image(face_shape, filename):
+    """
+    Serve hairstyle image files from static/hairstyles folder
+    """
+    try:
+        hairstyles_dir = os.path.join(os.path.dirname(__file__), 'static', 'hairstyles', face_shape)
+        logger.info(f'Serving hairstyle image: {face_shape}/{filename}')
+        return send_from_directory(hairstyles_dir, filename)
+    except Exception as e:
+        logger.error(f'Error serving hairstyle image: {str(e)}')
+        return jsonify({
+            'success': False,
+            'message': f'Hairstyle image not found: {face_shape}/{filename}'
+        }), 404
+
+@app.route('/static/hairstyles/<filename>', methods=['GET'])
+def serve_hairstyle_image_direct(filename):
+    """
+    Serve hairstyle image files directly from static/hairstyles folder
+    """
+    try:
+        hairstyles_dir = os.path.join(os.path.dirname(__file__), 'static', 'hairstyles')
+        logger.info(f'Serving hairstyle image: {filename}')
+        return send_from_directory(hairstyles_dir, filename)
+    except Exception as e:
+        logger.error(f'Error serving hairstyle image: {str(e)}')
+        return jsonify({
+            'success': False,
+            'message': f'Hairstyle image not found: {filename}'
+        }), 404
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     app.run(host='0.0.0.0', port=port, debug=os.environ.get('FLASK_DEBUG', '0') == '1')

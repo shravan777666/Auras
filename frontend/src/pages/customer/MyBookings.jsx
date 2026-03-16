@@ -251,6 +251,8 @@ const MyBookings = () => {
 
   const getStatusIcon = (status) => {
     switch (status?.toLowerCase()) {
+      case 'approved':
+        return <CheckCircle className="h-5 w-5 text-blue-500" />;
       case 'confirmed':
         return <CheckCircle className="h-5 w-5 text-green-500" />;
       case 'pending':
@@ -266,6 +268,8 @@ const MyBookings = () => {
 
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
+      case 'approved':
+        return 'bg-blue-100 text-blue-800';
       case 'confirmed':
         return 'bg-green-100 text-green-800';
       case 'pending':

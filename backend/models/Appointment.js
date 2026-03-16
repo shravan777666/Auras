@@ -21,6 +21,20 @@ const AppointmentSchema = new mongoose.Schema(
         duration: { type: Number, required: true }
       }
     ],
+    products: [
+      {
+        productId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'Product',
+          required: true
+        },
+        productName: { type: String, required: true },
+        unitPrice: { type: Number, required: true },
+        quantity: { type: Number, required: true, min: 1 },
+        subtotal: { type: Number, required: true, min: 0 }
+      }
+    ],
+    productsStockDeducted: { type: Boolean, default: false },
     appointmentDate: { 
       type: String, 
       required: true,

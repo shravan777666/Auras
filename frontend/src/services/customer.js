@@ -37,7 +37,10 @@ export const customerService = {
     return response.data;
   },
   async getPendingAppointments(params = {}) {
-    const queryParams = new URLSearchParams({ ...params, status: 'Pending' }).toString();
+    const queryParams = new URLSearchParams({
+      ...params,
+      status: 'Pending,Approved,Confirmed'
+    }).toString();
     const response = await api.get(`/customer/bookings${queryParams ? `?${queryParams}` : ''}`);
     return response.data;
   },

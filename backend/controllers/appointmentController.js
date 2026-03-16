@@ -4,6 +4,7 @@ import Service from '../models/Service.js';
 import Salon from '../models/Salon.js';
 import Staff from '../models/Staff.js';
 import Customer from '../models/Customer.js';
+import Product from '../models/Product.js';
 import { sendAppointmentConfirmation } from '../utils/email.js';
 import { 
   successResponse, 
@@ -56,6 +57,7 @@ export const bookAppointment = asyncHandler(async (req, res) => {
       staffId,
       customerNotes,
       specialRequests,
+      products = [],
       pointsToRedeem,
       discountAmount,
       homeServiceAddress,
@@ -132,6 +134,11 @@ export const bookAppointment = asyncHandler(async (req, res) => {
     let serviceDetails = [];
     let totalDuration = 0;
     let totalAmount = 0;
+    let productDetails = [];
+
+    if (!Array.isArray(products)) {
+      return errorResponse(res, 'Products must be an array', 400);
+    }
 
     if (salonId) {
       // Separate regular services from offers
@@ -189,7 +196,74 @@ export const bookAppointment = asyncHandler(async (req, res) => {
           isOffer: true
         });
       }
+
+      if (products.length > 0) {
+        const normalizedProducts = products
+          .map((item) => ({
+            productId: item?.productId,
+            quantity: Number(item?.quantity || 0)
+          }))
+          .filter((item) => item.productId && item.quantity > 0);
+
+        if (normalizedProducts.length !== products.length) {
+          return errorResponse(res, 'Invalid product selection in booking request', 400);
+        }
+
+        const requestedProductIds = normalizedProducts.map((item) => item.productId);
+        const productRecords = await Product.find({
+          _id: { $in: requestedProductIds },
+          salonId,
+          isActive: { $ne: false },
+          quantity: { $gt: 0 }
+        });
+
+        if (productRecords.length !== normalizedProducts.length) {
+          return errorResponse(res, 'Some selected products are unavailable', 400);
+        }
+
+        for (const selectedProduct of normalizedProducts) {
+          const productRecord = productRecords.find((product) => product._id.toString() === selectedProduct.productId);
+
+          if (!productRecord) {
+            return errorResponse(res, 'Some selected products are unavailable', 400);
+          }
+
+          if (productRecord.quantity < selectedProduct.quantity) {
+            return errorResponse(
+              res,
+              `Insufficient stock for ${productRecord.name}. Only ${productRecord.quantity} item(s) left.`,
+              400
+            );
+          }
+
+          const unitPrice = (
+            productRecord.hasOffer === true
+            && productRecord.discountedPrice !== undefined
+            && productRecord.discountedPrice !== null
+            && Number(productRecord.discountedPrice) > 0
+            && Number(productRecord.discountedPrice) < Number(productRecord.price)
+          )
+            ? Number(productRecord.discountedPrice)
+            : Number(productRecord.price);
+
+          const subtotal = unitPrice * selectedProduct.quantity;
+
+          productDetails.push({
+            productId: productRecord._id,
+            productName: productRecord.name,
+            unitPrice,
+            quantity: selectedProduct.quantity,
+            subtotal
+          });
+
+          totalAmount += subtotal;
+        }
+      }
     } else {
+      if (products.length > 0) {
+        return errorResponse(res, 'Product purchases are only available for salon bookings', 400);
+      }
+
       // For freelancers, services are actually skills with pricing from the frontend
       // The serviceId will be like "skill_xxx_0" which is not a MongoDB ObjectId
       // So we don't include serviceId in the serviceDetails for freelancer appointments
@@ -355,6 +429,7 @@ export const bookAppointment = asyncHandler(async (req, res) => {
       ...(freelancerId ? { freelancerId } : {}),
       staffId,
       services: serviceDetails,
+      products: productDetails,
       appointmentDate: formattedAppointmentDate,
       appointmentTime,
       estimatedDuration: totalDuration,
@@ -434,7 +509,8 @@ export const bookAppointment = asyncHandler(async (req, res) => {
       .populate('salonId', 'salonName salonAddress contactNumber')
       .populate('freelancerId', 'name email phone serviceLocation address')
       .populate('staffId', 'name skills')
-      .populate('services.serviceId', 'name category');
+      .populate('services.serviceId', 'name category')
+      .populate('products.productId', 'name category');
 
     console.log('✅ Appointment booked successfully:', {
       appointmentId: populatedAppointment._id,

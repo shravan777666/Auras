@@ -145,18 +145,26 @@ const StatCard = ({ title, value, icon, color, unit = '', onClick }) => {
 };
 
 // Quick Action Button Component
-const ActionButton = ({ title, icon, onClick }) => {
+const ActionButton = ({ title, icon, onClick, highlight = false, badgeCount = 0 }) => {
   const Icon = icon;
   return (
     <button 
       onClick={onClick}
-      className="w-full flex items-center justify-between p-4 bg-white rounded-xl shadow-md hover:bg-gray-50 transform hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
+      className={`w-full flex items-center justify-between p-4 rounded-xl transform hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 ${highlight
+        ? 'bg-amber-50 border-2 border-amber-400 shadow-lg animate-pulse'
+        : 'bg-white shadow-md hover:bg-gray-50'
+      }`}
     >
       <div className="flex items-center">
-        <Icon className="h-5 w-5 text-primary-600 mr-4" />
-        <span className="text-lg font-semibold text-gray-700">{title}</span>
+        <Icon className={`h-5 w-5 mr-4 ${highlight ? 'text-amber-700' : 'text-primary-600'}`} />
+        <span className={`text-lg font-semibold ${highlight ? 'text-amber-900' : 'text-gray-700'}`}>{title}</span>
+        {badgeCount > 0 && (
+          <span className="ml-3 inline-flex min-w-[1.75rem] justify-center items-center rounded-full bg-red-600 text-white text-xs font-bold px-2 py-1">
+            {badgeCount}
+          </span>
+        )}
       </div>
-      <ChevronRight className="h-5 w-5 text-gray-400" />
+      <ChevronRight className={`h-5 w-5 ${highlight ? 'text-amber-600' : 'text-gray-400'}`} />
     </button>
   );
 };
@@ -181,6 +189,8 @@ const AdminDashboard = () => {
   const [showDocumentModal, setShowDocumentModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [pendingApprovalsCount, setPendingApprovalsCount] = useState(0);
+  const [hasShownPendingApprovalsAlert, setHasShownPendingApprovalsAlert] = useState(false);
   const [salons, setSalons] = useState([]);
   const [selectedSalonId, setSelectedSalonId] = useState(null);
   const [loadingSalons, setLoadingSalons] = useState(true);
@@ -188,19 +198,28 @@ const AdminDashboard = () => {
   useEffect(() => {
     fetchDashboardStats();
     fetchPendingStaffCount();
+    fetchPendingApprovalsCount();
     fetchSalons(); // Add this to fetch salons when component mounts
 
     // Listen for salon approval events to refresh stats in real-time
     const handleSalonApproved = () => {
       console.log('Salon approved event received, refreshing dashboard stats...');
       fetchDashboardStats();
+      fetchPendingApprovalsCount();
+    };
+
+    const handleFreelancerApproved = () => {
+      console.log('Freelancer approved event received, refreshing pending approvals count...');
+      fetchPendingApprovalsCount();
     };
 
     window.addEventListener('salonApproved', handleSalonApproved);
+    window.addEventListener('freelancerApproved', handleFreelancerApproved);
 
     // Cleanup event listener on component unmount
     return () => {
       window.removeEventListener('salonApproved', handleSalonApproved);
+      window.removeEventListener('freelancerApproved', handleFreelancerApproved);
     };
   }, []);
 
@@ -312,6 +331,56 @@ const AdminDashboard = () => {
       setPendingStaffCount(0);
     }
   };
+
+  const fetchPendingApprovalsCount = async () => {
+    try {
+      const [pendingSalonsResponse, pendingFreelancers] = await Promise.all([
+        adminService.getPendingSalons(),
+        adminService.getPendingFreelancers()
+      ]);
+
+      const pendingSalons = pendingSalonsResponse?.data?.salons
+        || pendingSalonsResponse?.salons
+        || (Array.isArray(pendingSalonsResponse) ? pendingSalonsResponse : []);
+
+      const salonsCount = Array.isArray(pendingSalons) ? pendingSalons.length : 0;
+      const freelancersCount = Array.isArray(pendingFreelancers) ? pendingFreelancers.length : 0;
+      setPendingApprovalsCount(salonsCount + freelancersCount);
+    } catch (error) {
+      console.error('Error fetching pending approvals count:', error);
+      setPendingApprovalsCount(0);
+    }
+  };
+
+  useEffect(() => {
+    if (pendingApprovalsCount === 0) {
+      setHasShownPendingApprovalsAlert(false);
+      return;
+    }
+
+    if (pendingApprovalsCount > 0 && !hasShownPendingApprovalsAlert) {
+      toast((t) => (
+        <div className="flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
+          <div>
+            <p className="font-semibold text-gray-900">Pending approvals need attention</p>
+            <p className="text-sm text-gray-700">{pendingApprovalsCount} approval(s) remaining.</p>
+            <button
+              onClick={() => {
+                toast.dismiss(t.id);
+                navigate('/admin/pending-approvals');
+              }}
+              className="mt-2 text-sm font-semibold text-blue-600 hover:text-blue-700"
+            >
+              Open Pending Approvals
+            </button>
+          </div>
+        </div>
+      ), { duration: 7000, id: 'pending-approvals-alert' });
+
+      setHasShownPendingApprovalsAlert(true);
+    }
+  }, [pendingApprovalsCount, hasShownPendingApprovalsAlert, navigate]);
 
   const fetchPendingStaff = async (retryCount = 0) => {
     try {
@@ -579,6 +648,8 @@ const AdminDashboard = () => {
             <ActionButton 
               title="Pending Approvals" 
               icon={Store} 
+              highlight={pendingApprovalsCount > 0}
+              badgeCount={pendingApprovalsCount}
               onClick={() => navigate('/admin/pending-approvals')} 
             />
             <ActionButton title="Manage Salons" icon={Store} onClick={() => navigate('/admin/salons')} />

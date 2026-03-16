@@ -28,6 +28,24 @@ export const createProduct = asyncHandler(async (req, res) => {
     salonId
   };
 
+  const priceValue = Number(productData.price);
+  const hasDiscountedPriceInput = Object.prototype.hasOwnProperty.call(productData, 'discountedPrice')
+    && productData.discountedPrice !== ''
+    && productData.discountedPrice !== null
+    && productData.discountedPrice !== undefined;
+  const discountedPriceValue = hasDiscountedPriceInput ? Number(productData.discountedPrice) : NaN;
+  const hasValidOffer = Number.isFinite(priceValue)
+    && Number.isFinite(discountedPriceValue)
+    && discountedPriceValue > 0
+    && discountedPriceValue < priceValue;
+
+  productData.hasOffer = hasValidOffer;
+  if (!hasValidOffer) {
+    delete productData.discountedPrice;
+  } else {
+    productData.discountedPrice = discountedPriceValue;
+  }
+
   // Handle ingredients array if it comes as a stringified JSON
   if (productData.ingredients && typeof productData.ingredients === 'string') {
     try {
@@ -162,6 +180,32 @@ export const updateProduct = asyncHandler(async (req, res) => {
   delete updates.totalSales;
   delete updates.rating;
 
+  const hasPriceUpdate = Object.prototype.hasOwnProperty.call(updates, 'price');
+  const hasDiscountedPriceUpdate = Object.prototype.hasOwnProperty.call(updates, 'discountedPrice');
+
+  const nextPrice = hasPriceUpdate ? Number(updates.price) : Number(product.price);
+  let nextDiscountedPrice = hasDiscountedPriceUpdate ? updates.discountedPrice : product.discountedPrice;
+
+  if (hasDiscountedPriceUpdate && (nextDiscountedPrice === '' || nextDiscountedPrice === null)) {
+    nextDiscountedPrice = undefined;
+  }
+
+  const normalizedDiscountedPrice = nextDiscountedPrice === undefined
+    ? undefined
+    : Number(nextDiscountedPrice);
+
+  const hasValidOffer = Number.isFinite(nextPrice)
+    && Number.isFinite(normalizedDiscountedPrice)
+    && normalizedDiscountedPrice > 0
+    && normalizedDiscountedPrice < nextPrice;
+
+  updates.hasOffer = hasValidOffer;
+  if (hasValidOffer) {
+    updates.discountedPrice = normalizedDiscountedPrice;
+  } else {
+    updates.discountedPrice = undefined;
+  }
+
   // Handle ingredients array if it comes as a stringified JSON
   if (updates.ingredients && typeof updates.ingredients === 'string') {
     try {
@@ -246,7 +290,7 @@ export const getRecommendedProducts = asyncHandler(async (req, res) => {
     
     // Find products from the same salon that are related to the service
     // This could be based on category, keywords, or other logic
-    const filter = { salonId, isActive: { $ne: false } }; // Only active products
+    const filter = { salonId, isActive: { $ne: false }, quantity: { $gt: 0 } }; // Only active in-stock products
     
     // Define category mappings for better recommendations
     const serviceCategoryMap = {

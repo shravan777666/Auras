@@ -2,6 +2,7 @@ import Razorpay from 'razorpay';
 import Appointment from '../models/Appointment.js';
 import Customer from '../models/Customer.js';
 import Revenue from '../models/Revenue.js';
+import Product from '../models/Product.js';
 import crypto from 'crypto'; // Import crypto directly
 import { 
   successResponse, 
@@ -82,6 +83,30 @@ export const createPaymentOrder = asyncHandler(async (req, res) => {
       return errorResponse(res, 'Appointment is already confirmed and paid', 400);
     }
 
+    if (appointment.products && appointment.products.length > 0 && appointment.salonId) {
+      const productIds = appointment.products.map((line) => line.productId).filter(Boolean);
+      const productRecords = await Product.find({
+        _id: { $in: productIds },
+        salonId: appointment.salonId._id || appointment.salonId,
+        isActive: { $ne: false },
+        quantity: { $gt: 0 }
+      });
+
+      for (const line of appointment.products) {
+        const productRecord = productRecords.find(
+          (product) => product._id.toString() === line.productId.toString()
+        );
+
+        if (!productRecord || productRecord.quantity < Number(line.quantity || 0)) {
+          return errorResponse(
+            res,
+            `Insufficient stock for ${line.productName || 'a selected product'}. Please refresh your booking.`,
+            409
+          );
+        }
+      }
+    }
+
     // Validate finalAmount
     if (!appointment.finalAmount || appointment.finalAmount <= 0) {
       console.error('Invalid appointment amount:', appointment.finalAmount);
@@ -103,6 +128,7 @@ export const createPaymentOrder = asyncHandler(async (req, res) => {
     console.log('Razorpay order created successfully:', order.id);
 
     return successResponse(res, {
+      keyId: process.env.RAZORPAY_KEY_ID,
       orderId: order.id,
       amount: order.amount,
       currency: order.currency,
@@ -191,6 +217,14 @@ export const verifyPayment = asyncHandler(async (req, res) => {
       return errorResponse(res, 'Appointment not found', 404);
     }
 
+    if (appointment.paymentStatus === 'Paid') {
+      return successResponse(res, {
+        appointmentId: appointment._id,
+        paymentId: appointment.paymentId,
+        amount: appointment.finalAmount
+      }, 'Payment already verified for this appointment');
+    }
+
     console.log('Appointment found:', {
       id: appointment._id,
       customerId: appointment.customerId?._id,
@@ -214,9 +248,56 @@ export const verifyPayment = asyncHandler(async (req, res) => {
       return errorResponse(res, 'Incomplete appointment data', 500);
     }
 
+    // Deduct stock for purchased products when payment is successful.
+    if (appointment.products && appointment.products.length > 0 && appointment.salonId) {
+      const deductedProducts = [];
+
+      for (const line of appointment.products) {
+        const requestedQuantity = Number(line.quantity || 0);
+        if (!line.productId || requestedQuantity <= 0) {
+          continue;
+        }
+
+        const updatedProduct = await Product.findOneAndUpdate(
+          {
+            _id: line.productId,
+            salonId: appointment.salonId._id || appointment.salonId,
+            isActive: { $ne: false },
+            quantity: { $gte: requestedQuantity }
+          },
+          {
+            $inc: { quantity: -requestedQuantity }
+          },
+          { new: true }
+        );
+
+        if (!updatedProduct) {
+          // Compensate previously deducted products before returning.
+          for (const deducted of deductedProducts) {
+            await Product.updateOne(
+              { _id: deducted.productId },
+              { $inc: { quantity: deducted.quantity } }
+            );
+          }
+
+          return errorResponse(
+            res,
+            `Product stock changed for ${line.productName || 'a selected product'}. Please refresh and book again.`,
+            409
+          );
+        }
+
+        deductedProducts.push({
+          productId: line.productId,
+          quantity: requestedQuantity
+        });
+      }
+    }
+
     // Update payment status to paid but keep appointment status as 'Pending' for manual approval
     appointment.paymentStatus = 'Paid';
     appointment.paymentId = razorpay_payment_id;
+    appointment.productsStockDeducted = true;
     await appointment.save();
 
     console.log('Appointment updated successfully');

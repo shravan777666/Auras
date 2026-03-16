@@ -13,6 +13,7 @@ const ProductSchema = new mongoose.Schema(
     description: { type: String },
     price: { type: Number, required: true },
     discountedPrice: { type: Number },
+    hasOffer: { type: Boolean, default: false },
     brand: { type: String },
     quantity: { type: Number, default: 0 },
     sku: { type: String },

@@ -10,6 +10,7 @@ const AddProductModal = ({ isOpen, onClose, onProductAdded, onProductUpdated, pr
     brand: '',
     description: '',
     price: '',
+    hasOffer: false,
     discountedPrice: '',
     quantity: '',
     sku: '',
@@ -32,6 +33,10 @@ const AddProductModal = ({ isOpen, onClose, onProductAdded, onProductUpdated, pr
         brand: productToEdit.brand || '',
         description: productToEdit.description || '',
         price: productToEdit.price || '',
+        hasOffer: Boolean(
+          productToEdit.hasOffer ||
+          (productToEdit.discountedPrice && productToEdit.discountedPrice < productToEdit.price)
+        ),
         discountedPrice: productToEdit.discountedPrice || '',
         quantity: productToEdit.quantity || '',
         sku: productToEdit.sku || '',
@@ -49,6 +54,7 @@ const AddProductModal = ({ isOpen, onClose, onProductAdded, onProductUpdated, pr
         brand: '',
         description: '',
         price: '',
+        hasOffer: false,
         discountedPrice: '',
         quantity: '',
         sku: '',
@@ -96,6 +102,23 @@ const AddProductModal = ({ isOpen, onClose, onProductAdded, onProductUpdated, pr
         return;
       }
 
+      const price = parseFloat(formData.price);
+      const discountedPrice = formData.discountedPrice ? parseFloat(formData.discountedPrice) : null;
+
+      if (formData.hasOffer) {
+        if (!discountedPrice || Number.isNaN(discountedPrice)) {
+          toast.error('Please enter an offer price when offer is enabled');
+          setLoading(false);
+          return;
+        }
+
+        if (discountedPrice >= price) {
+          toast.error('Offer price must be lower than the regular price');
+          setLoading(false);
+          return;
+        }
+      }
+
       // Create FormData for file uploads
       const formDataToSend = new FormData();
       
@@ -104,9 +127,12 @@ const AddProductModal = ({ isOpen, onClose, onProductAdded, onProductUpdated, pr
       formDataToSend.append('name', formData.name);
       formDataToSend.append('brand', formData.brand);
       formDataToSend.append('description', formData.description);
-      formDataToSend.append('price', parseFloat(formData.price));
-      if (formData.discountedPrice) {
-        formDataToSend.append('discountedPrice', parseFloat(formData.discountedPrice));
+      formDataToSend.append('price', price);
+      formDataToSend.append('hasOffer', String(Boolean(formData.hasOffer)));
+      if (formData.hasOffer && discountedPrice) {
+        formDataToSend.append('discountedPrice', discountedPrice);
+      } else {
+        formDataToSend.append('discountedPrice', '');
       }
       formDataToSend.append('quantity', parseInt(formData.quantity) || 0);
       formDataToSend.append('sku', formData.sku);
@@ -271,8 +297,25 @@ const AddProductModal = ({ isOpen, onClose, onProductAdded, onProductUpdated, pr
               />
             </div>
             <div>
+              <label className="inline-flex items-center gap-2 mb-2 text-sm font-medium text-gray-700">
+                <input
+                  type="checkbox"
+                  name="hasOffer"
+                  checked={Boolean(formData.hasOffer)}
+                  onChange={(e) => {
+                    const enabled = e.target.checked;
+                    setFormData((prev) => ({
+                      ...prev,
+                      hasOffer: enabled,
+                      discountedPrice: enabled ? prev.discountedPrice : ''
+                    }));
+                  }}
+                  className="rounded border-gray-300 text-pink-600 focus:ring-pink-500"
+                />
+                Salon owner offer for this product
+              </label>
               <label htmlFor="discountedPrice" className="block text-sm font-medium text-gray-700 mb-2">
-                Discounted Price (₹)
+                Offer Price (₹)
               </label>
               <input
                 type="number"
@@ -284,6 +327,7 @@ const AddProductModal = ({ isOpen, onClose, onProductAdded, onProductUpdated, pr
                 placeholder="e.g., 1200"
                 min="0"
                 step="0.01"
+                disabled={!formData.hasOffer}
               />
             </div>
           </div>

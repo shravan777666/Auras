@@ -411,7 +411,8 @@ const BookAppointment = () => {
         
         const res = await customerService.getRecommendedProducts(serviceId, salonId);
         if (res?.success && res.data) {
-          setRecommendedProducts(res.data);
+          const inStockProducts = res.data.filter((product) => Number(product?.quantity || 0) > 0);
+          setRecommendedProducts(inStockProducts);
         }
       } catch (error) {
         console.error('Failed to fetch recommended products:', error);
@@ -896,11 +897,39 @@ const BookAppointment = () => {
     }
   };
 
+  const getProductPricing = (product) => {
+    const regularPrice = Number(product?.price) || 0;
+    const offerPrice = Number(product?.discountedPrice);
+    const hasLegacyOffer = Number.isFinite(offerPrice) && offerPrice > 0 && offerPrice < regularPrice;
+    const hasOwnerOfferFlag = product?.hasOffer === true;
+    const hasOffer = hasOwnerOfferFlag || (product?.hasOffer === undefined && hasLegacyOffer);
+    const finalPrice = hasOffer && hasLegacyOffer ? offerPrice : regularPrice;
+
+    return {
+      hasOffer: hasOffer && hasLegacyOffer,
+      regularPrice,
+      finalPrice,
+      savings: hasOffer && hasLegacyOffer ? regularPrice - offerPrice : 0
+    };
+  };
+
   // Add product to booking
   const handleAddProductToBooking = (product) => {
     console.log('Adding product to booking:', product);
+    const pricing = getProductPricing(product);
+    const availableQuantity = Number(product?.quantity || 0);
+    if (availableQuantity <= 0) {
+      toast.error(`${product.name} is out of stock`);
+      return;
+    }
+
     const exists = selectedProducts.find(p => p.productId === product._id);
     if (exists) {
+      if ((Number(exists.quantity) + 1) > availableQuantity) {
+        toast.error(`Only ${availableQuantity} unit(s) available for ${product.name}`);
+        return;
+      }
+
       setSelectedProducts(selectedProducts.map(p => 
         p.productId === product._id 
           ? { ...p, quantity: p.quantity + 1 } 
@@ -910,9 +939,10 @@ const BookAppointment = () => {
       setSelectedProducts([...selectedProducts, { 
         productId: product._id,
         productName: product.name,
-        price: product.discountedPrice || product.price,
-        originalPrice: product.price,
-        quantity: 1
+        price: pricing.finalPrice,
+        originalPrice: pricing.regularPrice,
+        quantity: 1,
+        availableQuantity
       }]);
     }
     toast.success(`${product.name} added to your booking!`);
@@ -928,6 +958,13 @@ const BookAppointment = () => {
   const handleUpdateProductQuantity = (productId, quantity) => {
     if (quantity <= 0) {
       handleRemoveProductFromBooking(productId);
+      return;
+    }
+
+    const currentProduct = selectedProducts.find(p => p.productId === productId);
+    const maxQuantity = Number(currentProduct?.availableQuantity || 0);
+    if (maxQuantity > 0 && quantity > maxQuantity) {
+      toast.error(`Only ${maxQuantity} unit(s) available for ${currentProduct?.productName || 'this product'}`);
       return;
     }
     
@@ -1228,9 +1265,14 @@ const BookAppointment = () => {
         }
 
         const orderData = orderResponse.data;
+        if (!orderData?.keyId) {
+          toast.error('Payment gateway key is missing. Please contact support.');
+          setPaymentProcessing(false);
+          return;
+        }
       
       const options = {
-        key: 'rzp_test_RP6aD2gNdAuoRE',
+        key: orderData.keyId,
         amount: orderData.amount,
         currency: orderData.currency,
         name: 'Auracare Beauty Parlor',
@@ -1809,37 +1851,41 @@ const BookAppointment = () => {
                   <p className="text-sm text-purple-700 mb-3">Enhance your experience with these quality products!</p>
                   
                   <div className="space-y-3 border rounded-lg p-3 bg-white shadow-sm max-h-60 overflow-y-auto">
-                    {recommendedProducts.map((product, index) => (
-                      <div key={index} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0 hover:bg-purple-50 rounded transition-colors">
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <span className="font-semibold text-gray-900">{product.name}</span>
-                            {product.discountedPrice && product.discountedPrice < product.price && (
-                              <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full font-bold">
-                                Save ₹{product.price - product.discountedPrice}
+                    {recommendedProducts.map((product, index) => {
+                      const pricing = getProductPricing(product);
+
+                      return (
+                        <div key={index} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0 hover:bg-purple-50 rounded transition-colors">
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold text-gray-900">{product.name}</span>
+                              {pricing.hasOffer && (
+                                <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full font-bold">
+                                  Save ₹{pricing.savings}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center mt-1">
+                              <span className="text-lg font-bold text-purple-600">
+                                ₹{pricing.finalPrice}
                               </span>
-                            )}
+                              {pricing.hasOffer && (
+                                <span className="ml-2 text-sm text-gray-500 line-through">₹{pricing.regularPrice}</span>
+                              )}
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              {product.category}
+                            </div>
                           </div>
-                          <div className="flex items-center mt-1">
-                            <span className="text-lg font-bold text-purple-600">
-                              ₹{product.discountedPrice || product.price}
-                            </span>
-                            {product.discountedPrice && product.discountedPrice < product.price && (
-                              <span className="ml-2 text-sm text-gray-500 line-through">₹{product.price}</span>
-                            )}
-                          </div>
-                          <div className="text-xs text-gray-500 mt-1">
-                            {product.category}
-                          </div>
+                          <button 
+                            onClick={() => handleAddProductToBooking(product)}
+                            className="ml-3 bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded text-sm transition-colors"
+                          >
+                            Add
+                          </button>
                         </div>
-                        <button 
-                          onClick={() => handleAddProductToBooking(product)}
-                          className="ml-3 bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded text-sm transition-colors"
-                        >
-                          Add
-                        </button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}

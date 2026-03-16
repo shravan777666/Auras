@@ -4,13 +4,41 @@ import Appointment from '../models/Appointment.js';
 import { successResponse, errorResponse } from '../utils/responses.js';
 import mongoose from 'mongoose';
 
+const resolveFreelancerFromAuth = async (authUser) => {
+  if (!authUser) return null;
+
+  const userId = authUser.id || authUser._id;
+  const userEmail = authUser.email;
+
+  let freelancer = null;
+
+  if (userId) {
+    freelancer = await Freelancer.findOne({ user: userId });
+
+    if (!freelancer && mongoose.Types.ObjectId.isValid(userId)) {
+      freelancer = await Freelancer.findById(userId);
+    }
+  }
+
+  if (!freelancer && userEmail) {
+    freelancer = await Freelancer.findOne({ email: userEmail.toLowerCase() });
+  }
+
+  if (freelancer && userId && !freelancer.user && mongoose.Types.ObjectId.isValid(userId)) {
+    freelancer.user = userId;
+    await freelancer.save();
+  }
+
+  return freelancer;
+};
+
 // Get freelancer dashboard stats
 export const getDashboardStats = async (req, res) => {
   try {
     console.log('📊 Getting freelancer dashboard stats for user:', req.user.id);
     
     // Find the freelancer profile based on the authenticated user
-    const freelancer = await Freelancer.findOne({ user: req.user.id }).populate('user');
+    const freelancer = await resolveFreelancerFromAuth(req.user);
     
     if (!freelancer) {
       console.error('❌ Freelancer profile not found for user:', req.user.id);
@@ -180,12 +208,13 @@ const convertDocumentsToUrls = (documents, req) => {
 // Get freelancer profile
 export const getProfile = async (req, res) => {
   try {
-    const freelancer = await Freelancer.findOne({ user: req.user.id })
-      .populate('user', 'name email phone');
+    const freelancer = await resolveFreelancerFromAuth(req.user);
 
     if (!freelancer) {
       return errorResponse(res, 'Freelancer profile not found', 404);
     }
+
+    await freelancer.populate('user', 'name email phone');
 
     // Convert document paths to URLs
     const documentsWithUrls = convertDocumentsToUrls(freelancer.documents, req);
@@ -221,7 +250,7 @@ export const getProfile = async (req, res) => {
 // Update freelancer profile
 export const updateProfile = async (req, res) => {
   try {
-    const freelancer = await Freelancer.findOne({ user: req.user.id });
+    const freelancer = await resolveFreelancerFromAuth(req.user);
 
     if (!freelancer) {
       return errorResponse(res, 'Freelancer profile not found', 404);
@@ -331,7 +360,7 @@ export const getRecentAppointments = async (req, res) => {
   try {
     console.log('📅 Getting recent appointments for user:', req.user.id);
     
-    const freelancer = await Freelancer.findOne({ user: req.user.id });
+    const freelancer = await resolveFreelancerFromAuth(req.user);
 
     if (!freelancer) {
       console.error('❌ Freelancer profile not found for user:', req.user.id);
@@ -377,7 +406,7 @@ export const getRecentAppointments = async (req, res) => {
 // Get all appointments with pagination
 export const getAppointments = async (req, res) => {
   try {
-    const freelancer = await Freelancer.findOne({ user: req.user.id });
+    const freelancer = await resolveFreelancerFromAuth(req.user);
 
     if (!freelancer) {
       return errorResponse(res, 'Freelancer profile not found', 404);
@@ -433,7 +462,7 @@ export const getAppointments = async (req, res) => {
 // Get freelancer schedule/availability
 export const getSchedule = async (req, res) => {
   try {
-    const freelancer = await Freelancer.findOne({ user: req.user.id });
+    const freelancer = await resolveFreelancerFromAuth(req.user);
 
     if (!freelancer) {
       return errorResponse(res, 'Freelancer profile not found', 404);
@@ -460,7 +489,7 @@ export const getSchedule = async (req, res) => {
 // Update freelancer schedule/availability
 export const updateSchedule = async (req, res) => {
   try {
-    const freelancer = await Freelancer.findOne({ user: req.user.id });
+    const freelancer = await resolveFreelancerFromAuth(req.user);
 
     if (!freelancer) {
       return errorResponse(res, 'Freelancer profile not found', 404);
@@ -489,7 +518,7 @@ export const updateSchedule = async (req, res) => {
 // Update availability status specifically
 export const updateAvailability = async (req, res) => {
   try {
-    const freelancer = await Freelancer.findOne({ user: req.user.id });
+    const freelancer = await resolveFreelancerFromAuth(req.user);
 
     if (!freelancer) {
       return errorResponse(res, 'Freelancer profile not found', 404);
@@ -932,7 +961,7 @@ export const approveAppointment = async (req, res) => {
     console.log('✅ Approving appointment:', appointmentId, 'for user:', req.user.id);
 
     // Find freelancer
-    const freelancer = await Freelancer.findOne({ user: req.user.id });
+    const freelancer = await resolveFreelancerFromAuth(req.user);
     if (!freelancer) {
       return errorResponse(res, 'Freelancer profile not found', 404);
     }
@@ -988,7 +1017,7 @@ export const rejectAppointment = async (req, res) => {
     console.log('❌ Rejecting appointment:', appointmentId, 'for user:', req.user.id);
 
     // Find freelancer
-    const freelancer = await Freelancer.findOne({ user: req.user.id });
+    const freelancer = await resolveFreelancerFromAuth(req.user);
     if (!freelancer) {
       return errorResponse(res, 'Freelancer profile not found', 404);
     }
