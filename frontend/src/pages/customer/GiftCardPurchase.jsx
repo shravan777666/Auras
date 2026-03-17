@@ -95,47 +95,16 @@ const GiftCardPurchase = () => {
           return;
         }
         
-        // Check if the Razorpay key is configured
-        if (!import.meta.env.VITE_RAZORPAY_KEY_ID) {
-          // In development, we can simulate payment if no key is configured
-          console.warn('Razorpay key not configured. In production, this would be required.');
-          
-          // Simulate successful payment in development
-          if (import.meta.env.MODE === 'development' || window.location.hostname === 'localhost') {
-            try {
-              // Skip actual payment and directly verify with backend
-              const verifyResponse = await giftCardService.verifyPayment({
-                razorpay_order_id: orderResponse.data.orderId,
-                razorpay_payment_id: `pay_${Math.random().toString(36).substr(2, 9)}`, // Mock payment ID
-                razorpay_signature: 'mock_signature_for_dev', // Mock signature
-                orderId: orderResponse.data.orderId
-              });
-              
-              if (verifyResponse.success) {
-                toast.success('Gift card purchased successfully! The recipient will receive an email notification.');
-                
-                // Navigate back to gift cards
-                navigate(`/customer/gift-cards/${salonId}`);
-              } else {
-                toast.error(verifyResponse.message || 'Payment verification failed');
-              }
-            } catch (error) {
-              console.error('Error in simulated payment:', error);
-              toast.error(error.message || 'Simulated payment failed');
-            } finally {
-              setLoading(false);
-            }
-            return;
-          } else {
-            toast.error('Payment configuration is not set up. Please contact support.');
-            setLoading(false);
-            return;
-          }
+        const razorpayKey = orderResponse.data.razorpayKeyId || import.meta.env.VITE_RAZORPAY_KEY_ID;
+        if (!razorpayKey) {
+          toast.error('Payment configuration is not set up. Please contact support.');
+          setLoading(false);
+          return;
         }
         
         // Log the payment details for debugging
         console.log('Payment details:', {
-          key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+          key: razorpayKey,
           amount: orderResponse.data.amount,
           currency: orderResponse.data.currency,
           name: orderResponse.data.name,
@@ -144,7 +113,7 @@ const GiftCardPurchase = () => {
         
         // Initialize Razorpay
         const options = {
-          key: import.meta.env.VITE_RAZORPAY_KEY_ID, // Enter the Key ID generated from the Dashboard
+          key: razorpayKey, // Enter the Key ID generated from the Dashboard
           amount: orderResponse.data.amount, // Amount is in paise
           currency: orderResponse.data.currency,
           name: orderResponse.data.name,
@@ -173,6 +142,7 @@ const GiftCardPurchase = () => {
             } catch (error) {
               console.error('Error verifying payment:', error);
               toast.error(error.message || 'Payment verification failed');
+              setLoading(false);
             }
           },
           prefill: {
@@ -195,9 +165,15 @@ const GiftCardPurchase = () => {
         // Open Razorpay checkout
         console.log('Opening Razorpay checkout with options:', options);
         const rzp = new window.Razorpay(options);
+        rzp.on('payment.failed', function (response) {
+          console.error('Razorpay payment failed:', response.error);
+          toast.error(response.error?.description || 'Payment failed. Please try again.');
+          setLoading(false);
+        });
         rzp.open();
       } else {
         toast.error(orderResponse.message || 'Failed to create payment order');
+        setLoading(false);
       }
     } catch (error) {
       console.error('Error creating payment order:', error);

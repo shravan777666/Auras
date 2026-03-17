@@ -97,6 +97,11 @@ import giftCardRecipientsRoutes from './routes/giftCardRecipients.js';
 // Create Express app
 const app = express();
 
+// Render/Reverse proxy support so secure cookies and OAuth sessions work correctly.
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
+
 // Add debugging middleware at the very beginning
 app.use((req, res, next) => {
   console.log(`🔍 Middleware chain start: ${req.method} ${req.url}`);
@@ -246,8 +251,10 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'your-session-secret',
   resave: false,
   saveUninitialized: false, // This might cause issues with OAuth, let's keep it as is for now
+  proxy: process.env.NODE_ENV === 'production',
   cookie: {
     secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));

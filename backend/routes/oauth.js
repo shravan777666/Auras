@@ -25,14 +25,31 @@ router.get('/google/callback',
     });
     next();
   },
-  passport.authenticate('google', { 
-    failureRedirect: '/google/failure',
-    session: true // Keep session to preserve role data
-  }), 
   (req, res, next) => {
-    console.log('=== GOOGLE AUTH SUCCESS ===');
-    console.log('User authenticated:', req.user);
-    googleCallback(req, res, next);
+    passport.authenticate('google', { session: true }, (err, user, info) => {
+      if (err) {
+        console.error('Google OAuth passport callback error:', err);
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3008';
+        return res.redirect(`${frontendUrl}/?error=oauth_error&message=${encodeURIComponent(err.message || 'OAuth failed')}`);
+      }
+
+      if (!user) {
+        console.warn('Google OAuth returned no user:', info);
+        return res.redirect('/api/auth/google/failure');
+      }
+
+      req.logIn(user, (loginErr) => {
+        if (loginErr) {
+          console.error('Google OAuth login session error:', loginErr);
+          const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3008';
+          return res.redirect(`${frontendUrl}/?error=oauth_error&message=${encodeURIComponent(loginErr.message || 'Session login failed')}`);
+        }
+
+        console.log('=== GOOGLE AUTH SUCCESS ===');
+        console.log('User authenticated:', req.user);
+        return googleCallback(req, res, next);
+      });
+    })(req, res, next);
   }
 );
 

@@ -17,6 +17,30 @@ import Customer from '../models/Customer.js';
 import Salon from '../models/Salon.js';
 import Staff from '../models/Staff.js';
 
+const ALLOWED_OAUTH_ROLES = new Set(['customer', 'salon', 'staff']);
+
+const resolveOAuthRole = (req) => {
+  const rawState = req?.query?.state;
+  const sessionRole = req?.session?.oauthRole;
+
+  // Accept plain role values and tolerate payload-like state values by extracting a prefix role token.
+  const candidateFromState = typeof rawState === 'string' ? rawState.split(/[:|,]/)[0]?.trim() : undefined;
+
+  if (candidateFromState && ALLOWED_OAUTH_ROLES.has(candidateFromState)) {
+    return candidateFromState;
+  }
+
+  if (sessionRole && ALLOWED_OAUTH_ROLES.has(sessionRole)) {
+    return sessionRole;
+  }
+
+  return 'customer';
+};
+
+const isDuplicateKeyError = (error) => {
+  return error && error.code === 11000;
+};
+
 // Serialize user for session
 passport.serializeUser((user, done) => {
   done(null, { id: user._id, type: user.type });
@@ -69,9 +93,8 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           const name = profile.displayName;
           const avatar = profile.photos?.[0]?.value;
           
-          // Get role from session (stored in googleAuth function) or from state parameter
-          // Google sends the state parameter back in req.query.state during callback
-          let role = req.query?.state || req.session?.oauthRole;
+          // Resolve role safely from OAuth state/session with strict allow-list fallback.
+          const role = resolveOAuthRole(req);
           
           // Log OAuth role resolution for debugging
           console.log('OAuth User Registration - Role:', role, 'Email:', email);
@@ -108,14 +131,6 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
             return done(null, user);
           }
 
-          // New user - create based on role
-          if (!role || !['customer', 'salon', 'staff'].includes(role)) {
-            console.log('Invalid or missing role parameter:', role);
-            // Default to customer if no valid role provided
-            role = 'customer';
-            console.log('Defaulting to customer role');
-          }
-
           // Create new user
           const userData = {
             name,
@@ -129,40 +144,77 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           };
 
           console.log('Creating new user with data:', userData);
-          user = await User.create(userData);
+          try {
+            user = await User.create(userData);
+          } catch (createErr) {
+            // Handle race conditions where the user is created in a concurrent OAuth callback.
+            if (!isDuplicateKeyError(createErr)) {
+              throw createErr;
+            }
+            console.warn('Duplicate user during OAuth create, loading existing account:', email);
+            user = await User.findOne({ email });
+            if (!user) {
+              throw createErr;
+            }
+          }
 
           // Create corresponding profile based on role
           switch (role) {
             case 'customer':
               console.log('Creating customer profile');
-              await Customer.create({
-                _id: user._id, // Use the same ID as the User document for consistency
-                name,
-                email,
-                isActive: true
-              });
+              await Customer.findOneAndUpdate(
+                { email },
+                {
+                  $setOnInsert: {
+                    _id: user._id,
+                    email,
+                    type: 'customer'
+                  },
+                  $set: {
+                    name,
+                    isActive: true
+                  }
+                },
+                { upsert: true, new: true }
+              );
               break;
             
             case 'salon':
               console.log('Creating salon profile');
-              await Salon.create({
-                ownerName: name,
-                email,
-                user: user._id,
-                setupCompleted: false,
-                isActive: true
-              });
+              await Salon.findOneAndUpdate(
+                { email },
+                {
+                  $setOnInsert: {
+                    email
+                  },
+                  $set: {
+                    ownerName: name,
+                    user: user._id,
+                    setupCompleted: false,
+                    isActive: true
+                  }
+                },
+                { upsert: true, new: true }
+              );
               break;
             
             case 'staff':
               console.log('Creating staff profile');
-              await Staff.create({
-                name,
-                email,
-                user: user._id,
-                setupCompleted: false,
-                isActive: true
-              });
+              await Staff.findOneAndUpdate(
+                { email },
+                {
+                  $setOnInsert: {
+                    email
+                  },
+                  $set: {
+                    name,
+                    user: user._id,
+                    setupCompleted: false,
+                    isActive: true
+                  }
+                },
+                { upsert: true, new: true }
+              );
               break;
           }
 

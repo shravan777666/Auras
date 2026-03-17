@@ -344,9 +344,51 @@ const PayrollProcessingCard = () => {
   // Get unique job roles
   const jobRoles = Object.keys(groupedConfigurations);
 
-  // Get staff members for a specific job role
-  const getStaffForRole = (jobRole) => {
-    return staffMembers.filter(staff => staff.position === jobRole);
+  const normalizeRoleName = (role = '') => {
+    return String(role)
+      .toLowerCase()
+      .replace(/\s*[-–]\s*(junior|senior|master)\s*$/i, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
+  const getExperienceLevelFromYears = (years = 0) => {
+    if (years >= 5) return 'Master';
+    if (years >= 2) return 'Senior';
+    return 'Junior';
+  };
+
+  // Get staff members mapped to a specific job role and level.
+  const getStaffForRole = (jobRole, experienceLevel) => {
+    const normalizedConfigRole = normalizeRoleName(jobRole);
+
+    return staffMembers.filter((staff) => {
+      const candidateRoles = [
+        staff.position,
+        staff.jobRole,
+        staff.designation,
+        staff.title,
+        staff.specialization
+      ]
+        .filter(Boolean)
+        .map(normalizeRoleName);
+
+      const roleMatches = candidateRoles.includes(normalizedConfigRole);
+      if (!roleMatches) {
+        return false;
+      }
+
+      const years = Number(staff?.experience?.years);
+      if (!Number.isFinite(years)) {
+        return true;
+      }
+
+      return getExperienceLevelFromYears(years) === experienceLevel;
+    });
+  };
+
+  const getStaffDisplayName = (staff) => {
+    return staff.name || staff.fullName || staff.user?.name || 'Unknown Staff';
   };
 
   if (loading) {
@@ -622,7 +664,8 @@ const PayrollProcessingCard = () => {
             const key = `${config.jobRole}-${config.experienceLevel}`;
             const isExpanded = expandedConfigs[key];
             const formDataKey = formData[key] || {};
-            const staffForRole = getStaffForRole(config.jobRole);
+            const staffForRole = getStaffForRole(config.jobRole, config.experienceLevel);
+            const staffNames = staffForRole.map(getStaffDisplayName);
 
             return (
               <div key={key} className="border border-gray-200 rounded-lg">
@@ -636,7 +679,7 @@ const PayrollProcessingCard = () => {
                       <h3 className="font-medium text-gray-900">{config.jobRole} - {config.experienceLevel}</h3>
                       <p className="text-sm text-gray-500">
                         {staffForRole.length > 0 
-                          ? `${staffForRole.length} staff member${staffForRole.length > 1 ? 's' : ''}` 
+                          ? staffNames.join(', ')
                           : 'No staff assigned'}
                       </p>
                     </div>
@@ -747,7 +790,7 @@ const PayrollProcessingCard = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                           {staffForRole.map(staff => (
                             <div key={staff._id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                              <span className="text-sm font-medium">{staff.name}</span>
+                              <span className="text-sm font-medium">{getStaffDisplayName(staff)}</span>
                               <span className="text-xs text-gray-500">
                                 {staff.experience?.years || 0} years experience
                               </span>

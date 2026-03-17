@@ -92,6 +92,7 @@ export const createGiftCardPaymentOrder = asyncHandler(async (req, res) => {
       orderId: order.id,
       amount: order.amount,
       currency: order.currency,
+      razorpayKeyId: process.env.RAZORPAY_KEY_ID,
       giftCardId: giftCardTemplate._id,
       giftCardName: giftCardTemplate.name,
       giftCardAmount: giftCardTemplate.amount,
@@ -145,25 +146,17 @@ export const verifyGiftCardPayment = asyncHandler(async (req, res) => {
       return errorResponse(res, 'Payment configuration error', 500);
     }
 
-    // Skip signature verification in development mode with mock data
-    const isDevelopmentMode = process.env.NODE_ENV === 'development';
-    const isMockSignature = razorpay_signature === 'mock_signature_for_dev';
-    
-    if (!(isDevelopmentMode && isMockSignature)) {
-      // Verify payment signature
-      const shasum = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET);
-      shasum.update(`${razorpay_order_id}|${razorpay_payment_id}`);
-      const digest = shasum.digest('hex');
+    // Always verify Razorpay signature before confirming gift card purchase.
+    const shasum = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET);
+    shasum.update(`${razorpay_order_id}|${razorpay_payment_id}`);
+    const digest = shasum.digest('hex');
 
-      if (digest !== razorpay_signature) {
-        console.log('Gift card payment signature verification failed:', {
-          generated: digest,
-          received: razorpay_signature
-        });
-        return errorResponse(res, 'Gift card payment verification failed', 400);
-      }
-    } else {
-      console.log('Skipping signature verification for development mock payment');
+    if (digest !== razorpay_signature) {
+      console.log('Gift card payment signature verification failed:', {
+        generated: digest,
+        received: razorpay_signature
+      });
+      return errorResponse(res, 'Gift card payment verification failed', 400);
     }
 
     console.log('Gift card payment signature verified successfully');

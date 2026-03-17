@@ -8,7 +8,6 @@ import {
   getActiveGiftCards,
   redeemGiftCard,
   bulkCreateGiftCards,  // Added bulk creation
-  purchaseGiftCard,  // Added customer purchase function
   getGiftCardTemplateById,  // Added for customer template access
   getMyGiftCards,  // Added for retrieving recipient's gift cards
   verifyGiftCardByCode,  // Added for salon owner verification
@@ -289,7 +288,8 @@ router.post('/customer/verify-payment', [
     .withMessage('Order ID is required')
 ], verifyGiftCardPayment);
 
-// Legacy route - kept for backward compatibility
+// Legacy direct-purchase route is intentionally blocked.
+// Gift card purchases must use payment-order + verify-payment flow via Razorpay.
 router.post('/customer/purchase', [
   body('giftCardId')
     .notEmpty()
@@ -315,7 +315,12 @@ router.post('/customer/purchase', [
     .isISO8601()
     .withMessage('Expiry date must be a valid date')
     .toDate(),
-], purchaseGiftCard);
+], (req, res) => {
+  return res.status(410).json({
+    success: false,
+    message: 'Direct gift card purchase is deprecated. Please complete payment through Razorpay checkout.'
+  });
+});
 
 // Validate a gift card (check if valid without redeeming)
 router.post('/customer/validate', [
